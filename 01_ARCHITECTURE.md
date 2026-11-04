@@ -58,8 +58,8 @@ graph LR
 
 | Thành phần | Cấu hình |
 |---|---|
-| QNX | QNX SDP 8.0 VM image x86_64, network bridge/host-only với host |
-| FreeRTOS | `qemu-system-arm -M mps2-an385`, NIC LAN9118, FreeRTOS+TCP, IP tĩnh |
+| QNX | QNX SDP 8.0 (license non-commercial, cần tài khoản myQNX); VM x86_64 tạo bằng QNX Toolkit for VS Code + VMware (`mkqnximage`), network bridge/host-only với host |
+| FreeRTOS | `qemu-system-arm -M mps2-an385`, NIC LAN9118 (`0x40200000`), FreeRTOS+TCP, IP tĩnh. Code nền: demo `FreeRTOS/Demo/CORTEX_MPU_M3_MPS2_QEMU_GCC` (MPU) + `FreeRTOS-Plus/Demo/FreeRTOS_Plus_TCP_Echo_Qemu_mps2` (TCP/IP) — hai demo tách rời, phải gộp ở M0 |
 | Kết nối | QEMU dùng `-netdev tap` (hoặc `-netdev user` + `hostfwd` cho UDP); QNX VM và QEMU cùng subnet host-only |
 | Port | `5000/udp` control + telemetry, `5001/udp` E-stop, `6000/udp` management |
 | Debug | `qemu ... -s -S` + `arm-none-eabi-gdb`; QNX: `pidin`, `slog2info`, `on -p`, System Profiler (`tracelogger`) |
@@ -156,7 +156,7 @@ FreeRTOS node chạy state machine tương ứng ở phía mình: mất command 
 | Command timeout | > 50 ms không có command hợp lệ → disable output, báo trạng thái |
 | E2E error | Frame sai CRC/counter/data ID bị loại, tăng counter, báo trong telemetry |
 | Task health | Supervisor task chỉ kick watchdog khi mọi task đã báo alive trong chu kỳ |
-| Watchdog | CMSDK APB watchdog của QEMU (xác minh ở M0); fallback software watchdog + `NVIC_SystemReset()` |
+| Watchdog | CMSDK APB watchdog (`0x40008000`) trên QEMU mps2: hết hạn lần 1 → **NMI** (handler ghi fault record vào `.noinit`, tắt actuator enable); hết hạn lần 2 (RESEN=1) → QEMU thực hiện system reset (`-action watchdog=reset`, mặc định). Đã đối chiếu source `hw/arm/mps2.c` và `hw/watchdog/cmsdk-apb-watchdog.c` |
 | HardFault / MemManage | Handler tối giản: ghi trực tiếp thanh ghi để disable output model, lưu fault record (PC, LR, CFSR, MMFAR) vào vùng RAM `.noinit`, rồi reset. Sau reboot, gửi fault record trong heartbeat đầu tiên |
 | Stack overflow | `configCHECK_FOR_STACK_OVERFLOW = 2` → xử lý như fault nặng |
 

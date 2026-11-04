@@ -5,9 +5,9 @@
 Mỗi milestone có **acceptance criteria đo được**. Không chuyển milestone khi chưa đạt.
 
 ### M0 — Môi trường SIL và đường kết nối (gate bắt buộc)
-- Cài QNX SDP 8.0, chạy QNX VM x86_64; build và chạy "hello" bằng toolchain QNX.
-- Build FreeRTOS demo cho QEMU `mps2-an385` (bản MPU và bản FreeRTOS+TCP).
-- Xác minh trong QEMU: MPU hoạt động (cố ý truy cập sai → MemManage), CMSDK watchdog có reset được hay không, NIC LAN9118 nhận/gửi UDP.
+- Đăng ký myQNX, cài QNX SDP 8.0 + QNX Toolkit for VS Code, tạo VM x86_64 (VMware); build và chạy "hello" trên VM.
+- Build 2 demo nền cho QEMU `mps2-an385`: `CORTEX_MPU_M3_MPS2_QEMU_GCC` và `FreeRTOS_Plus_TCP_Echo_Qemu_mps2`, sau đó gộp thành 1 firmware (MPU port + FreeRTOS+TCP).
+- Xác minh trong QEMU: MPU hoạt động (cố ý truy cập sai → MemManage), CMSDK watchdog NMI → reset, NIC LAN9118 nhận/gửi UDP.
 - Cấu hình mạng host-only/tap giữa QNX VM và QEMU.
 - **Acceptance:** UDP echo 2 chiều QNX process ↔ FreeRTOS task chạy liên tục 10 phút không mất gói; bảng xác minh peripheral (có model / fallback) được ghi vào `docs/sil_environment.md`.
 
@@ -130,7 +130,7 @@ Fault inject trên đường truyền dùng một **UDP proxy Python** đặt gi
 | Rủi ro | Mức độ | Xử lý |
 |---|---|---|
 | Không kết nối được mạng QNX VM ↔ QEMU | Cao | M0 là gate; thử lần lượt tap, host-only bridge, `-netdev user` + `hostfwd`; nếu vẫn không được thì chạy gateway Python trên host |
-| CMSDK watchdog model không reset được | Trung bình | Fallback software watchdog + `NVIC_SystemReset()`, ghi rõ trong tài liệu |
+| Gộp MPU demo + FreeRTOS+TCP gặp lỗi MPU region/privilege (stack TCP chạy unprivileged) | Trung bình | Chạy task IP ở privileged, chỉ isolate control/comm task; ghi rõ trong tài liệu |
 | Timing trong QEMU dao động do host | Trung bình | Dùng `-icount` cho đo jitter firmware; báo cáo tách biệt "thời gian ảo" và "thời gian host"; không claim hard real-time |
 | Bị hỏi "CAN FD có thật không" | Trung bình | Trả lời: frame tương thích CAN FD qua UDP, không mô phỏng arbitration/bus-off; safety dựa vào E2E + timeout, độc lập transport |
 | Bị hỏi về board/phần cứng | Trung bình | Trả lời SIL; nêu rõ phần cần thay khi lên board (transport backend, peripheral, linker/startup); kinh nghiệm bring-up phần cứng lấy từ project/công việc khác |

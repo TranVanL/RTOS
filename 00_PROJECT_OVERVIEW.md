@@ -34,7 +34,7 @@ Hai node giao tiếp qua **giao thức frame tương thích CAN FD** (CAN ID 11-
 | QNX: process, thread, IPC, resmgr, shared memory, timer | Có (QNX VM) | — |
 | FreeRTOS kernel, scheduler, MPU port | Có (QEMU emulate Cortex-M3 + MPU) | — |
 | Network stack FreeRTOS+TCP trên NIC LAN9118 | Có (model NIC của QEMU) | — |
-| Watchdog phần cứng | CMSDK APB watchdog của QEMU `mps2-an385` (xác minh ở M0) | Fallback: software watchdog nếu model không dùng được |
+| Watchdog phần cứng | CMSDK APB watchdog của QEMU `mps2-an385`: lần 1 → NMI (ghi fault record), lần 2 → system reset | Model peripheral, không phải silicon thật |
 | Motor, encoder, driver công suất | — | Plant model + encoder model có nhiễu + "actuator enable" flag (thay cho PWM) |
 | CAN FD bus vật lý | — | Frame tương thích CAN FD truyền qua UDP. Không có arbitration/ACK/bus-off → ưu tiên E-stop được hiện thực ở tầng ứng dụng (socket + thread riêng) |
 | Timing | Đo được trong SIL | Số liệu là của môi trường VM/QEMU, **không** phải chứng nhận hard real-time trên phần cứng |
@@ -44,8 +44,8 @@ Hai node giao tiếp qua **giao thức frame tương thích CAN FD** (CAN ID 11-
 ## 6. Tech stack
 | Layer | Công cụ |
 |---|---|
-| QNX | QNX SDP 8.0 (non-commercial), QNX VM image x86_64 trên VMware/VirtualBox/QEMU |
-| FreeRTOS | FreeRTOS kernel (port `ARM_CM3_MPU`), FreeRTOS+TCP, QEMU `mps2-an385` |
+| QNX | QNX SDP 8.0 (non-commercial, tài khoản myQNX), QNX VM x86_64 trên VMware qua QNX Toolkit for VS Code |
+| FreeRTOS | FreeRTOS kernel (port `ARM_CM3_MPU`), FreeRTOS+TCP, QEMU `mps2-an385`; nền từ demo `CORTEX_MPU_M3_MPS2_QEMU_GCC` + `FreeRTOS_Plus_TCP_Echo_Qemu_mps2` |
 | Frame protocol | CAN FD-compatible frame, DBC + `cantools` sinh header C |
 | Safety layer | E2E: data ID + sequence counter + CRC-32 + timeout |
 | Transport | UDP (port riêng cho control frames và E-stop) |
