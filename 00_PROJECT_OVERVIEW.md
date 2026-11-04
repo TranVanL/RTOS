@@ -1,63 +1,78 @@
-# Project Overview — QNX–FreeRTOS Real-Time Control Bridge over CAN FD
+# Project Overview — QNX–FreeRTOS Safety-Supervised Motion Control Platform
 
 ## 1. Tên project (chính thức)
-**QNX–FreeRTOS Real-Time Control Bridge over CAN FD**
-*(module phụ: EtherCAT Master/Slave R&D testbed)*
+**QNX–FreeRTOS Safety-Supervised Motion Control Platform (Software-in-the-Loop)**
+
+*Module tùy chọn: CCSDS telemetry, EtherCAT R&D.*
 
 ## 2. Mục tiêu
-Xây dựng một hệ thống điều khiển real-time gồm 2 node dị thể (heterogeneous dual-OS), mô phỏng đúng mô hình "central control computer + motor/sensor control node" dùng trong thiết bị y tế/robot công nghiệp:
+Xây dựng một hệ thống điều khiển chuyển động 2 node dị thể (QNX + FreeRTOS), chạy hoàn toàn bằng **Software-in-the-Loop (SIL)** — không cần board thật. Hệ thống mô phỏng mô hình "central control computer + motor control node" của robot phẫu thuật/robot công nghiệp, tập trung vào **kiến trúc an toàn nhiều lớp** và **kỹ thuật real-time đo được bằng số liệu**.
 
-- **QNX** đóng vai trò **Central Supervisor** — quản lý tài nguyên, đa luồng, IPC, giám sát lỗi, giao tiếp quản trị qua TCP/UDP.
-- **FreeRTOS** đóng vai trò **Deterministic I/O Node** — điều khiển motor/sensor theo chu kỳ cứng, giao tiếp CAN FD, phản ứng lỗi cục bộ (watchdog, MPU fault handler).
-- Giao tiếp chính giữa 2 node: **CAN FD** (qua lớp trừu tượng `can_if`, backend mặc định là CAN bus ảo qua UDP bridge — xem [01_ARCHITECTURE.md](01_ARCHITECTURE.md)).
-- Vòng điều khiển **PID** trên FreeRTOS chạy với mô hình motor (plant model) mô phỏng, có đồ thị step response.
-- Bộ công cụ **Python** (cantools, pytest/Robot Framework, phân tích log) phục vụ sinh code từ DBC, test tự động và fault-injection.
-- Telemetry/management dùng khung **CCSDS Space Packet** qua TCP/UDP.
-- Module phụ (R&D, testbed riêng): **EtherCAT Master (SOEM) / Slave (SOES)**.
+| Node | Môi trường | Vai trò |
+|---|---|---|
+| **QNX Central Supervisor** | QNX SDP 8.0 (non-commercial license) chạy trong VM x86_64 | Resource manager, 3 process cách ly, IPC message passing, safety state machine, giám sát heartbeat, management |
+| **FreeRTOS Motion Node** | FreeRTOS (port MPU) trên QEMU `mps2-an385` (Cortex-M3) | Vòng PID 1 kHz + plant model motor, task isolation bằng MPU, watchdog, fault handler, safe-output |
 
-## 3. JD mục tiêu
-| Công ty | Vị trí |
-|---|---|
-| VinSurgical | Senior Embedded Software Engineer – Basic Software |
-| VinSpace | Embedded Linux Engineer (chỉ phủ phần kỹ năng chung: multi-threading, IPC, driver-level programming, fault handling — phần Linux BSP/Yocto/Device Tree đã được cover bởi các project/công việc khác, không nằm trong phạm vi project này) |
+Hai node giao tiếp qua **giao thức frame tương thích CAN FD** (CAN ID 11-bit, payload tối đa 64 byte, ma trận tín hiệu định nghĩa bằng DBC), **truyền qua UDP**, được bảo vệ bởi **lớp E2E độc lập transport** (data ID, sequence counter, CRC-32, timeout) theo tư tưởng AUTOSAR E2E.
 
-## 4. Giới hạn & lưu ý quan trọng
-- **Không có board vật lý.** Toàn bộ hệ thống chạy mô phỏng bằng QEMU/Renode (cho FreeRTOS) và VM (cho QNX SDP).
-- **Không làm lại phần Linux BSP/Yocto/Device Tree** — đã có project/kinh nghiệm công ty khác cover, tránh trùng lặp portfolio.
-- **EtherCAT là module R&D riêng biệt**, không phải xương sống chính của hệ thống — tránh rủi ro khi bị hỏi sâu về chi tiết port EtherCAT Master lên QNX (vốn hiếm tài liệu, khó kiểm chứng).
-- **CAN FD là CAN bus ảo.** QNX VM không có CAN controller thật nên frame CAN FD được mang qua UDP bridge. Thiết kế tách `can_if` (HAL) để thay backend bằng `devc-can` (QNX) / FDCAN driver (STM32) trên phần cứng thật. Phải ghi rõ điều này trong README.
-- **Renode có hỗ trợ FDCAN/MCAN cho target STM32 hay không cần xác minh ở M1.** Nếu không, cả hai phía dùng backend UDP và trình bày trung thực.
-- Trả lời phỏng vấn trung thực về phần cứng: "validate trên Renode + QNX VM, kiến trúc có HAL nên chuyển sang board thật là thay lớp driver".
+## 3. Điểm tạo "sức nặng" của project
+1. **Safety architecture nhiều lớp:** E2E protection, cross-watchdog 2 chiều, safety state machine có reaction-time budget, process isolation (QNX), MPU task isolation (FreeRTOS), safe-output khi fault.
+2. **Real-time engineering có số liệu:** đo jitter chu kỳ điều khiển, latency round-trip (p50/p99/max), CPU load, worst-case reaction time của E-stop và mất heartbeat; test priority inversion với mutex priority inheritance trên QNX.
+3. **Fault injection có hệ thống:** ≥ 12 kịch bản lỗi, mỗi kịch bản có phản ứng mong đợi + thời gian phản ứng đo được + test tự động.
+4. **Automation & toolchain:** DBC → C codegen, test framework Python điều khiển QEMU + QNX VM, CI chạy firmware FreeRTOS trong QEMU mỗi lần push.
+5. **Thiết kế sẵn sàng cho phần cứng thật:** lớp HAL tách transport/peripheral; tài liệu ghi rõ phần nào cần thay khi chuyển sang board.
 
-## 5. Tech stack
+## 4. JD mục tiêu
+| Công ty | Vị trí | Project này phủ |
+|---|---|---|
+| VinSurgical | Senior Embedded Software Engineer – Basic Software | QNX (IPC, resmgr, multi-thread), FreeRTOS, motor control loop, fault handling, memory protection, test/traceability, Python, CI |
+| VinSpace | Embedded Linux Engineer | Kỹ năng chung: multi-threading, IPC, POSIX timers, sockets, watchdog/health monitoring, telemetry CCSDS (tùy chọn). Phần Linux BSP/Yocto/Device Tree/kernel driver đã được cover bởi công việc và project khác |
+
+## 5. Phạm vi và tính trung thực (không có board)
+| Thành phần | Chạy thật | Mô phỏng / model |
+|---|---|---|
+| QNX: process, thread, IPC, resmgr, shared memory, timer | Có (QNX VM) | — |
+| FreeRTOS kernel, scheduler, MPU port | Có (QEMU emulate Cortex-M3 + MPU) | — |
+| Network stack FreeRTOS+TCP trên NIC LAN9118 | Có (model NIC của QEMU) | — |
+| Watchdog phần cứng | CMSDK APB watchdog của QEMU `mps2-an385` (xác minh ở M0) | Fallback: software watchdog nếu model không dùng được |
+| Motor, encoder, driver công suất | — | Plant model + encoder model có nhiễu + "actuator enable" flag (thay cho PWM) |
+| CAN FD bus vật lý | — | Frame tương thích CAN FD truyền qua UDP. Không có arbitration/ACK/bus-off → ưu tiên E-stop được hiện thực ở tầng ứng dụng (socket + thread riêng) |
+| Timing | Đo được trong SIL | Số liệu là của môi trường VM/QEMU, **không** phải chứng nhận hard real-time trên phần cứng |
+
+**Câu trả lời chuẩn khi phỏng vấn:** "Hệ thống được validate bằng SIL: QNX chạy trong VM, FreeRTOS chạy trên QEMU Cortex-M3 có MPU. Transport là frame tương thích CAN FD qua UDP với E2E protection; khi lên board thật chỉ thay backend transport (CAN controller + driver của BSP) và lớp peripheral, phần logic điều khiển và safety giữ nguyên."
+
+## 6. Tech stack
 | Layer | Công cụ |
 |---|---|
-| QNX | QNX SDP (free license), chạy trên VirtualBox/VMware |
-| FreeRTOS | Renode (mô phỏng STM32) hoặc QEMU (MPS2-AN385/Cortex-M) |
-| Giao thức chính | CAN FD (ma trận tín hiệu định nghĩa bằng file DBC, sinh header C bằng Python) |
-| Lớp truyền | `can_if` HAL + backend UDP bridge (CAN bus ảo); backend FDCAN/`devc-can` cho phần cứng thật |
-| Giao thức phụ | SPI (nội bộ node FreeRTOS), UDP/TCP (quản trị/giám sát từ QNX) |
-| EtherCAT R&D | SOEM (Master) + SOES (Slave), testbed Linux/Renode riêng |
-| Test | Unity/Ceedling (FreeRTOS), test harness tối giản (QNX), pytest/Robot Framework điều khiển Renode |
-| Python tooling | `cantools` (DBC → code/giải mã), script phân tích log ring-buffer, đo latency, vẽ step response (matplotlib) |
-| Telemetry/Management | CCSDS Space Packet qua TCP/UDP |
-| CI/CD | GitHub Actions (build + test FreeRTOS trong Renode) |
+| QNX | QNX SDP 8.0 (non-commercial), QNX VM image x86_64 trên VMware/VirtualBox/QEMU |
+| FreeRTOS | FreeRTOS kernel (port `ARM_CM3_MPU`), FreeRTOS+TCP, QEMU `mps2-an385` |
+| Frame protocol | CAN FD-compatible frame, DBC + `cantools` sinh header C |
+| Safety layer | E2E: data ID + sequence counter + CRC-32 + timeout |
+| Transport | UDP (port riêng cho control frames và E-stop) |
+| Management (tùy chọn) | CCSDS Space Packet qua UDP |
+| Test | Unity/Ceedling (unit, chạy trên host), pytest (SIL integration + fault injection) |
+| Python tooling | `cantools`, `pytest`, `matplotlib`, script phân tích log/latency |
+| CI/CD | GitHub Actions: build + unit test + chạy firmware trong QEMU |
+| EtherCAT (tùy chọn) | SOEM/SOES — chỉ làm khi có testbed được xác minh |
 
-## 6. Mapping kỹ năng JD → Project
-| Yêu cầu JD | Thành phần project đáp ứng |
+## 7. Mapping kỹ năng JD → Project
+| Yêu cầu JD | Thành phần project |
 |---|---|
-| QNX: multi-thread, resource manager, IPC | QNX Central Supervisor: `resmgr`, `MsgSend/MsgReceive/MsgReply`, pulse |
-| FreeRTOS, motor/sensor control | FreeRTOS Deterministic I/O Node: control task chu kỳ cứng, vòng PID + plant model motor, encoder giả có nhiễu |
-| CAN FD | Giao thức chính giữa 2 node |
-| SPI | Task SPI trong FreeRTOS node (đọc encoder/IMU giả lập) |
-| UDP/TCP | Thread quản trị/giám sát trên QNX |
-| Fault handler, MMU, watchdog | State machine `INIT→RUN→DEGRADED→SAFE_STOP`, MPU fault handler, watchdog chéo 2 chiều; QNX tách process (control / logger / mgmt) với shared memory phân quyền để minh họa memory protection thật |
-| EtherCAT (Master QNX/Slave FreeRTOS) | Module R&D riêng bằng SOEM/SOES, slave PDO dùng chung state machine `INIT→RUN→SAFE_STOP` với hệ thống chính |
-| Unit/Integration Test, traceability | Ceedling/Unity + test fault-injection + traceability matrix |
-| Git, CI/CD | GitHub Actions pipeline (build FreeRTOS + pytest/Renode test) |
-| Python | Công cụ DBC codegen, test runner fault-injection, phân tích log, vẽ step response |
-| VinSpace: CCSDS / telemetry | Telemetry/management dùng khung CCSDS Space Packet |
+| QNX: system services, multi-thread, secure IPC | Resmgr `/dev/motion`, 3 process cách ly, `MsgSend/MsgReceive/MsgReply`, pulse, kiểm tra quyền client, shared memory phân quyền |
+| FreeRTOS, motor/sensor control | PID 1 kHz + plant model, task priority design, queue/notification |
+| Real-time data sync giữa FreeRTOS và QNX (CAN FD, UDP/TCP) | Frame tương thích CAN FD + E2E qua UDP, đồng bộ lệnh/telemetry chu kỳ, đo latency/jitter |
+| Monitoring, fault handler, memory management/MPU | Safety state machine, cross-watchdog, MPU task isolation, HardFault/MemManage handler lưu fault record, process isolation trên QNX |
+| Debug, performance analysis | GDB qua QEMU, QNX `pidin`/`slog2info`/System Profiler, đo jitter/latency/CPU load |
+| Unit/Integration Test, traceability | Unity/Ceedling, pytest SIL, fault injection, traceability matrix Yêu cầu → Thiết kế → Test |
+| Python | Codegen, test framework, phân tích log, vẽ đồ thị |
+| Git, CI/CD, HIL model | GitHub Actions + SIL (bước trước HIL) |
+| EtherCAT | Module R&D tùy chọn, trình bày đúng phạm vi |
 
-## 7. Tài liệu liên quan trong bộ hồ sơ project
-- [01_ARCHITECTURE.md](01_ARCHITECTURE.md) — chi tiết kiến trúc, sơ đồ, giao thức.
-- [02_PROJECT_PLAN.md](02_PROJECT_PLAN.md) — lộ trình milestone, cấu trúc repo, kế hoạch test/CI, rủi ro.
+## 8. Ngoài phạm vi
+- Linux BSP, Yocto, Device Tree, kernel driver (đã có ở project/công việc khác).
+- Driver CAN FD/SPI/PWM phần cứng thật (không có board).
+- Chứng nhận hard real-time và tuân thủ IEC 62304.
+
+## 9. Tài liệu liên quan
+- [01_ARCHITECTURE.md](01_ARCHITECTURE.md) — kiến trúc, giao thức, safety, timing budget.
+- [02_PROJECT_PLAN.md](02_PROJECT_PLAN.md) — milestone, acceptance criteria, test, CI, rủi ro.
