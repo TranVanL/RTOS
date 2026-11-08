@@ -1,0 +1,12 @@
+build/
+out/
+*.elf
+*.bin
+*.o
+*.map
+__pycache__/
+.pytest_cache/
+.venv/
+*.pcap
+docs/results/*.log
+.vscode/

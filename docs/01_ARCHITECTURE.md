@@ -1,5 +1,7 @@
 # Architecture — QNX–FreeRTOS Safety-Supervised Motion Control Platform
 
+> Trạng thái: **FINAL v1.0** (2026-11-04).
+
 ## 1. Sơ đồ tổng thể
 
 ```mermaid
@@ -156,7 +158,7 @@ FreeRTOS node chạy state machine tương ứng ở phía mình: mất command 
 | Command timeout | > 50 ms không có command hợp lệ → disable output, báo trạng thái |
 | E2E error | Frame sai CRC/counter/data ID bị loại, tăng counter, báo trong telemetry |
 | Task health | Supervisor task chỉ kick watchdog khi mọi task đã báo alive trong chu kỳ |
-| Watchdog | CMSDK APB watchdog (`0x40008000`) trên QEMU mps2: hết hạn lần 1 → **NMI** (handler ghi fault record vào `.noinit`, tắt actuator enable); hết hạn lần 2 (RESEN=1) → QEMU thực hiện system reset (`-action watchdog=reset`, mặc định). Đã đối chiếu source `hw/arm/mps2.c` và `hw/watchdog/cmsdk-apb-watchdog.c` |
+| Watchdog | CMSDK APB watchdog (`0x40008000`) trên QEMU mps2: hết hạn lần 1 → **NMI** (handler ghi fault record vào `.noinit`, tắt actuator enable); hết hạn lần 2 (RESEN=1) → QEMU thực hiện system reset (`-action watchdog=reset`, mặc định). Đối chiếu lại source `hw/arm/mps2.c` và `hw/watchdog/cmsdk-apb-watchdog.c` ở M0 và ghi vào `sil_environment.md` |
 | HardFault / MemManage | Handler tối giản: ghi trực tiếp thanh ghi để disable output model, lưu fault record (PC, LR, CFSR, MMFAR) vào vùng RAM `.noinit`, rồi reset. Sau reboot, gửi fault record trong heartbeat đầu tiên |
 | Stack overflow | `configCHECK_FOR_STACK_OVERFLOW = 2` → xử lý như fault nặng |
 
@@ -171,52 +173,57 @@ Lưu ý thiết kế: handler fault không gửi mạng và không gọi API Fre
 | `can_id` | 2 B | 11-bit ID |
 | `flags` | 1 B | FDF, BRS (giữ cho tương thích CAN FD) |
 | `dlc` | 1 B | Độ dài data theo bảng DLC CAN FD (0–8, 12, 16, 20, 24, 32, 48, 64) |
-| `data` | 0–64 B | Payload signals (DBC) + E2E header |
+| `data` | 0–64 B | `[E2E header 12 B][app payload theo DBC][padding về DLC hợp lệ]` |
 
 Một UDP datagram chứa đúng một frame. Vì UDP không có arbitration/ACK, **ưu tiên E-stop được hiện thực ở tầng ứng dụng**: socket riêng, thread/task ưu tiên cao nhất, gửi lặp.
 
-### 6.2 E2E protection (bên trong `data`)
+### 6.2 E2E protection (cấu trúc theo AUTOSAR E2E Profile 4)
+Header 12 byte đặt ở đầu `data` (little-endian):
+
 | Field | Size | Mô tả |
 |---|---|---|
-| `counter` | 1 B | Tăng mỗi frame theo từng CAN ID, phát hiện mất/lặp/sai thứ tự |
-| `crc32` | 4 B | CRC-32 trên (data ID ngầm định từ CAN ID + counter + payload) |
+| `length` | 2 B | Tổng độ dài (header + app payload, chưa tính padding) |
+| `counter` | 2 B | Tăng mỗi frame, **riêng cho từng Data ID** |
+| `data_id` | 4 B | ID cố định mỗi message (bảng 6.3); chống nhầm message |
+| `crc32` | 4 B | CRC-32P4: poly `0xF4ACFB13`, init `0xFFFFFFFF`, reflect in/out, xorout `0xFFFFFFFF`; tính trên `length‖counter‖data_id‖app payload` |
 
-Bên nhận kiểm tra: CRC, counter (cho phép nhảy tối đa 2), timeout theo từng message. Kết quả: `OK`, `REPEATED`, `WRONG_SEQ`, `CRC_ERR`, `TIMEOUT` → đưa vào safety state machine.
+Bên nhận trả một trong: `OK`, `REPEATED`, `WRONG_SEQ` (delta counter > `MaxDelta` = 2), `CRC_ERR`, `LEN_OR_ID_ERR`, `TIMEOUT` (theo từng message) → đưa vào safety FSM.
 
-### 6.3 Message table (nguồn: `can_matrix.dbc`)
-| CAN ID | Hướng | Chu kỳ | Nội dung | Timeout bên nhận |
-|---|---|---|---|---|
-| `0x010` | QNX → FreeRTOS | Event (port 5001) | E-stop | — |
-| `0x100` | QNX → FreeRTOS | 10 ms | Mode, target position, velocity limit | 50 ms |
-| `0x180` | FreeRTOS → QNX | 10 ms | Position, velocity, current (model), output state | 30 ms |
-| `0x1F0` | FreeRTOS → QNX | 10 ms | Heartbeat: node state, alive counter, CPU load, fault code | 30 ms |
-| `0x1F1` | FreeRTOS → QNX | Event | Fault record sau reboot | — |
+Phạm vi trung thực: hiện thực theo **cấu trúc** Profile 4, kiểm tra bằng unit test với vector tự tính độc lập bằng Python; **chưa** đối chiếu test vector chính thức của AUTOSAR → gọi là "Profile 4–based", không gọi "compliant". Task ở M2: đối chiếu lại tham số CRC/layout với `AUTOSAR_PRS_E2EProtocol` trước khi chốt.
 
-## 7. Timing budget (đo trong SIL)
-| Chỉ số | Mục tiêu trong SIL |
-|---|---|
-| Jitter control task FreeRTOS (1 kHz) | p99 < 50 µs (thời gian ảo QEMU, ghi rõ cách đo) |
-| Latency command → telemetry round-trip | p99 < 5 ms |
-| E-stop: lệnh → output disable | max < 10 ms |
-| Mất heartbeat → SAFE_STOP | 100 ms ± 10 ms |
-| QNX crash `motion_sup` → node tự disable | ≤ 60 ms |
+### 6.3 Message table (nguồn: `common/can_matrix.dbc`)
+| CAN ID | Data ID | Hướng | Chu kỳ | Nội dung | Timeout bên nhận |
+|---|---|---|---|---|---|
+| `0x010` | `0x0010` | QNX → FreeRTOS | Event (port 5001, gửi 3 lần) | E-stop (có E2E) | — |
+| `0x100` | `0x0100` | QNX → FreeRTOS | 10 ms | Mode, target position, velocity limit | 50 ms |
+| `0x180` | `0x0180` | FreeRTOS → QNX | 10 ms | Position, velocity, current (model), output state | 30 ms |
+| `0x1F0` | `0x01F0` | FreeRTOS → QNX | 10 ms | Heartbeat: node state, alive counter, CPU load, fault code | 30 ms |
+| `0x1F1` | `0x01F1` | FreeRTOS → QNX | Event | Fault record sau reboot | — |
 
-Số liệu đo bằng timestamp trong frame + log hai phía, phân tích bằng Python. Tất cả được ghi rõ là kết quả SIL trên VM/QEMU.
+## 7. Tiêu chí timing và cách đo
 
-## 8. Module tùy chọn
-### 8.1 CCSDS telemetry (phù hợp VinSpace)
-- `mgmt` xuất telemetry dạng CCSDS Space Packet qua UDP (1 packet = 1 datagram): primary header 6 byte (version, type, sec-hdr flag, APID, sequence flags, sequence count, data length), secondary header chứa timestamp.
-- APID: `0x01` motion telemetry, `0x02` safety state, `0x03` fault event. Python tool giải mã và hiển thị.
+Hai node chạy trên hai đồng hồ khác nhau (VMware vs QEMU, có thể `-icount`), nên **tiêu chí pass/fail dùng đại lượng tất định** (đếm tick/chu kỳ trên *cùng một* đồng hồ); số đo ms chỉ là thông tin SIL kèm nhãn.
 
-### 8.2 EtherCAT R&D
-- Chỉ bắt đầu khi xác định được testbed khả thi (SOEM master trên host Linux + slave có ESC model/thiết bị phù hợp).
-- Nếu không có testbed: chỉ làm tài liệu phân tích ánh xạ PDO/state machine EtherCAT sang kiến trúc hiện tại, không claim đã chạy.
+| Hành vi | Tiêu chí pass/fail (tất định) | Số đo SIL (tham khảo, ghi nhãn) |
+|---|---|---|
+| Node mất command | Output disable khi không có CMD hợp lệ trong **50 tick** 1 ms của chính node (+1 tick) | — |
+| QNX mất heartbeat | DEGRADED sau **3** chu kỳ 10 ms (timer pulse) bị mất; SAFE_STOP sau **10** | thời gian host ≈ 30 / 100 ms ± 10 ms |
+| E-stop | Output disable trong **≤ 1 control tick** sau khi E-stop task xử lý frame hợp lệ; frame gửi 3 lần | lệnh → disable, đo bằng trace phía node, mục tiêu < 10 ms |
+| QNX `motion_sup` crash | Node tự disable sau ≤ 50 tick mất command | ≤ 60 ms host |
+| Jitter control task | Đo bằng DWT cycle counter (đơn vị cycle, **thời gian ảo** khi `-icount`) | p99 / max, vẽ histogram |
+| Round-trip command → telemetry | Đo **chỉ trên đồng hồ QNX** (`CLOCK_MONOTONIC`): thời điểm gửi CMD counter *n* → thời điểm nhận telemetry echo counter *n* | p50/p99/max, không có mục tiêu cứng |
+
+Mọi số liệu ms ghi rõ "SIL trên VM/QEMU, không phải hard real-time".
+
+## 8. Safety concept
+Safety goals và FMEA-lite (ánh xạ mỗi failure mode → cơ chế phát hiện → phản ứng → kịch bản test) nằm trong [safety_concept.md](safety_concept.md). Đây là tài liệu *theo tinh thần* ISO 26262, không phải work product chính thức.
 
 ## 9. Bộ công cụ Python
 | Công cụ | Chức năng |
 |---|---|
 | `dbc_codegen.py` | Sinh header C pack/unpack từ `can_matrix.dbc` |
 | `frame_sniffer.py` | Bắt và giải mã frame UDP (DBC + E2E) |
+| `udp_proxy.py` | Proxy giữa QNX và QEMU: drop/delay/duplicate/corrupt/reorder cho fault injection |
 | `sil_runner.py` | Khởi động QEMU, kết nối QNX VM, chạy scenario |
 | `fault_inject/` | pytest scenario: drop/delay/duplicate/corrupt frame, kill process, stuck encoder, MPU violation |
 | `metrics.py` | Tính jitter, latency p50/p99/max, reaction time; xuất báo cáo |

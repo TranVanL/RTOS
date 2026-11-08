@@ -1,0 +1,48 @@
+VERSION "0.1"
+
+NS_ :
+	CM_
+	BA_DEF_
+	BA_
+	VAL_
+
+BS_:
+
+BU_: QNX FREERTOS
+
+BO_ 16 ESTOP: 2 QNX
+ SG_ Command : 0|8@1+ (1,0) [0|255] "" FREERTOS
+ SG_ Reason : 8|8@1+ (1,0) [0|255] "" FREERTOS
+
+BO_ 256 CMD: 7 QNX
+ SG_ Mode : 0|8@1+ (1,0) [0|3] "" FREERTOS
+ SG_ VelLimit : 8|16@1+ (1,0) [0|65535] "rpm" FREERTOS
+ SG_ TargetPos : 24|32@1- (1,0) [-2147483648|2147483647] "count" FREERTOS
+
+BO_ 384 TELEM: 9 FREERTOS
+ SG_ Position : 0|32@1- (1,0) [-2147483648|2147483647] "count" QNX
+ SG_ Velocity : 32|16@1- (1,0) [-32768|32767] "rpm" QNX
+ SG_ Current : 48|16@1- (1,0) [-32768|32767] "mA" QNX
+ SG_ OutputState : 64|8@1+ (1,0) [0|1] "" QNX
+
+BO_ 496 HEARTBEAT: 5 FREERTOS
+ SG_ NodeState : 0|8@1+ (1,0) [0|5] "" QNX
+ SG_ AliveCounter : 8|8@1+ (1,0) [0|255] "" QNX
+ SG_ CpuLoad : 16|8@1+ (1,0) [0|100] "%" QNX
+ SG_ FaultCode : 24|16@1+ (1,0) [0|65535] "" QNX
+
+BO_ 497 FAULT_RECORD: 16 FREERTOS
+ SG_ PC : 0|32@1+ (1,0) [0|4294967295] "" QNX
+ SG_ LR : 32|32@1+ (1,0) [0|4294967295] "" QNX
+ SG_ CFSR : 64|32@1+ (1,0) [0|4294967295] "" QNX
+ SG_ MMFAR : 96|32@1+ (1,0) [0|4294967295] "" QNX
+
+CM_ "Application payload only. On the wire: [E2E header 12 B][payload][padding to valid CAN FD DLC]. Data ID = CAN ID.";
+CM_ BO_ 16 "E-stop, UDP :5001, sent 3x at 1 ms spacing";
+CM_ BO_ 256 "Command, 10 ms, node timeout 50 ms";
+CM_ BO_ 384 "Telemetry, 10 ms, QNX timeout 30 ms";
+CM_ BO_ 496 "Heartbeat, 10 ms, QNX timeout 30 ms";
+CM_ BO_ 497 "Fault record, event, first message after reboot";
+
+VAL_ 256 Mode 0 "DISABLE" 1 "POSITION" 2 "HOLD" ;
+VAL_ 496 NodeState 0 "INIT" 1 "READY" 2 "RUN" 3 "DEGRADED" 4 "SAFE_STOP" ;

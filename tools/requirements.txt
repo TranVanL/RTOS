@@ -1,0 +1,4 @@
+cantools
+pytest
+matplotlib
+numpy
