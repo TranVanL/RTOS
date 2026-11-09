@@ -14,7 +14,8 @@ void vAssertCalled( void )
     taskEXIT_CRITICAL();
 }
 
-void vApplicationIdleHook( void ) { }
+volatile uint32_t ulIdleCount; /* work done while idle; used by the -icount test */
+void vApplicationIdleHook( void ) { ulIdleCount++; }
 void vApplicationTickHook( void ) { }
 
 void vApplicationStackOverflowHook( TaskHandle_t pxTask, char * pcTaskName )

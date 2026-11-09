@@ -125,6 +125,9 @@ void Default_Handler( void )
     );
 }
 
+/* NMI: the CMSDK watchdog interrupt is wired to NMI on mps2-an385. Weak, so an application can override it. */
+void NMI_Handler( void ) __attribute__( ( weak, alias( "Default_Handler" ) ) );
+
 static void HardFault_Handler( void ) __attribute__( ( naked ) );
 void HardFault_Handler( void )
 {
@@ -202,7 +205,7 @@ const uint32_t * const isr_vector[] __attribute__( ( section( ".isr_vector" ) ) 
 {
     ( uint32_t * ) &_estack,
     ( uint32_t * ) &Reset_Handler,       /* Reset                     -15 */
-    ( uint32_t * ) &Default_Handler,     /* NMI_Handler               -14 */
+    ( uint32_t * ) &NMI_Handler,         /* NMI_Handler               -14 */
     ( uint32_t * ) &HardFault_Handler,   /* HardFault_Handler         -13 */
     ( uint32_t * ) &MemMang_Handler,     /* MemManage_Handler         -12 */
     ( uint32_t * ) &BusFault_Handler,    /* BusFault_Handler          -11 */

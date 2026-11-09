@@ -11,6 +11,7 @@ int main( void )
     printf( "\nM0 node boot: FreeRTOS %s, MPU port, FreeRTOS+TCP\n", tskKERNEL_VERSION_NUMBER );
     app_net_init();      /* creates the IP task; udp_echo is started from the network-up hook */
     mpu_selftest_start();
+    periph_test_start();
     vTaskStartScheduler();
     printf( "vTaskStartScheduler returned\n" );
     for( ; ; ) { }

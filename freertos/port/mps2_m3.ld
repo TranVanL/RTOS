@@ -209,6 +209,15 @@ SECTIONS
         __bss_end__ = _ebss;
     } >RAM
 
+    /* Survives a watchdog/system reset in QEMU: NOLOAD => not part of the ELF image, never
+     * re-written by the loader, and not touched by Reset_Handler (it only clears .bss). */
+    .noinit (NOLOAD) :
+    {
+        . = ALIGN(4);
+        KEEP(*(.noinit*))
+        . = ALIGN(4);
+    } >RAM
+
     ._user_heap_stack :
     {
         . = ALIGN(8);

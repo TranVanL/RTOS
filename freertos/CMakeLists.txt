@@ -6,6 +6,11 @@ set(NODE_IP      "10,0,2,15"      CACHE STRING "Node IPv4, comma separated")
 set(NODE_NETMASK "255,255,255,0"  CACHE STRING "Netmask, comma separated")
 set(NODE_GATEWAY "10,0,2,2"       CACHE STRING "Gateway, comma separated")
 
+# Peripheral verification build (docs/sil_environment.md section 4): none|wdt|wdt_kick|dwt|icount
+set(PERIPH_TEST "none" CACHE STRING "Peripheral test to compile in")
+set_property(CACHE PERIPH_TEST PROPERTY STRINGS none wdt wdt_kick dwt icount)
+string(TOUPPER ${PERIPH_TEST} PERIPH_TEST_ID)
+
 set(KERNEL ${CMAKE_CURRENT_SOURCE_DIR}/third_party/FreeRTOS-Kernel)
 set(TCP    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/FreeRTOS-Plus-TCP)
 set(NI     ${TCP}/source/portable/NetworkInterface/MPS2_AN385)
@@ -38,9 +43,10 @@ target_compile_options(freertos_third_party PRIVATE ${COMMON_FLAGS} -w)
 
 add_executable(node.elf
     port/startup.c port/syscall.c
-    app/main.c app/hooks.c app/net.c app/udp_echo.c app/mpu_selftest.c
+    app/main.c app/hooks.c app/net.c app/udp_echo.c app/mpu_selftest.c app/periph_test.c
     $<TARGET_OBJECTS:freertos_third_party>)
 target_include_directories(node.elf PRIVATE ${COMMON_INCLUDES})
+target_compile_definitions(node.elf PRIVATE PERIPH_TEST_${PERIPH_TEST_ID}=1)
 target_compile_options(node.elf PRIVATE ${COMMON_FLAGS} -Wall -Wextra -Wno-unused-parameter)
 foreach(v NODE_IP NODE_NETMASK NODE_GATEWAY)
     string(TOUPPER ${v} V)
