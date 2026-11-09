@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FreeRTOS Motion Node – Deep dive source hiện tại (ghi chú học lại)</title>
+<style>
+  :root { --fg:#1d2430; --muted:#5b6678; --line:#d9dee7; --bg:#fff; --soft:#f4f6fa; --ok:#1a7f4b; --bad:#b3261e; --warn:#a15c00; --acc:#2456c7; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:16px/1.65 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; color:var(--fg); background:var(--bg); }
+  main { max-width: 920px; margin: 0 auto; padding: 32px 20px 80px; }
+  h1 { font-size: 1.9rem; margin: 0 0 6px; }
+  h2 { font-size: 1.35rem; margin: 2.4em 0 .5em; padding-top: .6em; border-top: 1px solid var(--line); }
+  h3 { font-size: 1.1rem; margin: 1.6em 0 .4em; color: var(--acc); }
+  h4 { font-size: .98rem; margin: 1.2em 0 .3em; }
+  p.sub { color: var(--muted); margin: 0 0 1.4em; }
+  code { font: .88em/1.4 ui-monospace,Menlo,Consolas,monospace; background: var(--soft); padding: .1em .35em; border-radius: 4px; }
+  pre { background: #0f1722; color: #e6edf6; padding: 14px 16px; border-radius: 8px; overflow-x: auto; font: .85rem/1.5 ui-monospace,Menlo,Consolas,monospace; }
+  pre code { background: none; padding: 0; color: inherit; }
+  table { border-collapse: collapse; width: 100%; margin: .8em 0; font-size: .93rem; }
+  th, td { border: 1px solid var(--line); padding: 7px 10px; text-align: left; vertical-align: top; }
+  th { background: var(--soft); }
+  .ok { color: var(--ok); font-weight: 600; } .bad { color: var(--bad); font-weight: 600; } .warn { color: var(--warn); font-weight: 600; }
+  .box { background: var(--soft); border-left: 4px solid var(--acc); padding: 10px 16px; border-radius: 4px; margin: 1em 0; }
+  .box.warn { border-color: var(--warn); } .box.bad { border-color: var(--bad); }
+  nav { background: var(--soft); border-radius: 8px; padding: 10px 18px; margin: 1.2em 0; }
+  nav ol { margin: .3em 0; padding-left: 1.3em; columns: 2; }
+  nav a { color: var(--acc); text-decoration: none; }
+  .tree { white-space: pre; font: .85em ui-monospace,Menlo,Consolas,monospace; background: var(--soft); padding: 10px 14px; border-radius: 6px; display: block; }
+  @media (max-width: 640px) { nav ol { columns: 1; } }
+</style>
+</head>
+<body>
+<main>
+
+<h1>FreeRTOS Motion Node — Deep dive source hiện tại</h1>
+<p class="sub">Ghi chú tổng hợp từ buổi trao đổi (hỏi–đáp) để học lại: trạng thái milestone M0/M1, cấu trúc source FreeRTOS hiện có, và thiết kế mạng. Tham chiếu chính: <code>docs/02_PROJECT_PLAN.md</code>, <code>docs/01_ARCHITECTURE.md</code>, <code>docs/sil_environment.md</code>, <code>CLAUDE.md</code>.</p>
+
+<nav>
+<strong>Mục lục</strong>
+<ol>
+  <li><a href="#status">1. Trạng thái dự án hiện tại</a></li>
+  <li><a href="#build">2. Build system</a></li>
+  <li><a href="#port">3. Port layer (bare-metal)</a></li>
+  <li><a href="#linker">4. Linker script — MPU memory map</a></li>
+  <li><a href="#config">5. Kernel &amp; IP stack config</a></li>
+  <li><a href="#app">6. Application layer — giải thích từng file</a></li>
+  <li><a href="#network">7. Thiết kế mạng chi tiết</a></li>
+  <li><a href="#next">8. Việc tiếp theo (M1)</a></li>
+</ol>
+</nav>
+
+<h2 id="status">1. Trạng thái dự án hiện tại</h2>
+<p>Milestone đang ở <strong>M0</strong> (môi trường SIL + đường kết nối). Theo kế hoạch 7 milestone M0→M6, M0–M4 là mức tối thiểu để ghi CV.</p>
+
+<table>
+<tr><th>Hạng mục M0</th><th>Trạng thái</th><th>Bằng chứng</th></tr>
+<tr><td>MPU Cortex-M3 (truy cập sai → MemManage)</td><td class="ok">Đạt</td><td><code>mpu_selftest.c</code>, log <code>mpu_test faults=N</code></td></tr>
+<tr><td>CMSDK watchdog (NMI rồi reset)</td><td class="ok">Đạt</td><td><code>periph_test.c</code> (wdt/wdt_kick)</td></tr>
+<tr><td><code>.noinit</code> sống sót qua reset</td><td class="ok">Đạt</td><td><code>boot #N</code>, <code>nmi_count</code> cộng dồn</td></tr>
+<tr><td>NIC LAN9118 UDP gửi/nhận</td><td class="ok">Đạt</td><td><code>udp_echo.c</code>, diễn tập 600 s / 60000 gói, 0 mất</td></tr>
+<tr><td>DWT cycle counter</td><td class="bad">Không có model trong QEMU 8.2.2</td><td>đọc <code>CYCCNT</code> luôn = 0 → chuyển sang đo bằng <code>-icount</code> + idle-hook</td></tr>
+<tr><td>UDP echo QNX↔FreeRTOS 10 phút (gate thật)</td><td class="warn">Chưa — thiếu QNX VM</td><td>mới diễn tập bằng Python đóng vai QNX (<code>sil_runner.py</code>)</td></tr>
+</table>
+
+<div class="box warn">
+Phần còn thiếu để đóng gate M0 nằm ở <strong>phía QNX</strong> (VM, license non-commercial, bridge mạng QNX VM ↔ QEMU), không phải code FreeRTOS. Toàn bộ phần FreeRTOS của M0 (MPU, watchdog, UDP, đo jitter) coi như xong và có bằng chứng.
+</div>
+
+<p><code>freertos/control/</code>, <code>freertos/safety/</code>, <code>freertos/tests/</code> hiện chỉ có <code>.gitkeep</code> — đây là phần M1 (control loop: PID cascade, plant model, encoder model) sẽ lấp vào, <strong>chưa bắt đầu</strong>.</p>
+
+<h2 id="build">2. Build system</h2>
+<p><code>freertos/CMakeLists.txt</code> build target <code>node.elf</code>:</p>
+<ul>
+<li>Tham số mạng <code>NODE_IP</code>/<code>NODE_NETMASK</code>/<code>NODE_GATEWAY</code> truyền qua <code>-D...</code>, default trong <code>FreeRTOSConfig.h</code>.</li>
+<li><code>PERIPH_TEST=&lt;none|wdt|wdt_kick|dwt|icount&gt;</code> chọn đúng 1 bài test ngoại vi compile kèm — cách dựng nhiều biến thể build để kiểm chứng từng ngoại vi riêng mà không tạo nhánh code khác.</li>
+<li><code>freertos_third_party</code> (OBJECT library, build với <code>-w</code>): kernel (tasks/list/queue/timers/event_groups/stream_buffer), port <code>ARM_CM3_MPU</code> (MPU wrapper v2: <code>mpu_wrappers_v2_asm.c</code> + <code>mpu_wrappers_v2.c</code>), <code>heap_4</code>, toàn bộ FreeRTOS+TCP + driver LAN9118.</li>
+<li><code>node.elf</code> chỉ gồm code tự viết (<code>port/startup.c</code>, <code>port/syscall.c</code>, <code>app/*.c</code>) build với <code>-Wall -Wextra</code>.</li>
+<li>Link bằng <code>port/mps2_m3.ld</code>, <code>-nostartfiles</code>, <code>--specs=nano.specs --specs=nosys.specs</code> (newlib nano, syscalls tự viết).</li>
+</ul>
+<p>Toolchain: <code>cmake/arm-none-eabi.cmake</code> — chỉ khai <code>CMAKE_SYSTEM_NAME Generic</code>, compiler <code>arm-none-eabi-gcc</code>, <code>CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY</code> (bắt buộc cho cross-compile bare-metal vì chưa có linker script lúc CMake tự kiểm tra compiler).</p>
+<p>Lệnh build chuẩn: <code>cmake --preset node &amp;&amp; cmake --build --preset node</code> (preset trong <code>CMakePresets.json</code>, build vào <code>build/freertos</code>).</p>
+
+<h2 id="port">3. Port layer — bare-metal (<code>freertos/port/</code>)</h2>
+
+<h3>startup.c</h3>
+<ul>
+<li><code>Reset_Handler</code> (naked, <code>-O0</code> để tránh gcc thay bằng <code>memcpy</code>): set SP = <code>_estack</code>, copy <code>.data</code> flash→RAM, zero <code>.bss</code>, nhảy <code>_start()</code>.</li>
+<li><code>Default_Handler</code>: đọc <code>ICSR</code> (<code>0xE000ED04</code>) để biết ngắt đang active rồi loop vô hạn — dùng khi debug ngắt lạ chưa gán vector.</li>
+<li><code>NMI_Handler</code>: khai <code>weak alias</code> tới <code>Default_Handler</code> — ứng dụng override được (xem <code>periph_test.c</code>).</li>
+<li><code>HardFault_Handler</code>, <code>MemMang_Handler</code>, <code>BusFault_Handler</code>, <code>UsageFault_Handler</code>, <code>Debug_Handler</code>: trampoline asm kiểm tra bit 2 của <code>LR</code> (<code>EXC_RETURN</code>) để biết dùng <code>MSP</code> hay <code>PSP</code>, nhảy tới hàm C xử lý.
+  <div class="box warn">3 fault Bus/Usage/Debug đều trỏ chung <code>vHandleMemoryFault</code> — coi mọi fault "memory-ish" là một loại. <code>HardFault_Handler</code> hiện chỉ <code>for(;;){}</code> (debug qua gdb) — <strong>chưa</strong> ghi fault record + reset như REQ-SAF-007 yêu cầu cho control task thật. Đây là việc cần làm ở M1/M5.</div>
+</li>
+<li><code>isr_vector[]</code>: mảng con trỏ đặt vào section <code>.isr_vector</code>. Index <code>-5</code> (SVC) → <code>vPortSVCHandler</code>; <code>-2/-1</code> (PendSV/SysTick) → <code>xPortPendSVHandler</code>/<code>xPortSysTickHandler</code> (từ FreeRTOS port, không phải code tự viết — đây là nơi context switch thật sự xảy ra); index 13 (Ethernet) → <code>EthernetISR</code> (driver LAN9118). Các slot <code>0</code> là ngắt chưa dùng.</li>
+<li><code>_start()</code>: <code>uart_init()</code> rồi <code>main()</code>, nếu return thì <code>exit(0)</code>. <code>exit</code>/<code>_exit</code> dùng <strong>ARM semihosting</strong> (<code>bkpt 0xab</code>, <code>SYS_EXIT</code>) để QEMU thoát sạch khi chạy có <code>-semihosting</code>.</li>
+</ul>
+
+<h3>syscall.c (newlib stubs)</h3>
+<ul>
+<li><code>_write</code>: ghi từng byte ra <code>UART_DR</code> (polling). <strong>Vì sao <code>main.c</code> gọi <code>setvbuf(stdout, NULL, _IONBF, 0)</code>:</strong> <code>_isatty()</code> luôn trả 0 → newlib mặc định full-buffer stdout → log sẽ trễ/thiếu nếu không tắt buffering.</li>
+<li><code>_read</code>: luôn trả <code>-1</code> (không có input).</li>
+<li><code>_sbrk</code>: cấp heap tuần tự cho <code>malloc</code> của C runtime — <strong>khác</strong> heap <code>heap_4</code> của FreeRTOS (2 heap riêng biệt!). Giới hạn bởi <code>_heap_top</code> (linker script).</li>
+<li><code>_fstat/_close/_lseek/_kill/_getpid</code>: stub tối thiểu, không hành vi thật (bare-metal không có filesystem/process).</li>
+<li>Có nhánh <code>#ifdef __PICOLIBC__</code> khác (dùng <code>FDEV_SETUP_STREAM</code>) — project thủ sẵn 2 loại libc, hiện dùng nhánh newlib.</li>
+</ul>
+
+<h2 id="linker">4. Linker script — MPU memory map (<code>mps2_m3.ld</code>)</h2>
+<p>File quyết định layout bộ nhớ mà <code>portMPU_REGION_*</code> trong code dựa vào.</p>
+<div class="tree">FLASH (1 MB @ 0x0)
+├─ .privileged_functions  (64K đầu — chứa .isr_vector + code privileged)
+├─ .text                  (code thường, có bảng syscall trampoline __syscalls_flash_*)
+├─ .rodata, .ARM.extab, .ARM, .preinit/init/fini_array
+
+RAM (@ 0x20000000)
+├─ .privileged_data  (256K đầu, PHẢI là lũy thừa 2 — chứa ucHeap của heap_4 + biến PRIVILEGED_DATA)
+├─ .data             (biến thường, load từ FLASH)
+├─ .tdata/.tbss      (TLS, hiện không active vì PICOLIBC_TLS chưa bật)
+├─ .bss              (zero-init — CHỈ phần này bị Reset_Handler xoá)
+├─ .noinit (NOLOAD)  (KHÔNG load, KHÔNG bị zero → sống sót qua watchdog reset)
+├─ ._user_heap_stack (heap_bottom/heap_top cho _sbrk + vùng stack cuối RAM)
+</div>
+<ul>
+<li><code>__privileged_functions_region_size__ = 64K</code>, <code>__privileged_data_region_size__ = 256K</code> — <strong>cố định tại link-time</strong>, không phải runtime. Vượt quá sẽ assert fail lúc build (<code>ASSERT(__StackLimit &gt;= _heap_top, ...)</code>).</li>
+<li><code>.noinit</code> là lý do <code>NoInit_t xNoInit</code> trong <code>periph_test.c</code> giữ được <code>boot_count</code>/<code>nmi_count</code> qua nhiều lần watchdog reset.</li>
+</ul>
+
+<h2 id="config">5. Kernel &amp; IP stack config</h2>
+
+<h3>FreeRTOSConfig.h</h3>
+<table>
+<tr><th>Macro</th><th>Giá trị</th><th>Ý nghĩa</th></tr>
+<tr><td><code>configCPU_CLOCK_HZ</code></td><td>25 MHz</td><td>khớp SYSCLK thật của QEMU mps2-an385 (demo gốc dùng nhầm 20 MHz)</td></tr>
+<tr><td><code>configTICK_RATE_HZ</code></td><td>1000</td><td>tick 1 ms — khớp yêu cầu control loop 1 kHz ở M1</td></tr>
+<tr><td><code>configCHECK_FOR_STACK_OVERFLOW</code></td><td>2</td><td>method 2 (kỹ hơn) — đáp ứng REQ-SAF-008</td></tr>
+<tr><td><code>configUSE_MPU_WRAPPERS_V1</code></td><td>0</td><td>dùng MPU wrapper v2 (mới hơn v1 kinh điển)</td></tr>
+<tr><td><code>configENABLE_ACCESS_CONTROL_LIST</code></td><td>1</td><td>ACL kiểm soát quyền truy cập object kernel (queue, semaphore...) chi tiết</td></tr>
+<tr><td><code>configENFORCE_SYSTEM_CALLS_FROM_KERNEL_ONLY</code></td><td>1</td><td>task unprivileged gọi API kernel qua SVC, chạy trên stack hệ thống riêng</td></tr>
+<tr><td><code>configMAX_SYSCALL_INTERRUPT_PRIORITY</code></td><td>4</td><td>ngắt Ethernet (priority 5) nằm dưới mức mask của kernel critical section</td></tr>
+</table>
+
+<h3>FreeRTOSIPConfig.h</h3>
+<ul>
+<li><code>ipconfigUSE_DHCP = 0</code> — IP tĩnh, khởi động tất định.</li>
+<li><code>ipconfigIP_TASK_PRIORITY</code> và <code>nwETHERNET_RX_HANDLER_TASK_PRIORITY</code> đều OR <code>portPRIVILEGE_BIT</code> — IP task và RX task chạy <strong>privileged</strong> (rủi ro đã ghi trong plan: TCP/IP stack đụng heap/queue nên không cô lập được, chỉ cô lập control/comm task sau này).</li>
+<li><code>ipconfigUSE_TCP = 0</code> — tắt hoàn toàn TCP ở compile-time, chỉ dùng UDP.</li>
+<li><code>ipconfigNETWORK_MTU = 1500</code> — khớp buffer <code>ucBuf[1472]</code> trong <code>udp_echo.c</code> (1500 − 20 IP − 8 UDP).</li>
+<li><code>ipconfigREPLY_TO_INCOMING_PINGS = 1</code>, <code>ipconfigSUPPORT_OUTGOING_PINGS = 0</code> — node trả lời ping, không tự ping.</li>
+</ul>
+
+<h2 id="app">6. Application layer — giải thích từng file</h2>
+
+<h3>main.c</h3>
+<p>Entry point tối giản: <code>app_net_init()</code> → <code>mpu_selftest_start()</code> → <code>periph_test_start()</code> → <code>vTaskStartScheduler()</code>. <code>udp_echo_start()</code> <strong>không</strong> gọi trực tiếp ở đây mà từ network-up hook trong <code>net.c</code>.</p>
+
+<h3>net.c — network bring-up</h3>
+<pre><code>void app_net_init( void )
+{
+    NVIC_SetPriority( ETHERNET_IRQn, configMAC_INTERRUPT_PRIORITY );
+    pxMPS2_FillInterfaceDescriptor( 0, &amp;xInterface );
+    FreeRTOS_FillEndPoint( &amp;xInterface, &amp;xEndPoint, ucIPAddress, ucNetMask, ucGateway, ucDNSServer, ucMACAddress );
+    configASSERT( FreeRTOS_IPInit_Multi() == pdTRUE );
+}</code></pre>
+<ul>
+<li>4 bước chuẩn của FreeRTOS+TCP multi-endpoint: set priority ngắt MAC → điền interface descriptor (driver LAN9118 cấp) → gắn IP/MAC tĩnh vào endpoint → <code>IPInit_Multi()</code>.</li>
+<li><code>NODE_IP_ADDR</code> là macro dạng <code>10,0,2,15</code> <strong>không bọc ngoặc</strong> — cố ý, để expand đúng trong <code>{ }</code> initializer list (nếu bọc ngoặc sẽ thành biểu thức dấu phẩy, sai).</li>
+<li><code>vApplicationIPNetworkEventHook_Multi</code>: cờ <code>static xStarted</code> đảm bảo <code>udp_echo_start()</code> chỉ chạy <strong>đúng 1 lần</strong> dù hook có thể được gọi lại nhiều lần khi mạng lên/xuống.</li>
+<li><code>prvRand()</code> (LCG, hằng số Numerical Recipes <code>a=1664525,c=1013904223</code>, seed cố định) cấp cho <code>xApplicationGetRandomNumber</code>/<code>ulApplicationGetNextSequenceNumber</code> — 2 hook bắt buộc của Plus-TCP (cổng nguồn UDP/ARP, TCP sequence number dù TCP đang tắt). Ghi rõ "Not cryptographic: SIL only".</li>
+</ul>
+
+<h3>hooks.c — callback bắt buộc của kernel/IP stack</h3>
+<ul>
+<li><code>vAssertCalled</code>: <code>taskENTER_CRITICAL()</code> rồi loop vô hạn (biến <code>volatile</code> để compiler không tối ưu bỏ loop) — dừng tất định tại đúng điểm <code>configASSERT</code> fail để debug bằng gdb.</li>
+<li><code>ulIdleCount</code> + <code>vApplicationIdleHook</code>: tăng mỗi vòng idle task chạy — dùng làm proxy đo jitter ở <code>periph_test.c</code> (nhánh <code>icount</code>) vì QEMU không có DWT.</li>
+<li><code>vApplicationStackOverflowHook</code>: in tên task rồi dừng vô hạn — đáp ứng REQ-SAF-008 một phần, <strong>chưa</strong> ghi <code>.noinit</code>/reset (việc của M1/M5).</li>
+<li><code>vApplicationGetIdleTaskMemory</code>/<code>vApplicationGetTimerTaskMemory</code>: cấp bộ nhớ <code>static</code> cho idle/timer task — bắt buộc vì <code>configSUPPORT_STATIC_ALLOCATION=1</code>.</li>
+<li><code>ulGetRunTimeCounterValue</code> trả về 0 cố định — runtime-stats hiện không hoạt động thật, chỉ placeholder.</li>
+</ul>
+
+<h3>mpu_selftest.c — minh hoạ MPU 2-task + fault handler</h3>
+<pre><code>static uint8_t ucProtected[32] __attribute__((aligned(32)));   // RO cho unprivileged
+static volatile uint8_t ucExpected[32] __attribute__((aligned(32))); // cờ "fault cố ý"</code></pre>
+<ul>
+<li><code>aligned(REGION_SIZE)</code> <strong>bắt buộc</strong>: MPU Cortex-M3 yêu cầu địa chỉ base chia hết cho kích thước vùng (power-of-2).</li>
+<li><code>vHandleMemoryFault(pulFrame)</code>: <code>pulFrame[6]</code> = PC tại thời điểm fault (thứ tự exception stack frame chuẩn ARM: r0,r1,r2,r3,r12,lr,pc,xpsr). Đọc halfword đầu tại PC, kiểm tra 5 bit cao để biết lệnh Thumb 16-bit hay 32-bit Thumb-2 (≥ <code>0x1D</code> là 32-bit) → cộng đúng độ dài lệnh vào PC để <strong>bỏ qua lệnh gây fault</strong> khi resume (nếu không làm bước này, fault sẽ lặp vô hạn).</li>
+<li><code>SCB_CFSR = ulLastCFSR;</code> — ghi lại đúng giá trị vừa đọc để <strong>xoá cờ theo cơ chế write-1-to-clear</strong>.</li>
+<li>Nhánh <code>else { for(;;){} }</code>: fault không cố ý (<code>ucExpected[0]!=1</code>) → dừng vô hạn, <strong>không che giấu</strong> lỗi thật.</li>
+<li><code>xTaskCreateRestricted</code> với <code>xRegions[]</code>: <code>ucProtected</code> = <code>PRIVILEGED_READ_WRITE_UNPRIV_READ_ONLY | EXECUTE_NEVER</code>; <code>ucExpected</code> = <code>READ_WRITE | EXECUTE_NEVER</code> (cả 2 mức ghi được, vì chính task unprivileged cần ghi cờ báo trước).</li>
+</ul>
+
+<h3>udp_echo.c</h3>
+<p>1 task <strong>privileged</strong> (đụng socket/queue của TCP stack), bind <code>NODE_UDP_PORT</code> (5000), vòng lặp <code>recvfrom</code>→<code>sendto</code>, timeout <code>SO_RCVTIMEO</code> để in báo cáo rx/tx mỗi 5 s. Toàn bộ "ứng dụng" của M0 — sẽ là nền tảng đổi thành Comm task (parse frame + E2E) ở M1/M2.</p>
+
+<h3>periph_test.c — 4 biến thể loại trừ nhau</h3>
+<table>
+<tr><th>Biến thể</th><th>Cơ chế</th><th>Kết quả trên QEMU</th></tr>
+<tr><td><code>wdt</code></td><td>Nạp watchdog 0.5 s, không kick, <code>NMI_Handler</code> tự viết <strong>không xoá cờ ngắt</strong></td><td>NMI ở ~0.5s, reset thật ở ~1.0s (RESEN=1, lần hết hạn thứ 2)</td></tr>
+<tr><td><code>wdt_kick</code></td><td>Kick (<code>WDT_INTCLR=1</code>) mỗi 100 ms, nhanh hơn chu kỳ hết hạn</td><td>Không NMI, không reset — chứng minh REQ-SAF-006</td></tr>
+<tr><td><code>dwt</code></td><td>Bật <code>DEMCR.TRCENA</code> + <code>DWT_CTRL.CYCCNTENA</code>, đo <code>CYCCNT</code> quanh vòng lặp bận</td><td class="bad">Luôn đọc 0 — QEMU 8.2.2 không model DWT</td></tr>
+<tr><td><code>icount</code></td><td>Đếm <code>ulIdleCount</code> (từ <code>hooks.c</code>) giữa 2 tick liên tiếp, thống kê min/max/mean/stddev qua 2000 mẫu bằng công thức <code>Var = E[X²] − E[X]²</code></td><td class="ok">Phương án thay DWT; <code>-icount shift=0</code> cho stddev ổn định (54–185) so với không <code>-icount</code> (1242–3613)</td></tr>
+</table>
+<p><code>.noinit</code> + <code>prvBootBanner()</code>: kỹ thuật "magic number" (<code>0xC0DEF00D</code>) — cold start thật thì RAM là rác nên magic lệch → reset về 0; reset do watchdog thì magic còn nguyên → <code>ulBootCount</code>/<code>ulNmiCount</code> cộng dồn qua nhiều lần reset.</p>
+
+<h2 id="network">7. Thiết kế mạng chi tiết</h2>
+
+<h3>Tầng vật lý/driver</h3>
+<p>1 NIC LAN9118 mô phỏng (driver third-party <code>smsc9220_eth_drv.c</code>). <code>net.c</code> không viết driver, chỉ gọi <code>pxMPS2_FillInterfaceDescriptor()</code> để điền con trỏ hàm chuẩn (<code>pfInitialise</code>, <code>pfOutput</code>...) vào <code>NetworkInterface_t</code>.</p>
+
+<h3>Tầng IP — 1 endpoint tĩnh</h3>
+<p>Không DHCP (<code>ipconfigUSE_DHCP=0</code>) → khởi động tất định, không chờ discover/offer. IP/MAC lấy từ macro <code>NODE_IP_ADDR</code>/<code>NODE_NETMASK</code>/<code>NODE_GATEWAY</code>/<code>NODE_MAC_ADDR</code> (override được qua CMake).</p>
+
+<h3>Tầng transport — chỉ UDP</h3>
+<p><code>ipconfigUSE_TCP=0</code> tắt hoàn toàn TCP ở compile-time, đúng scope "CAN FD-compatible frame over UDP" của kiến trúc tổng.</p>
+
+<h3>Bảng cổng theo thiết kế toàn hệ thống</h3>
+<table>
+<tr><th>Port</th><th>Chiều</th><th>Dùng cho</th><th>Trạng thái code</th></tr>
+<tr><td><code>5000/udp</code></td><td>2 chiều</td><td>control command (10 ms) + telemetry + heartbeat</td><td class="warn">M0 dùng tạm làm UDP echo; chưa có frame thật</td></tr>
+<tr><td><code>5001/udp</code></td><td>QNX → node</td><td>E-stop, socket riêng ưu tiên cao nhất</td><td class="bad">Chưa có code</td></tr>
+<tr><td><code>6000/udp</code></td><td>mgmt ↔ node (qua QNX)</td><td>management</td><td class="bad">Chưa có code</td></tr>
+</table>
+
+<h3>Mạng QEMU ↔ host/QNX VM (tham số dòng lệnh, ngoài code)</h3>
+<ul>
+<li>QEMU dùng <code>-netdev user,id=n0,hostfwd=udp::5000-:5000 -net nic,model=lan9118,netdev=n0</code> (SLIRP, không cần root).</li>
+<li>Node thấy "host" ở <code>10.0.2.2</code> (gateway giả SLIRP).</li>
+<li><strong>Giới hạn quan trọng:</strong> SLIRP chỉ cho node đi ra host dễ dàng; chiều host → node cần <code>hostfwd</code>. Nếu node chủ động gửi tới <code>10.0.2.2</code>, gói chỉ tới host, <strong>không tự động tới QNX VM</strong> — cần relay Python hoặc <code>-netdev tap</code> (cần root, chưa thử được trên máy hiện tại).</li>
+</ul>
+
+<h3>Những phần cần config khi làm tiếp</h3>
+<table>
+<tr><th>Việc</th><th>Ở đâu</th><th>Khi nào</th></tr>
+<tr><td>Đổi IP/MAC node</td><td>biến CMake <code>NODE_IP/NODE_NETMASK/NODE_GATEWAY</code> hoặc default trong <code>FreeRTOSConfig.h</code></td><td>Khi đổi subnet thật QNX VM ↔ QEMU</td></tr>
+<tr><td>Mở cổng 5001 (E-stop), 6000 (mgmt)</td><td>thêm macro cổng tương tự <code>NODE_UDP_PORT</code>, viết task/socket riêng</td><td>M2–M4</td></tr>
+<tr><td>Đổi UDP echo → frame CAN FD + E2E</td><td><code>udp_echo.c</code> → Comm task dùng <code>common/frame</code> + <code>common/e2e</code></td><td>M2</td></tr>
+<tr><td>Mạng QNX VM ↔ QEMU thật</td><td>VMware host-only/bridge + <code>-netdev tap</code> hoặc relay Python</td><td>Gate M0 còn lại</td></tr>
+</table>
+
+<h2 id="next">8. Việc tiếp theo (M1 — chưa bắt đầu)</h2>
+<p>Theo <code>02_PROJECT_PLAN.md</code> mục M1 và <code>01_ARCHITECTURE.md</code> §5.2:</p>
+<ol>
+<li><strong>Plant + encoder model</strong> (C thuần, host-testable): motor DC bậc 2 (Euler/RK2, 1 ms), encoder lượng tử hoá + nhiễu Gaussian + cờ "stuck" (cho F8 sau này). File dự kiến: <code>freertos/control/plant.c/h</code>, <code>encoder.c/h</code>.</li>
+<li><strong>PID cascade</strong>: vị trí → tốc độ, anti-windup, saturation, rate limit (REQ-FUN-001). File: <code>freertos/control/pid.c/h</code>.</li>
+<li><strong>Control task</strong> 1 kHz (<code>vTaskDelayUntil</code>), MPU restricted — tái dùng pattern <code>xTaskCreateRestricted</code> từ <code>mpu_selftest.c</code>.</li>
+<li><strong>Đo jitter bằng SysTick</strong> (không DWT — đã xác nhận không có model trong QEMU), đo trực tiếp thời điểm vào/ra control task thay vì idle-hook.</li>
+<li><strong>Unit test host</strong> (Unity/Ceedling) cho PID/plant/encoder trong <code>freertos/tests/</code> — chạy được trong CI, không cần QEMU.</li>
+</ol>
+<div class="box">
+Acceptance M1: step response overshoot &lt; 10%, settling time theo tham số đã chọn, histogram jitter xuất được, unit test PID/plant pass trên host.
+</div>
+
+</main>
+</body>
+</html>

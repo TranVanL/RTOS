@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FreeRTOS Motion Node – M0: đã làm gì và làm như thế nào</title>
+<style>
+  :root { --fg:#1d2430; --muted:#5b6678; --line:#d9dee7; --bg:#fff; --soft:#f4f6fa; --ok:#1a7f4b; --bad:#b3261e; --warn:#a15c00; --acc:#2456c7; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:16px/1.65 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; color:var(--fg); background:var(--bg); }
+  main { max-width: 900px; margin: 0 auto; padding: 32px 20px 80px; }
+  h1 { font-size: 1.9rem; margin: 0 0 6px; }
+  h2 { font-size: 1.35rem; margin: 2.4em 0 .5em; padding-top: .6em; border-top: 1px solid var(--line); }
+  h3 { font-size: 1.05rem; margin: 1.6em 0 .3em; }
+  p.sub { color: var(--muted); margin: 0 0 1.4em; }
+  code { font: .88em/1.4 ui-monospace,Menlo,Consolas,monospace; background: var(--soft); padding: .1em .35em; border-radius: 4px; }
+  pre { background: #0f1722; color: #e6edf6; padding: 14px 16px; border-radius: 8px; overflow-x: auto; font: .85rem/1.5 ui-monospace,Menlo,Consolas,monospace; }
+  pre code { background: none; padding: 0; color: inherit; }
+  table { border-collapse: collapse; width: 100%; margin: .8em 0; font-size: .93rem; }
+  th, td { border: 1px solid var(--line); padding: 7px 10px; text-align: left; vertical-align: top; }
+  th { background: var(--soft); }
+  .ok { color: var(--ok); font-weight: 600; } .bad { color: var(--bad); font-weight: 600; } .warn { color: var(--warn); font-weight: 600; }
+  .box { background: var(--soft); border-left: 4px solid var(--acc); padding: 10px 16px; border-radius: 4px; margin: 1em 0; }
+  .box.warn { border-color: var(--warn); } .box.bad { border-color: var(--bad); }
+  nav { background: var(--soft); border-radius: 8px; padding: 10px 18px; margin: 1.2em 0; }
+  nav ol { margin: .3em 0; padding-left: 1.3em; columns: 2; }
+  nav a { color: var(--acc); text-decoration: none; }
+  svg text { font: 13px system-ui, sans-serif; fill: #1d2430; }
+  .tree { white-space: pre; }
+  @media (max-width: 640px) { nav ol { columns: 1; } }
+</style>
+</head>
+<body>
+<main>
+
+<h1>FreeRTOS Motion Node – M0</h1>
+<p class="sub">Tóm tắt những gì đã làm được ở phía FreeRTOS và cách làm. Môi trường: QEMU 8.2.2 (<code>mps2-an385</code>, Cortex-M3), arm-none-eabi-gcc 13.2.1, FreeRTOS-Kernel V11.3.3, FreeRTOS-Plus-TCP V4.4.2. Số liệu lấy từ các lần chạy thật; chi tiết đầy đủ nằm ở <code>docs/sil_environment.md</code> §3–§4.</p>
+
+<nav>
+<strong>Mục lục</strong>
+<ol>
+  <li><a href="#tong-quan">Tổng quan</a></li>
+  <li><a href="#cau-truc">Cấu trúc thư mục</a></li>
+  <li><a href="#step1-2">Bước 1–2: công cụ và mã nguồn</a></li>
+  <li><a href="#step3">Bước 3: build từng demo riêng</a></li>
+  <li><a href="#step4">Bước 4: ghép thành một firmware</a></li>
+  <li><a href="#step5">Bước 5: kiểm chứng ngoại vi</a></li>
+  <li><a href="#step6">Bước 6: mạng phía host</a></li>
+  <li><a href="#gdb">Cách dùng gdb để xem lỗi MPU</a></li>
+  <li><a href="#chay-lai">Chạy lại từ đầu</a></li>
+  <li><a href="#chua-lam">Chưa làm / lưu ý</a></li>
+</ol>
+</nav>
+
+<h2 id="tong-quan">1. Tổng quan</h2>
+<p>Mục tiêu M0 phía FreeRTOS: có <strong>một firmware</strong> chạy trên QEMU, vừa bật MPU vừa có ngăn xếp mạng, trả lời UDP echo ở cổng 5000, và chứng minh được các ngoại vi cần cho các milestone sau (MPU, watchdog, NIC, bộ đếm thời gian).</p>
+
+<svg viewBox="0 0 760 210" width="100%" role="img" aria-label="Sơ đồ host, QEMU và firmware">
+  <rect x="10" y="10" width="740" height="190" rx="10" fill="#f4f6fa" stroke="#d9dee7"/>
+  <text x="24" y="34" font-weight="600">Máy host (Ubuntu)</text>
+  <rect x="30" y="55" width="190" height="110" rx="8" fill="#fff" stroke="#2456c7"/>
+  <text x="48" y="82">Python peer</text>
+  <text x="48" y="104">tools/sil_runner.py</text>
+  <text x="48" y="126" fill="#5b6678">đếm sent / received / lost</text>
+  <rect x="300" y="55" width="430" height="130" rx="8" fill="#fff" stroke="#1a7f4b"/>
+  <text x="316" y="78" font-weight="600">QEMU mps2-an385 (Cortex-M3)</text>
+  <rect x="316" y="92" width="190" height="80" rx="6" fill="#eef6f1" stroke="#1a7f4b"/>
+  <text x="328" y="114">LAN9118 + SLIRP NAT</text>
+  <text x="328" y="136" fill="#5b6678">node 10.0.2.15</text>
+  <text x="328" y="156" fill="#5b6678">host thấy ở 10.0.2.2</text>
+  <rect x="520" y="92" width="196" height="80" rx="6" fill="#eef6f1" stroke="#1a7f4b"/>
+  <text x="532" y="114">node.elf</text>
+  <text x="532" y="136" fill="#5b6678">MPU + FreeRTOS+TCP</text>
+  <text x="532" y="156" fill="#5b6678">udp_echo :5000</text>
+  <path d="M220 110 H300" stroke="#2456c7" stroke-width="2" fill="none"/>
+  <text x="226" y="102" font-size="12">UDP 127.0.0.1:5000</text>
+  <text x="226" y="128" font-size="12" fill="#5b6678">hostfwd</text>
+</svg>
+
+<h2 id="cau-truc">2. Cấu trúc thư mục</h2>
+<pre class="tree"><code>freertos/
+├─ CMakeLists.txt, CMakePresets.json, cmake/arm-none-eabi.cmake   # build một lệnh
+├─ third_party/
+│  ├─ FreeRTOS-Kernel     (submodule, V11.3.3)
+│  └─ FreeRTOS-Plus-TCP   (submodule, V4.4.2)
+├─ port/                  # sao chép từ demo MPU, đã sửa
+│  ├─ startup.c           # vector table, Reset_Handler, fault stub
+│  ├─ syscall.c           # UART, _write, _sbrk cho newlib
+│  ├─ mps2_m3.ld          # linker script (vùng privileged, .noinit)
+│  └─ CMSIS/
+└─ app/                   # mã của dự án
+   ├─ main.c              # khởi động: mạng, MPU test, scheduler
+   ├─ net.c               # LAN9118 + IP tĩnh + hook "network up"
+   ├─ udp_echo.c          # toàn bộ ứng dụng M0
+   ├─ mpu_selftest.c      # task không đặc quyền cố ghi vùng chỉ đọc
+   ├─ periph_test.c       # watchdog / DWT / icount (chọn lúc build)
+   ├─ hooks.c             # assert, idle, stack overflow, bộ nhớ tĩnh
+   ├─ FreeRTOSConfig.h, FreeRTOSIPConfig.h
+tools/sil_runner.py       # chạy QEMU + phép thử UDP echo đếm gói</code></pre>
+<p>Hai demo gốc (<code>CORTEX_MPU_M3_MPS2_QEMU_GCC</code> và <code>FreeRTOS_Plus_TCP_Echo_Qemu_mps2</code>) <strong>chỉ để tham khảo</strong>, nằm ngoài repo ở <code>~/ref/FreeRTOS</code>. Kernel và Plus-TCP của firmware lấy từ hai submodule, không lấy từ demo.</p>
+
+<h2 id="step1-2">3. Bước 1–2: công cụ và mã nguồn</h2>
+<table>
+<tr><th>Việc</th><th>Cách làm</th></tr>
+<tr><td>Cài công cụ</td><td><code>sudo apt install qemu-system-arm gcc-arm-none-eabi gdb-multiarch</code>. Phiên bản: QEMU 8.2.2, gcc 13.2.1, gdb 15.1 (ghi ở <code>sil_environment.md</code> §1).</td></tr>
+<tr><td>Lấy kernel và TCP</td><td><code>git submodule add</code> hai repo, <code>git checkout</code> đúng tag: Kernel V11.3.3 (<code>89592801…</code>), Plus-TCP V4.4.2 (<code>b86ad086…</code>).</td></tr>
+<tr><td>Demo tham chiếu</td><td>Clone nông monorepo tag <code>202411.00</code> vào <code>~/ref/FreeRTOS</code>, chỉ init hai submodule cần (<code>FreeRTOS/Source</code>, <code>FreeRTOS-Plus-TCP</code>) cho khỏi kéo hàng chục submodule AWS.</td></tr>
+</table>
+<div class="box warn"><strong>Lưu ý phiên bản:</strong> demo <code>202411.00</code> dùng bản kernel/TCP riêng của monorepo, có thể khác phiên bản đã pin. Mọi thứ copy từ demo đều được build lại và kiểm tra với V11.3.3 / V4.4.2.</div>
+
+<h2 id="step3">4. Bước 3: build từng demo riêng</h2>
+<p>Mục đích: nếu demo gốc đã lỗi thì lỗi nằm ở toolchain/QEMU, không phải ở phần ghép.</p>
+<ul>
+<li><strong>Demo MPU:</strong> <code>make</code> trong thư mục demo, chạy bằng <code>qemu-system-arm -machine mps2-an385 -kernel build/RTOSDemo.axf -serial stdio -nographic -semihosting …</code>. Demo <em>không in gì</em> khi MPU bắt lỗi, nên chứng minh bằng gdb (xem <a href="#gdb">mục 9</a>).</li>
+<li><strong>Demo TCP echo:</strong> cần đổi cổng 7 (cần root) sang 7000 (<code>echoECHO_PORT</code> ở <code>TCPEchoClient_SingleTasks.c:66</code>; Readme ghi sai tên là <code>configECHO_PORT</code>). Dùng <code>-netdev user</code> nên không cần root. Kết quả: DHCP nhận 10.0.2.15, 85 kết nối TCP trong 20 s, 0 lỗi.</li>
+</ul>
+
+<h2 id="step4">5. Bước 4: ghép thành một firmware</h2>
+<p>Đây là bước rủi ro nhất. Cách làm: lấy <code>startup.c</code>, <code>syscall.c</code>, linker script và CMSIS từ demo MPU làm nền, rồi thêm FreeRTOS+TCP, driver LAN9118 và ứng dụng của dự án. Các vấn đề thật gặp phải và cách giải quyết:</p>
+<table>
+<tr><th>Vấn đề</th><th>Nguyên nhân</th><th>Cách xử lý</th></tr>
+<tr><td>IRQ Ethernet không chạy</td><td>Bảng vector của demo MPU để trống slot 13.</td><td>Trỏ slot 13 tới <code>EthernetISR</code> của driver LAN9118.</td></tr>
+<tr><td>IP task và task RX có thể fault</td><td>Trong port MPU, <code>xTaskCreate()</code> tạo task <em>không đặc quyền</em> nếu priority thiếu <code>portPRIVILEGE_BIT</code> (<code>tasks.c:1820</code>); chỉ idle task có bit này. Sockets, queue, buffer nằm trong heap.</td><td>Trong <code>FreeRTOSIPConfig.h</code>: <code>ipconfigIP_TASK_PRIORITY</code> và <code>nwETHERNET_RX_HANDLER_TASK_PRIORITY</code> OR thêm <code>portPRIVILEGE_BIT</code>. Task <code>udp_echo</code> cũng tạo đặc quyền. Đây là phương án dự phòng đã ghi trong bảng rủi ro: chỉ cô lập task điều khiển/truyền thông sau này.</td></tr>
+<tr><td>Lỗi link: <em>cannot move location counter backwards</em></td><td><code>heap_4</code> đặt mảng <code>ucHeap</code> 160 KB trong <code>PRIVILEGED_DATA</code>, mà vùng này chỉ 32 KB.</td><td><code>__privileged_data_region_size__ = 256K</code> (phải là lũy thừa của 2 cho MPU ARMv7). Hệ quả: vùng này được đệm vào flash, ELF ~1 MB; chấp nhận được ở M0.</td></tr>
+<tr><td><code>printf</code> có thể không ra gì</td><td>Heap của newlib trong linker chỉ 0x200 byte; <code>_isatty()</code> trả 0 nên stdout bị buffer đầy; linker script có <code>/DISCARD/ libc.a</code>.</td><td>Heap newlib 0x4000, bỏ <code>/DISCARD/</code>, gọi <code>setvbuf(stdout, NULL, _IONBF, 0)</code> trong <code>main</code>.</td></tr>
+<tr><td>Thiếu <code>xApplicationDHCPHook_Multi</code> khi link</td><td>Hàm nằm trong file TCP client gốc.</td><td>Ở firmware ghép dùng IP tĩnh, DHCP tắt, không cần hook này.</td></tr>
+<tr><td>Thời gian ảo sai 20 %</td><td><code>configCPU_CLOCK_HZ</code> của demo MPU là 20 MHz, nhưng SYSCLK của QEMU là 25 MHz nên 1 tick = 0,8 ms.</td><td>Đặt 25 MHz. Phát hiện nhờ watchdog: LOAD 12,5 triệu hết hạn ở ~0,625 s thay vì 0,5 s.</td></tr>
+</table>
+<p>Cấu hình đáng chú ý: <code>configCHECK_FOR_STACK_OVERFLOW=2</code>, <code>configENFORCE_SYSTEM_CALLS_FROM_KERNEL_ONLY=1</code>, <code>configUSE_MPU_WRAPPERS_V1=0</code>, <code>configENABLE_ACCESS_CONTROL_LIST=1</code> (giữ nguyên từ demo MPU); <code>ipconfigUSE_TCP=0</code>, DHCP/DNS/LLMNR/NBNS/IPv6 đều tắt (chỉ UDP IPv4).</p>
+<h3>Build</h3>
+<pre><code>cmake --preset node
+cmake --build --preset node        # ra build/freertos/node.elf (text ≈ 88 KB)</code></pre>
+<p>Lần chạy đầu tiên của firmware ghép: UDP echo 20/20 gói, MPU self-test báo <code>CFSR=0x82</code>.</p>
+
+<h2 id="step5">6. Bước 5: kiểm chứng ngoại vi</h2>
+<p>Mỗi bài kiểm tra là một bản build riêng, chọn bằng <code>-DPERIPH_TEST=wdt|wdt_kick|dwt|icount</code>, để firmware chính không bị lẫn mã thử.</p>
+<table>
+<tr><th>Ngoại vi</th><th>Cách kiểm tra</th><th>Kết quả</th></tr>
+<tr><td>MPU</td><td>Task không đặc quyền (<code>mpu_viol</code>) ghi vào vùng nó chỉ được đọc, mỗi 1 s. Handler MemManage ghi lại CFSR/MMFAR/PC rồi nhảy qua lệnh lỗi; fault không mong đợi thì dừng vô hạn.</td><td class="ok">Đạt. <code>CFSR=0x82</code> (MMARVALID + DACCVIOL), <code>MMFAR=0x20042440</code> = địa chỉ vùng bảo vệ, 20 fault trong 20 s, hệ thống vẫn chạy cùng UDP echo.</td></tr>
+<tr><td>Watchdog CMSDK (0x40008000)</td><td>LOAD=12 500 000, CTRL=3 (INTEN|RESEN). Handler NMI chỉ tăng bộ đếm trong <code>.noinit</code> và <strong>không</strong> xoá ngắt, để lần hết hạn thứ hai gây reset.</td><td class="ok">Đạt. NMI ở ~0,5 s (<code>RIS=1 nmi=1</code>), reset ở ~1,0 s, boot lại.</td></tr>
+<tr><td>Watchdog có kick</td><td>Ghi <code>INTCLEAR</code> mỗi 100 ms, chạy 6 s.</td><td class="ok">Đạt. <code>RIS=0</code>, không NMI, không reset.</td></tr>
+<tr><td><code>.noinit</code> qua reset</td><td>Vùng <code>.noinit (NOLOAD)</code> trong linker: không nằm trong ELF nên loader không ghi lại, và <code>Reset_Handler</code> chỉ xoá <code>.bss</code>. Dùng magic + số lần boot.</td><td class="ok">Đạt. <code>boot #1…#8</code>, <code>nmi_count</code> cộng dồn 0→7. M1 và M5 dựa vào điều này.</td></tr>
+<tr><td>LAN9118 + UDP</td><td>Python gửi gói tới <code>127.0.0.1:5000</code> qua <code>hostfwd</code>, node gửi lại nguyên văn.</td><td class="ok">Đạt (xem bước 6).</td></tr>
+<tr><td>DWT <code>CYCCNT</code></td><td>Bật TRCENA + CYCCNTENA, đọc trước/sau vòng lặp.</td><td class="bad">QEMU 8.2.2 không có model: mọi thanh ghi đọc 0, ghi vô hiệu. <strong>Dùng SysTick</strong> (M1 đo jitter bằng SysTick).</td></tr>
+<tr><td><code>-icount</code></td><td>Đếm số vòng idle hook giữa hai tick 1 ms trong 2000 tick; so stddev khi có và không có <code>-icount shift=0</code>, host rảnh và host tải 8 tiến trình.</td><td class="ok">Đạt (bảng dưới).</td></tr>
+</table>
+<h3>Kết quả <code>-icount</code> (công việc idle mỗi tick; càng ít lệch càng tất định)</h3>
+<table>
+<tr><th>Điều kiện</th><th>Không <code>-icount</code></th><th><code>-icount shift=0</code></th></tr>
+<tr><td>Host rảnh</td><td>stddev 1242 / 3551 / 3613 (mean ≈ 14 000–16 000, có tick min=0)</td><td>stddev 185 / 54 / 75 (mean 55 525)</td></tr>
+<tr><td>Host tải 8 tiến trình</td><td>stddev 1862 / 1661 / 1625 (mean ≈ 3600–6100, min=0)</td><td>stddev 185 / 54 (mean 55 525, như lúc rảnh)</td></tr>
+</table>
+<p>Đánh đổi: với <code>-icount</code> QEMU chạy chậm khoảng 15 lần so với thời gian thật khi host bị tải. Vì vậy chỉ dùng cho phép đo jitter (M1); chạy tích hợp dùng QEMU thường và ghi nhãn thời gian host. Đây là đại lượng đếm công việc, không phải ms.</p>
+
+<h2 id="step6">7. Bước 6: mạng phía host</h2>
+<pre><code>qemu-system-arm -machine mps2-an385 -cpu cortex-m3 -kernel build/freertos/node.elf \
+  -monitor null -semihosting -semihosting-config enable=on,target=native \
+  -serial stdio -nographic \
+  -netdev user,id=n0,hostfwd=udp:127.0.0.1:5000-:5000 -net nic,model=lan9118,netdev=n0
+
+python3 tools/sil_runner.py echo --duration 10 --rate 100     # tự khởi động QEMU, đếm gói</code></pre>
+<ul>
+<li><strong>Chọn:</strong> <code>-netdev user</code> + <code>hostfwd</code>, IP tĩnh 10.0.2.15/24, gateway 10.0.2.2. Đổi bằng <code>cmake -DNODE_IP=a,b,c,d -DNODE_GATEWAY=…</code>.</li>
+<li><strong>Lý do:</strong> không cần root; IP tĩnh cho khởi động tất định (không chờ DHCP).</li>
+<li><strong>Kết quả đo:</strong> 10 s × 100 gói/s: <code>sent=1000 received=1000 lost=0 mismatch=0</code>.</li>
+<li><strong>Tiêu chí pass</strong> trong <code>sil_runner.py</code> là <em>đếm gói</em> (<code>lost == 0</code>), không dùng ms.</li>
+</ul>
+<div class="box warn"><strong>Giới hạn:</strong> SLIRP chỉ cho node đi ra ngoài; node chủ động gửi tới 10.0.2.2 sẽ đến <em>host</em>, không tới QNX VM. Với QNX VM cần bind <code>hostfwd</code> vào IP host-only, và cần relay Python hoặc tap cho chiều node → QNX. <code>-netdev tap</code> cần root, chưa thử (không có sudo).</div>
+
+<h2 id="gdb">8. Cách dùng gdb để xem lỗi MPU</h2>
+<p>Chạy QEMU ở trạng thái dừng, chờ debugger (terminal A):</p>
+<pre><code>qemu-system-arm -machine mps2-an385 -kernel build/freertos/node.elf -semihosting \
+  -serial stdio -nographic -gdb tcp::1234 -S</code></pre>
+<p>Kết nối gdb (terminal B):</p>
+<pre><code>gdb-multiarch -q build/freertos/node.elf
+(gdb) set architecture arm
+(gdb) target remote :1234
+(gdb) break vHandleMemoryFault
+(gdb) continue
+(gdb) bt 3                 # ai gây lỗi
+(gdb) x/wx 0xE000ED28      # CFSR (MMFSR ở byte thấp)
+(gdb) x/wx 0xE000ED34      # MMFAR: địa chỉ bị truy cập sai</code></pre>
+<table>
+<tr><th>Giá trị</th><th>Ý nghĩa</th></tr>
+<tr><td>MMFSR = <code>0x82</code></td><td>bit 7 MMARVALID (MMFAR hợp lệ) + bit 1 DACCVIOL (vi phạm truy cập dữ liệu)</td></tr>
+<tr><td>MMFAR</td><td>bằng địa chỉ của vùng bảo vệ → đúng biến bị chặn</td></tr>
+<tr><td>PC trong stack frame (word thứ 7)</td><td>lệnh gây lỗi, nằm trong <code>prvViolator</code></td></tr>
+</table>
+<p>Firmware không cần gdb để thấy kết quả này: <code>mpu_selftest.c</code> tự in <code>mpu_test faults=… CFSR=… MMFAR=…</code> mỗi 5 s.</p>
+
+<h2 id="chay-lai">9. Chạy lại từ đầu</h2>
+<pre><code>git clone --recurse-submodules &lt;repo&gt;        # hoặc: git submodule update --init
+cmake --preset node && cmake --build --preset node
+python3 tools/sil_runner.py echo --duration 10 --rate 100
+
+# bài kiểm tra ngoại vi
+for t in wdt wdt_kick dwt icount; do
+  cmake -S freertos -B build/freertos_$t -DCMAKE_TOOLCHAIN_FILE=$PWD/freertos/cmake/arm-none-eabi.cmake -DPERIPH_TEST=$t
+  cmake --build build/freertos_$t
+done</code></pre>
+
+<h2 id="chua-lam">10. Chưa làm / lưu ý</h2>
+<ul>
+<li class="warn">Bước 7 (nối QNX VM) chưa làm: cần tài khoản myQNX, điều khoản non-commercial và VM.</li>
+<li class="ok">Diễn tập phía host đã đạt: 10 phút, 100 gói/s: <code>sent=60000 received=60000 lost=0 mismatch=0</code> (peer Python thay QNX, MPU self-test chạy song song, 600 fault được bắt). Chi tiết ở <code>docs/sil_environment.md</code> §5. <strong>Chưa tính là đạt M0</strong> cho tới khi chạy với QNX process qua VM.</li>
+<li class="warn"><code>-netdev tap</code> chưa thử (cần root).</li>
+<li>Handler MemManage hiện nằm trong <code>mpu_selftest.c</code> và nhảy qua lệnh lỗi để phục vụ phép thử. Fault handler thật của dự án (M1/M5) phải tối thiểu: không API FreeRTOS, ghi fault record vào <code>.noinit</code>, tắt output, reset.</li>
+<li>Các cảnh báo <code>-Warray-bounds</code> của GCC 13 trong <code>FreeRTOS_Sockets.c</code> và <code>list.h</code> không ảnh hưởng chức năng; mã bên thứ ba được build với <code>-w</code>, mã của dự án với <code>-Wall -Wextra</code>.</li>
+<li>Wording theo quy ước dự án: đây là mô phỏng SIL, số đo thời gian là số liệu thông tin trên QEMU, không phải bằng chứng hard real-time hay xác thực trên phần cứng.</li>
+</ul>
+
+</main>
+</body>
+</html>

@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Tài liệu học sâu trước khi triển khai M1 FreeRTOS: motor plant, encoder, cascade PID, real-time task, MPU, jitter và unit test host.">
+<title>FreeRTOS M1 — Học sâu Control Loop trước khi code</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" crossorigin="anonymous" onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'\\(',right:'\\)',display:false}],throwOnError:false});"></script>
+<style>
+:root{--ink:#172033;--muted:#586579;--line:#dce3ed;--paper:#fff;--soft:#f4f7fb;--blue:#2456c7;--teal:#087e75;--green:#167447;--amber:#9a5b00;--red:#ad2c2c;--navy:#101a2b;--shadow:0 12px 32px rgba(22,39,68,.08)}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:#f7f9fc;color:var(--ink);font:16px/1.72 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}main{max-width:1060px;margin:26px auto 70px;background:var(--paper);padding:clamp(22px,5vw,58px);box-shadow:var(--shadow);border:1px solid #e8edf4;border-radius:18px}h1{font-size:clamp(2rem,4vw,3rem);line-height:1.15;letter-spacing:-.035em;margin:.2em 0 .45em}h2{font-size:1.65rem;line-height:1.3;margin:2.6em 0 .65em;padding-top:.7em;border-top:1px solid var(--line);letter-spacing:-.02em}h3{font-size:1.2rem;margin:1.7em 0 .4em;color:#173c7a}h4{font-size:1.02rem;margin:1.3em 0 .35em}p{margin:.65em 0}li{margin:.3em 0}a{color:var(--blue)}.sub{font-size:1.08rem;color:var(--muted);max-width:850px}.eyebrow{display:inline-block;color:var(--blue);font-weight:750;text-transform:uppercase;letter-spacing:.11em;font-size:.78rem}.pills{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0}.pill{border:1px solid var(--line);background:var(--soft);border-radius:999px;padding:4px 11px;color:#34435b;font-size:.86rem}.hero{background:linear-gradient(135deg,#10264a,#1a4c82 65%,#087e75);color:white;padding:25px 28px;border-radius:14px;margin:24px 0}.hero p{color:#e8f1ff;margin:.3em 0}.hero strong{color:#fff}.hero a{color:#cfe4ff}.toc{background:var(--soft);border:1px solid var(--line);border-radius:12px;padding:18px 22px;margin:22px 0}.toc ol{columns:2;padding-left:22px;margin:.6em 0}.toc li{break-inside:avoid}.box{padding:14px 18px;border-left:4px solid var(--blue);background:#eff5ff;border-radius:6px;margin:16px 0}.box.warn{border-color:var(--amber);background:#fff8e9}.box.good{border-color:var(--green);background:#eef8f1}.box.danger{border-color:var(--red);background:#fff1f0}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:13px;margin:14px 0}.card{border:1px solid var(--line);border-radius:10px;padding:14px 16px;background:white}.card h4{margin:.1em 0 .45em;color:#183d77}.flow{display:flex;align-items:stretch;gap:8px;flex-wrap:wrap;margin:15px 0}.flow div{flex:1 1 155px;text-align:center;padding:12px;background:var(--soft);border:1px solid var(--line);border-radius:9px}.flow b{display:block;color:#193e79}.flow span{font-size:.9rem;color:var(--muted)}table{width:100%;border-collapse:collapse;margin:14px 0;font-size:.94rem}th,td{border:1px solid var(--line);padding:9px 11px;text-align:left;vertical-align:top}th{background:#edf2f8;color:#25344c}code{font: .88em/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;background:#eff2f7;padding:.13em .35em;border-radius:4px;color:#243b63}pre{background:var(--navy);color:#e5edf8;padding:15px 17px;border-radius:10px;overflow:auto;font: .88rem/1.55 ui-monospace,SFMono-Regular,Consolas,monospace}pre code{background:none;color:inherit;padding:0}.math{overflow-x:auto;background:#fbfcfe;border:1px solid #e8edf4;border-radius:8px;padding:8px 14px;margin:10px 0}.small{font-size:.9rem;color:var(--muted)}.tag{display:inline-block;border-radius:4px;padding:1px 6px;font-size:.78rem;font-weight:700;background:#e8eefb;color:#254d9a}.tag.warn{background:#fff0d4;color:#865000}.tag.ok{background:#e5f5eb;color:#12643a}.checklist li::marker{color:var(--green)}.separator{height:1px;background:var(--line);margin:25px 0}.footer{border-top:1px solid var(--line);margin-top:42px;padding-top:16px;color:var(--muted);font-size:.88rem}.katex-display{overflow-x:auto;overflow-y:hidden;padding:5px 0}.svgwrap{border:1px solid var(--line);border-radius:12px;background:#fbfcfe;padding:10px;margin:15px 0}svg{max-width:100%;height:auto}.svgtext{font:14px system-ui,sans-serif;fill:#20324c}.svgsmall{font:12px system-ui,sans-serif;fill:#586579}
+@media(max-width:650px){main{margin:0;border-radius:0;padding:24px 17px}.toc ol{columns:1}table{font-size:.86rem}th,td{padding:7px}.hero{padding:20px}}
+@media print{body{background:white}main{box-shadow:none;border:0;margin:0;max-width:none;padding:0}.toc a{text-decoration:none;color:var(--ink)}h2{break-before:auto}.card,.box,table,pre{break-inside:avoid}.hero{print-color-adjust:exact;-webkit-print-color-adjust:exact}a{color:var(--ink)}}
+</style>
+</head>
+<body>
+<main>
+<span class="eyebrow">Learning guide · Milestone M1 · FreeRTOS / Cortex-M3 SIL</span>
+<h1>Control loop: hiểu mô hình, điều khiển và timing trước khi viết code</h1>
+<p class="sub">Tài liệu học sâu để chuẩn bị triển khai M1 cho Motion Node. Tập trung vào tư duy hệ thống: từ điện áp → dòng motor → tốc độ/vị trí → encoder → cascade PID → task 1 kHz → đo lường và kiểm thử. Đây là tài liệu kiến thức, <strong>không phải phần triển khai code M1</strong>.</p>
+<div class="pills"><span class="pill">Motor DC model</span><span class="pill">Encoder &amp; fault injection</span><span class="pill">Cascade PID</span><span class="pill">FreeRTOS periodic task</span><span class="pill">MPU isolation</span><span class="pill">Host unit tests</span></div>
+<div class="hero"><strong>Mục tiêu đọc xong</strong><p>Bạn có thể tự giải thích mỗi biến trạng thái đại diện điều gì, vì sao cần hai vòng PID, anti-windup ngăn lỗi gì, tại sao 1 ms tick không đồng nghĩa đo được jitter chính xác 1 µs, và test nào chứng minh mô hình/controller đáng tin.</p></div>
+
+<nav class="toc" aria-label="Mục lục"><strong>Mục lục</strong><ol>
+<li><a href="#scope">Đích M1 và ranh giới</a></li><li><a href="#signals">Sơ đồ tín hiệu &amp; đơn vị</a></li><li><a href="#plant">Motor DC: từ vật lý đến mô hình</a></li><li><a href="#integration">Tích phân số: Euler và RK2</a></li><li><a href="#encoder">Encoder, lượng tử hóa, nhiễu, stuck</a></li><li><a href="#cascade">Cascade PID từ đầu đến cuối</a></li><li><a href="#limits">Saturation, slew rate, soft limit</a></li><li><a href="#stepmetrics">Step response &amp; tiêu chí nghiệm thu</a></li><li><a href="#rtos">Control task 1 kHz trong FreeRTOS</a></li><li><a href="#mpu">MPU, quyền truy cập, dữ liệu task</a></li><li><a href="#timing">Jitter: đo gì được trên QEMU?</a></li><li><a href="#testing">Unit test host và test plan</a></li><li><a href="#sequence">Trình tự làm M1 có kiểm soát</a></li><li><a href="#glossary">Glossary &amp; câu hỏi tự kiểm tra</a></li>
+</ol></nav>
+
+<h2 id="scope">1. M1 làm gì — và chưa làm gì?</h2>
+<p>M1 xây dựng một motion node điều khiển mô phỏng chạy trên FreeRTOS. Công việc được chia lớp để thuật toán điều khiển có thể kiểm thử trên máy host mà không cần kernel, QEMU hay mạng.</p>
+<table><thead><tr><th>Lớp</th><th>Trách nhiệm</th><th>Phụ thuộc FreeRTOS?</th></tr></thead><tbody>
+<tr><td>Plant</td><td>Nhận điện áp điều khiển, mô phỏng motor/dynamics</td><td>Không</td></tr>
+<tr><td>Encoder</td><td>Chuyển vị trí thật thành số đếm và số đo có lỗi/nhiễu</td><td>Không</td></tr>
+<tr><td>PID/control math</td><td>Từ setpoint và feedback tính lệnh actuator</td><td>Không</td></tr>
+<tr><td>RTOS adapter</td><td>Lập lịch 1 kHz, lấy command, gọi controller/plant, xuất snapshot</td><td>Có</td></tr>
+<tr><td>Host test + plot</td><td>Đo đáp ứng, tính chỉ số, vẽ đồ thị/histogram</td><td>Không cần target</td></tr>
+</tbody></table>
+<p>Yêu cầu cốt lõi trong [02_PROJECT_PLAN.md](02_PROJECT_PLAN.md) và [requirements.md](requirements.md): <code>REQ-FUN-001</code> — control loop 1 kHz với PID cascade, anti-windup, saturation, rate limit; <code>REQ-FUN-002</code> — step overshoot &lt; 10%; <code>REQ-PERF-002</code> — đo jitter và xuất histogram. Kế hoạch M1 còn yêu cầu plant DC, encoder model, MPU region cho control task và unit tests host.</p>
+<div class="box warn"><strong>Ranh giới kỳ vọng:</strong> M1 chứng minh control law và lịch task trong SIL. Nó không chứng minh đặc tính motor thật, không phải hard real-time, và không biến UDP/QEMU thành CAN bus thật. Kết quả phải gắn nhãn SIL trên QEMU.</div>
+
+<h2 id="signals">2. Sơ đồ tín hiệu: controller đang điều khiển cái gì?</h2>
+<div class="svgwrap"><svg viewBox="0 0 960 245" role="img" aria-label="Sơ đồ cascade PID, motor plant và encoder feedback">
+<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#2456c7"/></marker></defs>
+<rect x="16" y="74" width="155" height="74" rx="10" fill="#eaf0ff" stroke="#2456c7"/><text x="93" y="101" text-anchor="middle" class="svgtext">Vị trí mục tiêu</text><text x="93" y="124" text-anchor="middle" class="svgsmall">θ* [rad]</text>
+<rect x="214" y="40" width="160" height="70" rx="10" fill="#eef8f1" stroke="#167447"/><text x="294" y="68" text-anchor="middle" class="svgtext">PID vị trí</text><text x="294" y="91" text-anchor="middle" class="svgsmall">θ error → ω*</text>
+<rect x="414" y="40" width="160" height="70" rx="10" fill="#eef8f1" stroke="#167447"/><text x="494" y="68" text-anchor="middle" class="svgtext">PID tốc độ</text><text x="494" y="91" text-anchor="middle" class="svgsmall">ω error → u*</text>
+<rect x="617" y="40" width="125" height="70" rx="10" fill="#fff5e3" stroke="#9a5b00"/><text x="679" y="68" text-anchor="middle" class="svgtext">Giới hạn</text><text x="679" y="91" text-anchor="middle" class="svgsmall">±V, slew, soft limit</text>
+<rect x="782" y="40" width="160" height="70" rx="10" fill="#f2edff" stroke="#7652b8"/><text x="862" y="68" text-anchor="middle" class="svgtext">Motor plant</text><text x="862" y="91" text-anchor="middle" class="svgsmall">i, ω, θ thật</text>
+<rect x="652" y="165" width="190" height="58" rx="10" fill="#edf7fa" stroke="#087e75"/><text x="747" y="190" text-anchor="middle" class="svgtext">Encoder model</text><text x="747" y="210" text-anchor="middle" class="svgsmall">θ thật → θ đo, ω đo</text>
+<path d="M171 111 H205" stroke="#2456c7" stroke-width="2" marker-end="url(#arrow)"/><path d="M374 75 H405" stroke="#2456c7" stroke-width="2" marker-end="url(#arrow)"/><path d="M574 75 H608" stroke="#2456c7" stroke-width="2" marker-end="url(#arrow)"/><path d="M742 75 H775" stroke="#2456c7" stroke-width="2" marker-end="url(#arrow)"/><path d="M862 111 V141 H747 V157" stroke="#2456c7" stroke-width="2" marker-end="url(#arrow)"/><path d="M652 194 H294 V118" fill="none" stroke="#087e75" stroke-width="2" marker-end="url(#arrow)"/><path d="M652 205 H494 V118" fill="none" stroke="#087e75" stroke-width="2" marker-end="url(#arrow)"/><text x="466" y="183" class="svgsmall">feedback θ đo</text><text x="520" y="218" class="svgsmall">feedback ω đo</text></svg></div>
+<p><strong>Quy ước tín hiệu đề xuất:</strong> <code>θ_ref</code> là vị trí đích (rad), <code>θ_meas</code> là encoder position (rad), <code>ω_ref</code> là tốc độ tham chiếu (rad/s), <code>ω_meas</code> là tốc độ đo/ước lượng (rad/s), <code>u</code> là điện áp motor (V), <code>i</code> là dòng (A). Plant lưu trạng thái thật; controller chỉ nhìn feedback cảm biến, không được đọc trực tiếp state thật — nếu không mô phỏng như có cảm biến hoàn hảo và encoder model mất ý nghĩa.</p>
+<div class="box good"><strong>Đơn vị là hợp đồng:</strong> ghi đơn vị vào tên hoặc comment của mọi tham số. Đừng trộn vòng/phút với rad/s, độ với rad, encoder count với góc, hay normalized command với volt.</div>
+
+<h2 id="plant">3. Mô hình motor DC — suy ra phương trình thay vì học thuộc</h2>
+<h3>3.1 Mô hình điện phần ứng</h3>
+<p>Điện áp đặt lên cuộn dây dùng để thắng điện trở, tạo biến thiên dòng qua điện cảm, và bù sức điện động phản kháng (back-EMF). Với quy ước chiều dương nhất quán:</p>
+<div class="math">$$L\frac{di}{dt}=u-Ri-K_e\omega$$</div>
+<p><code>u</code> [V] là điện áp actuator; <code>i</code> [A] là dòng; <code>R</code> [Ω] là điện trở; <code>L</code> [H] là điện cảm; <code>K_e</code> [V·s/rad] là hằng số back-EMF; <code>ω</code> [rad/s] là tốc độ trục. Motor quay nhanh hơn thì back-EMF lớn hơn, làm dòng giảm — feedback vật lý tự nhiên của motor.</p>
+<h3>3.2 Mô hình cơ học</h3>
+<p>Mô-men điện từ kéo rotor; quán tính chống thay đổi tốc độ; ma sát nhớt tỷ lệ với tốc độ; tải ngoài có thể cản hoặc kéo trục:</p>
+<div class="math">$$J\frac{d\omega}{dt}=K_t i-b\omega-\tau_{load}$$</div>
+<p><code>J</code> [kg·m²] là quán tính; <code>K_t</code> [N·m/A] là hằng số mô-men; <code>b</code> [N·m·s/rad] là hệ số ma sát nhớt; <code>τ_load</code> [N·m] là mô-men tải. Nếu project chưa mô hình tải, đặt bằng 0 nhưng vẫn nên giữ input để sau này test disturbance.</p>
+<h3>3.3 Động học vị trí</h3>
+<div class="math">$$\frac{d\theta}{dt}=\omega$$</div>
+<p><code>θ</code> [rad] là góc. Một điểm dễ nhầm: động học điện-cơ từ điện áp tới <strong>tốc độ</strong> là bậc hai (trạng thái <code>i, ω</code>); nếu thêm vị trí <code>θ</code>, mô hình state-space có ba trạng thái vì vị trí là tích phân của tốc độ. Trong giao tiếp kỹ thuật, có thể gọi “motor DC bậc hai” khi nói transfer function điện áp→tốc độ, nhưng code mô phỏng position cần giữ cả <code>θ</code>.</p>
+<h3>3.4 Dạng trạng thái dùng trong code</h3>
+<p>Đặt trạng thái <code>x=[i, ω, θ]</code>; đạo hàm theo thời gian là:</p>
+<div class="math">$$\dot{x}=f(x,u,\tau_{load})=\begin{bmatrix}(u-Ri-K_e\omega)/L\\(K_ti-b\omega-\tau_{load})/J\\\omega\end{bmatrix}$$</div>
+<p>Plant API nên nhận input tại một bước, cập nhật trạng thái nội bộ và trả snapshot. Giao diện C thuần có thể khái niệm như sau (không phải code final):</p>
+<pre><code>typedef struct {
+    float resistance_ohm, inductance_h, inertia_kg_m2;
+    float viscous_friction, torque_constant, back_emf_constant;
+    float load_torque_nm;
+    float sample_period_s;
+} PlantConfig;
+
+typedef struct {
+    float current_a, velocity_rad_s, position_rad;
+} PlantState;
+
+void plant_reset(PlantState *state, const PlantConfig *cfg);
+void plant_step(PlantState *state, const PlantConfig *cfg, float voltage_v);</code></pre>
+<p>Giữ <code>PlantConfig</code> (tham số bất biến) tách khỏi <code>PlantState</code> (i, ω, θ thay đổi) để test cùng một config với nhiều trạng thái/trace. Hàm phải xử lý cấu hình không hợp lệ (R/L/J ≤ 0), NaN/Inf nếu dùng float, và trạng thái ban đầu.</p>
+
+<h2 id="integration">4. Tích phân số: Euler và RK2</h2>
+<p>Phương trình vi phân nói hệ thay đổi liên tục, nhưng task chạy từng bước <code>dt=1 ms</code>. Numerical integrator xấp xỉ thay đổi trong mỗi bước. Ta giả định điện áp <code>u</code> giữ cố định trong chu kỳ (zero-order hold), cập nhật plant một lần mỗi tick điều khiển.</p>
+<h3>4.1 Forward Euler</h3>
+<div class="math">$$x_{k+1}=x_k+\Delta t\,f(x_k,u_k)$$</div>
+<p>Ưu điểm: ngắn, rẻ, dễ debug. Nhược điểm: sai số cục bộ bậc hai theo dt, có thể mất ổn định nếu bước quá lớn so với dynamics nhanh. Một sanity check cho phần điện riêng (bỏ back-EMF, phương trình <code>di/dt=−(R/L)i</code>) là cần <code>dt &lt; 2L/R</code> để Euler không phân kỳ; để có độ chính xác tốt thường cần dt nhỏ hơn nhiều so với hằng số thời gian điện <code>τ_e=L/R</code>. Điều kiện này chỉ là check sơ bộ, không phải chứng minh ổn định toàn hệ đóng vòng.</p>
+<h3>4.2 RK2 midpoint</h3>
+<div class="math">$$k_1=f(x_k,u_k),\qquad k_2=f\left(x_k+\frac{\Delta t}{2}k_1,u_k\right),\qquad x_{k+1}=x_k+\Delta t\,k_2$$</div>
+<p>RK2 đánh giá đạo hàm ở đầu bước rồi ở midpoint; sai số cục bộ bậc ba, toàn cục bậc hai trong điều kiện thông thường. Thường chính xác hơn Euler với cùng dt nhưng tốn thêm phép tính. Dùng cùng input trong cả hai lần đánh giá của RK2, vì actuator input được giữ nguyên trong chu kỳ đó.</p>
+<h3>4.3 Chọn tích phân theo bằng chứng</h3>
+<ul><li>Chọn chu kỳ lấy mẫu <code>dt</code> từ task timing, không hard-code khác với 1 ms FreeRTOS tick.</li><li>So sánh Euler và RK2 với cùng bộ tham số, cùng input và cùng initial state; kiểm tra xu hướng và hội tụ khi giảm bước (ví dụ dt/2 trong host simulation).</li><li>Không nên ép thời gian mô phỏng lên host wall-clock. Host test có thể chạy một triệu bước nhanh hơn thực; thời gian mô phỏng là <code>k·dt</code>.</li><li>Ở bước đầu, chọn parameter set có đơn vị nhất quán và dynamics đủ chậm so với dt. Ghi rõ đây là tham số SIL minh họa, không phải đặc tính motor thật.</li></ul>
+<div class="box warn"><strong>Không “sửa” lỗi tích phân bằng PID:</strong> nếu plant bùng nổ khi input hằng, trước tiên kiểm dấu, đơn vị, dt, overflow và stability của numerical method. Controller không nên che bug của plant.</div>
+
+<h2 id="encoder">5. Encoder: quantization, noise và stuck fault</h2>
+<h3>5.1 Lượng tử hóa</h3>
+<p>Với <code>N</code> counts/revolution (CPR theo đúng định nghĩa project), số đếm lý tưởng từ góc là:</p>
+<div class="math">$$c_{ideal}=\theta\frac{N}{2\pi},\qquad c=\operatorname{round}(c_{ideal}),\qquad \theta_{meas}=c\frac{2\pi}{N}$$</div>
+<p>Độ phân giải góc một count là <code>2π/N</code>; sai số lượng tử hóa lý tưởng không nhiễu tối đa xấp xỉ nửa count: <code>π/N</code> rad. Xác định rõ <code>N</code> là count/vòng sau giải mã quadrature hay số vạch vật lý; nếu định nghĩa khác nhau sẽ sai hệ số ×2/×4.</p>
+<h3>5.2 Nhiễu Gaussian và khả năng tái lập</h3>
+<p>Mô hình hóa nhiễu góc hoặc nhiễu count với phân phối chuẩn trung bình 0, độ lệch chuẩn <code>σ</code>. Dùng PRNG có seed đưa từ test/config để cùng seed → cùng chuỗi mẫu; không dùng random seed theo thời gian nếu unit test cần reproducible. Box–Muller là một cách tạo mẫu chuẩn từ hai uniform:</p>
+<div class="math">$$z=\sqrt{-2\ln U_1}\cos(2\pi U_2),\quad U_1\in(0,1],\ U_2\in[0,1),\quad n=\sigma z$$</div>
+<p>Nhiễu Gaussian không bị chặn tuyệt đối; test theo thống kê hoặc giới hạn an toàn của mô hình, không khẳng định mọi mẫu nằm trong ±3σ. Có thể bắt đầu không nhiễu, rồi thêm noise trong test riêng. Cortex-M3 không có FPU phần cứng; <code>sqrt/log/cos</code> có thể đắt nếu sinh nhiễu mỗi tick. Mô hình này không bắt buộc nằm trong đường control 1 kHz ngay từ đầu — có thể sinh noise trong test/offline hoặc dùng PRNG và bảng xấp xỉ sau khi đo chi phí.</p>
+<h3>5.3 Encoder stuck là lỗi cảm biến, không phải lỗi plant</h3>
+<p>Khi bật cờ stuck, encoder output giữ nguyên count đã chốt dù plant vẫn quay. Không đóng băng plant state: như vậy test sẽ không mô phỏng được mismatch giữa chuyển động motor và phản hồi encoder. Định nghĩa rõ semantics: kích hoạt stuck thì chốt current reading; clear fault thì tiếp tục từ reading thật hay cần reset — chọn một quy tắc và test nó.</p>
+<p>Encoder model chỉ tạo điều kiện cho F8; việc phát hiện stuck cần observer/safety logic: ví dụ command/actuator cho thấy có chuyển động dự kiến, nhưng encoder delta vẫn 0 quá thời gian/ngưỡng. Threshold phải tránh báo lỗi khi setpoint đứng yên, tốc độ rất thấp, hoặc lượng tử hóa chưa đủ tạo count mới. Phát hiện lỗi và đưa FSM sang SAFE_STOP là phần safety behavior; model chỉ tạo stimulus đáng tin.</p>
+
+<h2 id="cascade">6. Cascade PID — hai vòng, hai tốc độ/tầng vật lý</h2>
+<h3>6.1 Vì sao dùng cascade?</h3>
+<p>Vòng ngoài điều khiển vị trí, nhưng motor nhận điện áp/mô-men chứ không nhận trực tiếp vị trí. Vì vậy vòng vị trí tạo ra tốc độ mong muốn; vòng tốc độ điều khiển motor để bám tốc độ đó. Vòng tốc độ thường phản ứng nhanh hơn vòng vị trí. Trong M1 cả hai có thể chạy cùng một task 1 kHz để đơn giản và tất định; “cascade” mô tả quan hệ tín hiệu, không bắt buộc hai task/chu kỳ riêng.</p>
+<div class="flow"><div><b>θ* − θmeas</b><span>Sai số vị trí [rad]</span></div><div><b>PID vị trí</b><span>Tạo ω* [rad/s]</span></div><div><b>ω* − ωmeas</b><span>Sai số tốc độ [rad/s]</span></div><div><b>PID tốc độ</b><span>Tạo u* [V]</span></div><div><b>Motor + limits</b><span>u_applied → plant</span></div></div>
+<h3>6.2 PID rời rạc</h3>
+<p>Dạng song song liên tục là <code>u=Kp·e + Ki∫e dt + Kd·de/dt</code>. Trong code rời rạc tại chu kỳ <code>Ts</code>, tích phân cộng <code>e·Ts</code>, đạo hàm lấy sai phân <code>(e[k]−e[k−1])/Ts</code>. Đơn vị gain phụ thuộc input/output của từng vòng; gain vị trí không thể dùng lại gain tốc độ.</p>
+<div class="math">$$I[k]=I[k-1]+K_iT_s e[k],\qquad D[k]=K_d\frac{e[k]-e[k-1]}{T_s},\qquad u_{raw}[k]=K_pe[k]+I[k]+D[k]$$</div>
+<p>Trong triển khai thật, chọn một biểu diễn nhất quán: lưu integral state đã nhân Ki (đơn vị output) hay lưu tích phân lỗi chưa nhân Ki. Cả hai được, nhưng anti-windup, reset và giới hạn phải theo đúng biểu diễn đó. Tách state của PID (integral, previous measurement/error, filtered derivative, previous output) khỏi tham số cấu hình giúp test nhiều input sequence với nhiều state độc lập.</p>
+<h3>6.3 Outer position loop</h3>
+<p>Outer loop nhận <code>eθ=θref−θmeas</code> và tạo <code>ωref</code>. Một khởi đầu phổ biến là P hoặc PI (D ở vị trí thường không cần thiết nếu inner speed loop đã dập dynamics; nhưng dự án yêu cầu cascade PID nên cần xác định PID ở cả hai tầng hay PID dạng tổng thể rồi giải thích thiết kế). Clamp tốc độ tham chiếu:</p>
+<div class="math">$$\omega_{ref}=\operatorname{sat}(u_{pos,raw},-\omega_{max},+\omega_{max})$$</div>
+<p>Từ “PID cascade” thường được hiểu có controller position và controller speed; không nhất thiết cả hai phải dùng đủ P/I/D. Thiết kế cần ghi rõ loại từng vòng và lý do. Derivative trên measurement thường tránh “derivative kick” khi setpoint nhảy bậc; filter derivative giảm khuếch đại nhiễu encoder.</p>
+<h3>6.4 Inner speed loop</h3>
+<p>Inner loop nhận <code>eω=ωref−ωmeas</code> rồi tính điện áp motor. Đây là output điều khiển plant. Nếu mô hình output là voltage, saturation hợp lý là <code>[−Vmax,+Vmax]</code>. Nếu output được chuẩn hóa, ghi rõ map normalized command sang voltage và saturation ở đâu.</p>
+<h3>6.5 Anti-windup — ngăn integral “tích nợ”</h3>
+<p>Khi actuator chạm giới hạn, output thực tế không còn bằng output PID yêu cầu. Nếu vẫn cộng lỗi vào integral, integral tiếp tục lớn trong lúc motor không thể tạo thêm lực; khi lỗi đổi dấu, controller mất lâu mới thoát bão hòa (windup), gây overshoot/settling xấu.</p>
+<p><strong>Conditional integration / clamping:</strong> không tích phân khi output đã bão hòa và sai số sẽ đẩy output sâu hơn vào cùng phía saturation; vẫn cho tích phân nếu sai số giúp controller thoát saturation. Dễ triển khai nhưng logic biên cần test.</p>
+<p><strong>Back-calculation:</strong> phản hồi chênh lệch giữa output bị giới hạn và output thô về integral state:</p>
+<div class="math">$$I[k+1]=I[k]+K_iT_s e[k]+K_{aw}T_s\big(u_{applied}[k]-u_{raw}[k]\big)$$</div>
+<p><code>Kaw</code> là gain tracking (đơn vị phụ thuộc cách lưu integral). Dấu phải đúng: nếu raw vượt +Vmax thì <code>u_applied−u_raw&lt;0</code>, kéo integral xuống. Anti-windup nên dùng <em>output cuối cùng thật sự áp dụng</em>, kể cả sau slew-rate limit, không chỉ amplitude clamp trước đó.</p>
+<h3>6.6 Tuning theo thứ tự</h3>
+<ol><li>Kiểm tra sign: tăng điện áp dương phải làm <code>ω</code>, sau đó <code>θ</code> tăng theo quy ước.</li><li>Tắt outer loop; tune speed loop trên speed target đơn giản. Tăng Kp tới bám đủ nhanh nhưng chưa rung, thêm Ki để xóa steady-state error do tải/ma sát; quan sát saturation.</li><li>Bật position loop, bắt đầu với P nhỏ để tạo tốc độ reference; tăng từ từ, áp giới hạn tốc độ, rồi mới thêm integral nếu có lý do.</li><li>Chỉ thêm derivative khi cần damping và measurement đủ sạch; lọc D, tránh derivative kick.</li><li>Chạy step cả hai hướng, nhiều biên độ; test saturation lâu rồi đảo setpoint để bắt windup.</li></ol>
+<div class="box danger"><strong>Không tune bằng cách “thử số ngẫu nhiên”:</strong> ghi gain, plant parameters, Ts, limits, initial state và kết quả mỗi run. Một thay đổi mỗi lần giúp biết nguyên nhân overshoot hoặc dao động.</div>
+
+<h2 id="limits">7. Saturation, rate limit và giới hạn vị trí</h2>
+<h3>7.1 Ba giới hạn khác nhau</h3>
+<table><tr><th>Giới hạn</th><th>Ý nghĩa</th><th>Ví dụ áp dụng</th></tr>
+<tr><td>Amplitude saturation</td><td>Actuator không thể vượt biên độ vật lý</td><td>Điện áp <code>u∈[−Vmax,+Vmax]</code>, speed <code>ωref∈[−ωmax,+ωmax]</code></td></tr>
+<tr><td>Rate / slew limit</td><td>Actuator/reference không thể đổi nhanh tùy ý</td><td><code>|u[k]−u[k−1]|≤Smax·Ts</code></td></tr>
+<tr><td>Soft position limit</td><td>Không cho trajectory đi vào vùng vị trí nguy hiểm</td><td><code>θmin≤θ≤θmax</code></td></tr></table>
+<p>Rate limiter rời rạc có thể lấy target difference rồi clamp vào <code>[−Smax·Ts,+Smax·Ts]</code>, sau đó cộng lại output trước. Phải định nghĩa giới hạn áp ở ω reference, voltage, hay cả hai; không đặt cùng tên “rate limit” cho các tầng không phân biệt.</p>
+<h3>7.2 Soft limits không chỉ là clamp setpoint</h3>
+<p>Clamp target ngoài <code>[θmin,θmax]</code> ngăn target phi lý nhưng chưa chắc dừng được motor đang tiến nhanh về biên vì inertia. Khi gần biên, giới hạn tốc độ hướng ra ngoài theo khoảng cách còn lại, hoặc giảm command để phanh. Tối thiểu, tại biên không được tiếp tục cấp lực hướng ra ngoài; hành vi khi target vượt biên cần nhất quán: reject, clamp, hay SAFE_STOP — hợp đồng này nên đồng bộ với QNX ở milestone tích hợp.</p>
+<p>Soft limit là lớp điều khiển; hard safety limit/SAFE_STOP là lớp bảo vệ khác. SIL plant không thay thế công tắc hành trình vật lý.</p>
+
+<h2 id="stepmetrics">8. Step response và acceptance có thể kiểm chứng</h2>
+<p>Step test: giữ target ban đầu ổn định; tại thời điểm mô phỏng <code>t0</code> đổi target từ <code>θ0</code> sang <code>θf</code>; ghi target, θ thật, θ đo, ω, u và thời gian mô phỏng mỗi sample. Đừng đánh giá overshoot chỉ từ log thưa hoặc từ host wall-clock.</p>
+<h3>8.1 Overshoot</h3>
+<p>Với bước dương có biên độ <code>A=θf−θ0&gt;0</code>, overshoot phần trăm:</p>
+<div class="math">$$s=\operatorname{sign}(\theta_f-\theta_0),\qquad M_p=100\%\cdot\frac{\max\left(0,\max_t\left[s(\theta(t)-\theta_0)\right]-|\theta_f-\theta_0|\right)}{|\theta_f-\theta_0|}$$</div>
+<p>Công thức dùng cùng một hướng chuẩn hóa cho bước dương và âm; khi biên độ bước bằng 0 thì metric không xác định và test phải bỏ qua. Yêu cầu M1 là <code>Mp&lt;10%</code>. Ghi rõ tính trên vị trí thật của plant hay vị trí encoder; nên xuất cả hai, nhưng acceptance controller thường dùng feedback/plant output đã định nghĩa thống nhất.</p>
+<h3>8.2 Settling time và steady-state error</h3>
+<p>Settling time cần định nghĩa tolerance band, thường biểu diễn tương đối theo biên độ step, và thời gian phải nằm ổn định trong band liên tục (không chỉ lần đầu đi qua). Project plan để “theo thông số chọn”, vậy trước khi kết luận pass phải chốt bằng văn bản/test config: ví dụ tolerance 2% hay 5%, yêu cầu ở trong band liên tiếp bao nhiêu ms, thời lượng test tối đa. Không được thay tiêu chí sau khi xem kết quả để biến fail thành pass.</p>
+<p>Steady-state error là <code>θref−θ</code> sau khi quá độ kết thúc; PID integral thường giảm sai số này nhưng có thể gây windup nếu actuator bị giới hạn.</p>
+<h3>8.3 Log data schema và đồ thị</h3>
+<p><code>tools/plot_step.py</code> hiện là placeholder. Thiết kế trước schema CSV ổn định để test Python/plot không phụ thuộc C struct trong RAM:</p>
+<pre><code># step_response.csv (mỗi dòng = một sample điều khiển)
+time_s,theta_ref_rad,theta_true_rad,theta_meas_rad,omega_rad_s,current_a,voltage_v
+0.000,0.000,0.000,0.000,0.000,0.000,0.000
+...</code></pre>
+<p>Plot tối thiểu: target và θ theo thời gian; có thể thêm ω/u ở panel phụ; summary: overshoot %, settling time, steady-state error, max |u|, số tick/overrun. Với M1, simulation test host là nơi dễ nhất xuất CSV và tính step metrics; QEMU chứng minh periodic task và MPU, không cần in mỗi sample ra UART.</p>
+
+<h2 id="rtos">9. Control task 1 kHz trong FreeRTOS</h2>
+<h3>9.1 Tick và chu kỳ</h3>
+<p>Project hiện đặt <code>configTICK_RATE_HZ=1000</code> trong [FreeRTOSConfig.h](../freertos/app/FreeRTOSConfig.h), nên 1 tick danh nghĩa là 1 ms virtual time của firmware. <code>configCPU_CLOCK_HZ=25 MHz</code> dùng để cấu hình port/tick; trong QEMU/SIL, thời gian virtual và thời gian host wall-clock không nhất thiết bằng nhau.</p>
+<p>Dùng <code>vTaskDelayUntil(&amp;xLastWakeTime, period)</code> để giữ pha định kỳ: mỗi deadline dựa trên mốc trước đó, không cộng “thời gian chạy + delay” như <code>vTaskDelay</code>. Nếu task chạy lâu, không thể bù bằng việc giả vờ chưa trễ: phải detect/ghi overrun và xác định safe behavior.</p>
+<pre><code>initialize xLastWakeTime once
+loop:
+    wait until next absolute 1-tick release
+    sample feedback / command snapshot
+    compute cascade controller
+    apply limits
+    advance SIL plant (if plant runs on target)
+    publish telemetry snapshot
+    record timing counters (not printf per tick)</code></pre>
+<p>Thứ tự chính xác cần chốt: ví dụ update sensor → compute command → apply to plant → log. Plant discrete-time index và controller sample phải nhất quán để không tạo trễ giả hoặc “nhìn thấy tương lai”. Một cách phổ biến là controller dùng measurement tại <code>k</code>, output <code>u[k]</code>, plant advance từ <code>k</code> sang <code>k+1</code>.</p>
+<h3>9.2 Priority, preemption và blocking</h3>
+<p>Kernel config hiện bật preemption, tắt time slicing. Control task priority cao hơn background/network workload để giảm bị trì hoãn; nhưng priority cao không loại bỏ thời gian interrupt, critical section, hoặc CPU hog task. Trong M1 cần ghi rõ priority tương đối thay vì chỉ nói “high”. Tránh block trên queue/mutex/printf trong control path; lấy command non-blocking hoặc snapshot đã chuẩn bị sẵn.</p>
+<p>Không gọi <code>printf</code> mỗi tick: UART polling chậm, libc có lock/stack/MPU implications, và logging tự tạo jitter. Ghi binary counters/samples vào buffer có giới hạn hoặc decimate log (ví dụ mỗi N ticks) từ task thấp hơn. Khi buffer đầy, định nghĩa drop policy/counter.</p>
+<h3>9.3 Task không nên sở hữu mọi thứ</h3>
+<p>Giữ thuật toán plant/encoder/PID trong C modules độc lập; adapter RTOS chỉ điều phối thời gian và dữ liệu. M1 có thể bắt đầu bằng setpoint step nội bộ để kiểm tra vòng điều khiển, chưa phụ thuộc UDP echo. Khi Comm task thật xuất hiện ở các milestone sau, command sẽ được đưa qua queue/mailbox; không để parser mạng sửa thẳng PID state giữa chu kỳ.</p>
+<div class="box good"><strong>Invariant hữu ích:</strong> mỗi control tick có tối đa một command snapshot rõ nguồn gốc; controller state chỉ bị control task sửa; output cuối cùng luôn qua saturation/rate/soft-limit policy; task khác đọc telemetry snapshot nhất quán.</div>
+
+<h2 id="mpu">10. MPU: cô lập control task mà không tự khóa mình</h2>
+<p>M0 đã chứng minh MPU qua [mpu_selftest.c](../freertos/app/mpu_selftest.c): task restricted chạy unprivileged, một vùng dữ liệu RO bị ghi → MemManage. M1 chuyển từ “fault demo” sang task điều khiển thật, nên phải thiết kế quyền bộ nhớ trước khi tạo task.</p>
+<h3>10.1 Mô hình đặc quyền</h3>
+<ul><li>Privileged task/code có quyền hệ thống rộng hơn; unprivileged task chỉ truy cập code/data/objects được MPU cho phép.</li><li>FreeRTOS MPU port dùng region descriptors; Cortex-M MPU có yêu cầu kích thước/alignment và số region hữu hạn. Xem giới hạn của port và linker script hiện tại, không sao chép region sample một cách máy móc.</li><li>Stack control task phải được cấu hình đúng cho MPU port, đủ lớn và được canary/high-water-mark kiểm tra. Buffer/struct global mà task truy cập cũng cần quyền region thích hợp.</li><li>Không đưa network driver/socket/FreeRTOS heap tùy tiện vào vùng control task. IP/RX task đang chạy privileged do thiết kế M0; control task nên được restricted nhưng chỉ gọi kernel API theo cơ chế MPU wrapper/ACL cho phép.</li></ul>
+<h3>10.2 Ownership trước shared memory</h3>
+<p>Phương án an toàn, dễ reasoning: Comm task gửi một command object qua queue; control task nhận non-blocking và copy thành local snapshot. Telemetry được publish bằng queue hoặc double-buffer có quy tắc ownership. Queue là kernel object nên task restricted cần quyền ACL phù hợp với wrapper version hiện bật; kiểm tra access control object thật trong port. Nếu dùng shared struct volatile, nhớ rằng <code>volatile</code> không tự tạo atomicity, mutual exclusion, memory ordering hay snapshot nhất quán.</p>
+<h3>10.3 Thiết kế fault path</h3>
+<p>M1 acceptance tập trung control response, nhưng kiến trúc tổng có REQ-SAF-007: HardFault/MemManage phải disable output, lưu fault record vào <code>.noinit</code>, reset và báo sau reboot. Hiện handler M0 còn là self-test/recovery demo; không giả định đã hoàn thành safety path này. Khi mở rộng handler: không gọi FreeRTOS API, socket hay printf; chỉ làm thao tác tối thiểu đã kiểm chứng. Fault cố ý trong self-test không được nhầm thành fault production.</p>
+<div class="box warn"><strong>MPU không thay thế design correctness:</strong> MPU ngăn truy cập vùng không được cấp, nhưng không phát hiện PID sai, parameter NaN, command cũ, hay control deadline miss trừ khi code chủ động kiểm tra.</div>
+
+<h2 id="timing">11. Jitter trên QEMU: định nghĩa đúng trước khi vẽ histogram</h2>
+<h3>11.1 Các đại lượng không giống nhau</h3>
+<table><tr><th>Đại lượng</th><th>Định nghĩa</th><th>Ý nghĩa</th></tr>
+<tr><td>Release/response jitter</td><td>Độ lệch thời điểm task thực sự bắt đầu so với deadline/release dự kiến</td><td>Task bắt đầu sớm/trễ bao nhiêu</td></tr>
+<tr><td>Execution time</td><td><code>finish−start</code> cùng clock/counter</td><td>CPU mất bao lâu chạy thân control loop</td></tr>
+<tr><td>Period error</td><td><code>(t[k]−t[k−1])−T</code></td><td>Chu kỳ thực tế lệch khỏi 1 ms bao nhiêu</td></tr>
+<tr><td>Deadline miss</td><td>Task chưa hoàn tất trước deadline kế tiếp</td><td>Hệ thống không kịp tính chu kỳ</td></tr>
+<tr><td>Idle work/count</td><td>Số lần idle hook chạy trong khoảng</td><td>Proxy lượng CPU rảnh, không phải thời gian thực thi control</td></tr></table>
+<h3>11.2 Giới hạn của SysTick và DWT</h3>
+<p>QEMU 8.2.2 đã kiểm tra: DWT <code>CYCCNT</code> không được model (đọc 0), nên không dùng DWT để tuyên bố cycle timing. <code>configTICK_RATE_HZ=1000</code> cho tick granularity 1 ms. Nếu chỉ lấy <code>xTaskGetTickCount()</code>, resolution của timestamp là 1 ms — không đủ phân biệt 20 µs với 200 µs jitter trong cùng tick. Histogram khi đó chủ yếu cho biết số tick trễ/overrun, không phải sub-millisecond timing.</p>
+<p>SysTick hardware có counter đếm trong một tick; có thể thử ghép tick count với SysTick current-value register để tạo timestamp dưới 1 ms, nhưng cần xác minh clock source, reload, wrap/race quanh tick interrupt trên đúng QEMU/FreeRTOS port. Không ghi nhãn “microsecond accurate” chỉ vì convert count sang µs; phải validate counter increments và behavior khi <code>-icount</code>.</p>
+<h3>11.3 Lựa chọn đo theo mức độ tin cậy</h3>
+<ol><li><strong>Bắt buộc và chắc chắn:</strong> đếm tick, missed release, execution vượt số tick, số lần deadline miss. Đây là timing quan sát được với độ phân giải 1 ms.</li><li><strong>Nếu SysTick VAL được xác minh:</strong> tạo timestamp sub-tick nhất quán bằng tick+down-counter; xử lý rollover (đọc tick/counter theo mẫu retry) và xác nhận bằng test interval dài đã biết.</li><li><strong><code>-icount</code> + idle hook:</strong> dùng như chỉ số proxy/so sánh độ ổn định CPU rảnh, không gọi là jitter của control task. <code>ulIdleCount</code> thay đổi do workload/scheduler; nó không trực tiếp đo lúc control task bắt đầu/kết thúc.</li><li><strong>Host wall-clock:</strong> đo thời gian host để báo runtime/throughput SIL; không trộn với virtual tick để pass/fail control deadline.</li></ol>
+<p>Định nghĩa metric jitter phải được chốt trong báo cáo: chẳng hạn start lateness <code>t_start[k]−t_release[k]</code>; period jitter <code>(t_start[k]−t_start[k−1])−T</code>; execution time riêng. Đừng gộp 3 chuỗi vào một cột “jitter”. Dữ liệu histogram có thể lưu <code>sample_index,release_tick,start_tick,finish_tick,start_lateness_ticks,execution_ticks,deadline_miss</code>; nếu dùng sub-tick thì thêm đơn vị cụ thể.</p>
+<div class="box danger"><strong>Điểm cần chủ động sửa trong hiểu biết/spec:</strong> project plan nói “jitter bằng DWT/SysTick”, nhưng DWT không chạy trên model hiện tại. SysTick tick count 1 ms chỉ cho timing thô. M1 phải kiểm tra SysTick down-counter hoặc ghi rõ giới hạn; idle-hook/<code>-icount</code> là proxy chứ không thay phép đo trực tiếp. Kết quả là SIL/virtual timing, không phải hard real-time.</div>
+
+<h2 id="testing">12. Unit test host: bắt lỗi toán trước khi debug QEMU</h2>
+<p>Project định dùng Unity/Ceedling (kế hoạch M1). Module plant/encoder/PID phải không include <code>FreeRTOS.h</code>, không đọc thanh ghi, không phụ thuộc UART. Nhờ vậy host test chỉ build C source thuần. CI hiện mới chạy pytest cho Python; job host C test/build là việc cần thêm khi triển khai.</p>
+<table><tr><th>Module</th><th>Test case tối thiểu</th><th>Điều test chứng minh</th></tr>
+<tr><td>Plant</td><td>u=0, state=0, load=0 → state không tự chạy; input hằng → dòng/tốc độ đúng chiều; ma sát/load làm giảm tốc; Euler/RK2 không NaN/Inf; dt/params invalid được reject</td><td>Dấu, đơn vị, update equations và guard hợp lý</td></tr>
+<tr><td>Encoder</td><td>0 rad→0 count; một vòng→N count; nửa count quanh rounding boundary; độ phân giải; fixed seed lặp lại noise; stuck giữ output trong khi plant angle đổi</td><td>Quantization, semantics, deterministic randomness</td></tr>
+<tr><td>PID</td><td>zero error; proportional sign; integral xóa offset; derivative sign/filter; amplitude clamp; slew clamp; saturation kéo dài rồi đảo dấu hồi phục nhanh</td><td>Logic rời rạc, anti-windup, giới hạn</td></tr>
+<tr><td>Cascade integration</td><td>step ± direction; nhiều amplitude; actuator saturate; target gần soft limit; sensor quantized/noisy</td><td>Đáp ứng đóng vòng và acceptance M1</td></tr></table>
+<h3>12.1 Test theo invariant, không chỉ snapshot</h3>
+<ul><li>Vị trí/tốc độ/dòng/output phải hữu hạn sau mỗi bước hợp lệ.</li><li>Output luôn trong amplitude bound và delta mỗi bước không vượt slew limit.</li><li>Target/trajectory không vượt soft limits theo policy đã chọn.</li><li>Khi actuator saturation lâu, integral state không phình không giới hạn; đảo lỗi thì output bắt đầu thoát saturation trong thời gian hữu hạn.</li><li>Cùng config, seed, input sequence → cùng trace (trong tolerance số học đã định nghĩa).</li><li>Kiểm thử cả boundary và invalid input: R=0, L=0, J=0, N=0, dt≤0, giới hạn min≥max, overflow count.</li></ul>
+<h3>12.2 Host và Cortex-M3 có thể khác</h3>
+<p>Host thường dùng double/FPU khác target Cortex-M3. Chọn float/double API rõ ràng; acceptance test có tolerance (absolute/relative) thay vì so bit-exact giữa platform khác nhau. Mọi random sequence cần fixed seed. Nếu target dùng software float, đo tải task sau khi tích hợp; host test nhanh không chứng minh 1 ms deadline đạt trên QEMU.</p>
+
+<h2 id="sequence">13. Trình tự làm M1 có kiểm soát</h2>
+<ol class="checklist">
+<li><strong>Chốt model contract:</strong> quy ước dấu, đơn vị, state, parameter validity, dt, integrator, encoder CPR và semantics stuck.</li>
+<li><strong>Viết/test plant trước controller:</strong> equilibrium, dấu, response open-loop, kiểm tra dt và hội tụ; chưa cần FreeRTOS.</li>
+<li><strong>Viết/test encoder:</strong> lượng tử hóa trước, nhiễu reproducible sau, stuck fault độc lập.</li>
+<li><strong>Viết PID đơn vòng:</strong> state struct/config, saturation, rate limiting, anti-windup; unit-test từng phần.</li>
+<li><strong>Ghép cascade offline:</strong> position → speed → voltage; tune speed loop trước position loop; tạo step CSV + metrics.</li>
+<li><strong>Chốt định nghĩa acceptance:</strong> Mp&lt;10%, settling band/duration, test amplitude/config, cách tính jitter. Không đổi tiêu chí sau khi thấy kết quả.</li>
+<li><strong>Đưa thuật toán vào task adapter:</strong> 1 tick/1 ms, priority, queue/snapshot, overrun counters, không printf từng tick.</li>
+<li><strong>Bật MPU có từng bước:</strong> task tạo được → đọc state/stack hợp lệ → truy cập object được cấp quyền → negative test vùng cấm.</li>
+<li><strong>Đo timing QEMU:</strong> tick-level trước; thử SysTick down-counter nếu cần sub-tick; phân biệt execution, release jitter, period jitter, deadline misses.</li>
+<li><strong>Build report:</strong> chạy Ceedling host tests, firmware build, QEMU scenario, lưu CSV/plot và cấu hình để tái lập.</li>
+</ol>
+<h3>13.1 Dự kiến ranh giới source</h3>
+<table><tr><th>File dự kiến</th><th>Nội dung</th><th>Không nên chứa</th></tr>
+<tr><td><code>freertos/control/plant.h/.c</code></td><td>config/state, reset, step, validation</td><td>FreeRTOS API, UART, QEMU register</td></tr>
+<tr><td><code>freertos/control/encoder.h/.c</code></td><td>CPR, quantize, noise state/seed, stuck</td><td>network/task scheduling</td></tr>
+<tr><td><code>freertos/control/pid.h/.c</code></td><td>PID params/state/update/reset, anti-windup</td><td>global mutable singleton nếu test nhiều controller</td></tr>
+<tr><td><code>freertos/app/control_task.c</code></td><td>task create, 1 kHz loop, sequencing, snapshot, timing</td><td>phương trình vật lý/PID dài dòng</td></tr>
+<tr><td><code>freertos/tests/</code></td><td>Unity/Ceedling host tests + test config</td><td>phụ thuộc QEMU/FreeRTOS để test math</td></tr>
+<tr><td><code>tools/plot_step.py</code></td><td>đọc CSV, plot step/jitter, tính/report metrics</td><td>định nghĩa ngầm khác với test C</td></tr></table>
+<p>Đây là ranh giới gợi ý, không bắt buộc tên API. Quan trọng là C core thuần và RTOS adapter mỏng.</p>
+
+<h2 id="glossary">14. Glossary và câu hỏi tự kiểm tra</h2>
+<table><tr><th>Thuật ngữ</th><th>Hiểu ngắn gọn</th></tr>
+<tr><td>Plant</td><td>Mô hình đối tượng vật lý bị điều khiển.</td></tr><tr><td>Back-EMF</td><td>Điện áp ngược tỷ lệ tốc độ motor, làm giảm dòng khi motor quay nhanh.</td></tr>
+<tr><td>Quantization</td><td>Ánh xạ đại lượng liên tục sang bậc rời rạc encoder counts.</td></tr><tr><td>Windup</td><td>Tích phân PID tiếp tục tăng khi actuator đã bão hòa.</td></tr>
+<tr><td>Saturation</td><td>Giới hạn biên độ output do actuator/thiết kế.</td></tr><tr><td>Slew-rate limit</td><td>Giới hạn tốc độ thay đổi output/reference theo thời gian.</td></tr>
+<tr><td>MPU region</td><td>Vùng địa chỉ cùng quyền truy cập, kích thước/alignment theo phần cứng.</td></tr><tr><td>Jitter</td><td>Biến thiên thời điểm hoặc chu kỳ so với lịch mong muốn; phải nêu metric cụ thể.</td></tr>
+<tr><td>Deadline miss</td><td>Task không hoàn thành công việc trước deadline được đặt.</td></tr><tr><td>Virtual time</td><td>Thời gian mô phỏng QEMU, không nhất thiết trùng thời gian thật của host.</td></tr></table>
+<h3>Tự hỏi trước khi bắt đầu code</h3>
+<ol><li>Nếu tăng điện áp dương nhưng vị trí giảm, cần kiểm tra những quy ước dấu nào?</li><li>Tại sao plant position cần thêm state θ dù transfer function voltage→speed là bậc hai?</li><li>Nếu PID yêu cầu 20 V nhưng actuator chỉ cho 12 V, integral state nên thay đổi ra sao?</li><li>Encoder stuck khác plant stuck ở điểm nào, và vì sao phải giữ plant vẫn chuyển động trong F8?</li><li>Nếu <code>xTaskGetTickCount()</code> chỉ thay đổi mỗi 1 ms, histogram nào có ý nghĩa và histogram nào đang giả độ chính xác?</li><li>Task unprivileged cần quyền gì để đọc command mà không được sửa command/PID state?</li><li>Điều kiện pass settling time phải được chốt ra sao để có thể lặp lại và không tùy tiện?</li></ol>
+
+<div class="footer"><strong>Tài liệu tham chiếu trong repo:</strong> <a href="02_PROJECT_PLAN.md">02_PROJECT_PLAN.md</a> (M1), <a href="01_ARCHITECTURE.md">01_ARCHITECTURE.md</a> (§5, §7), <a href="requirements.md">requirements.md</a>, <a href="sil_environment.md">sil_environment.md</a> (QEMU/DWT/−icount), <a href="../freertos/app/FreeRTOSConfig.h">FreeRTOSConfig.h</a>, <a href="../freertos/app/mpu_selftest.c">mpu_selftest.c</a>, <a href="../freertos/app/periph_test.c">periph_test.c</a>, <a href="../freertos/CMakeLists.txt">CMakeLists.txt</a>. Kết quả đo chỉ được trình bày là SIL/QEMU, không phải xác nhận phần cứng hoặc hard real-time.</div>
+</main>
+</body>
+</html>

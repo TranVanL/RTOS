@@ -98,4 +98,12 @@ qemu-system-arm -machine mps2-an385 -cpu cortex-m3 -kernel build/freertos_<t>/no
 Ghi chú: chỉ số "công việc idle mỗi tick" là số vòng idle hook giữa hai tick 1 ms; đây là đại lượng tất định để so sánh, không phải ms. Handler NMI của bài kiểm tra cố ý **không** xoá ngắt để lần hết hạn thứ hai sinh reset.
 
 ## 5. Kết quả M0 acceptance
-UDP echo QNX ↔ FreeRTOS 10 phút: _TBD (gói gửi/nhận/mất)_
+UDP echo QNX ↔ FreeRTOS 10 phút: _TBD (gói gửi/nhận/mất)_ — **chưa có QNX VM**.
+
+Diễn tập phía host (peer Python thay QNX, QEMU 8.2.2, `-netdev user` + `hostfwd`, firmware `freertos/` với MPU self-test chạy song song):
+```
+python3 tools/sil_runner.py echo --duration 600 --rate 100
+sent=60000 received=60000 lost=0 mismatch=0
+PASS
+```
+Tiêu chí là đếm gói (`lost == 0`), không phải ms. Node tự đếm cùng lúc: `udp_echo rx=59829 tx=59829` ở lần in cuối (in mỗi 5 s) và `mpu_test faults=600`. Mới là diễn tập: chưa tính là đạt M0 cho tới khi chạy với QNX process qua VM.
