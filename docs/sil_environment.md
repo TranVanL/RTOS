@@ -29,11 +29,33 @@ Phương án chọn và lý do: _TBD_
 ## 4. Bảng xác minh peripheral QEMU `mps2-an385`
 | Chức năng | Kỳ vọng | Kết quả | Fallback |
 |---|---|---|---|
-| MPU Cortex-M3 | Truy cập sai → MemManage | ☐ | — |
+| MPU Cortex-M3 | Truy cập sai → MemManage | ☑ Đạt (QEMU 8.2.2, demo `CORTEX_MPU_M3_MPS2_QEMU_GCC`, xem §4.1) | — |
 | CMSDK watchdog | Lần 1 NMI, lần 2 reset | ☐ | Đối chiếu `hw/watchdog/cmsdk-apb-watchdog.c` |
 | NIC LAN9118 | UDP gửi/nhận | ☐ | `-netdev user` + hostfwd |
 | DWT cycle counter | Đọc được `CYCCNT` | ☐ | SysTick |
 | `-icount` | Jitter ổn định hơn | ☐ | Ghi nhãn thời gian host |
+
+### 4.1 Bằng chứng MPU (QEMU 8.2.2, demo tag 202411.00)
+Demo không in log khi MPU bắt lỗi (chỉ `printf` khi scheduler thoát/stack overflow/hết heap). Bằng chứng lấy từ thanh ghi fault qua gdb.
+
+Lệnh (thư mục `~/ref/FreeRTOS/FreeRTOS/Demo/CORTEX_MPU_M3_MPS2_QEMU_GCC`, sau `make`):
+```
+qemu-system-arm -machine mps2-an385 -monitor null -semihosting --semihosting-config enable=on,target=native \
+  -kernel build/RTOSDemo.axf -serial stdio -nographic -gdb tcp::1234 -S &
+gdb-multiarch -q -batch build/RTOSDemo.axf -ex "set architecture arm" -ex "target remote :1234" \
+  -ex "break MemMang_Handler" -ex "continue" -ex "bt 3" \
+  -ex "p/x &ucSharedMemory" -ex "x/wx 0xE000ED28" -ex "x/wx 0xE000ED34"
+```
+Kết quả:
+| Mục | Giá trị | Ý nghĩa |
+|---|---|---|
+| Breakpoint | dừng tại `MemMang_Handler` (vector MemManage) | MPU sinh fault |
+| `bt` | `MemMang_Handler` ← `<signal handler called>` ← `prvROAccessTask` | task `ROAccess` gây fault |
+| MMFSR (`0xE000ED28`) | `0x82` | bit7 MMARVALID, bit1 DACCVIOL (vi phạm truy cập dữ liệu) |
+| MMFAR (`0xE000ED34`) | `0x2000b420` | bằng `&ucSharedMemory` → ghi vào vùng RO |
+| `continue` lần 2 | dừng lại ở handler | fault lặp lại, handler phục hồi, hệ thống vẫn chạy |
+
+Ghi chú: build 10 s không `-S` chạy ổn định (exit 124 do `timeout`), không crash.
 
 ## 5. Kết quả M0 acceptance
 UDP echo QNX ↔ FreeRTOS 10 phút: _TBD (gói gửi/nhận/mất)_
