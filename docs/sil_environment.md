@@ -7,9 +7,11 @@
 |---|---|---|
 | QNX SDP | _TBD_ (8.0) | |
 | VMware | _TBD_ | |
-| QEMU | _TBD_ | `qemu-system-arm -M mps2-an385` |
-| arm-none-eabi-gcc | _TBD_ | |
-| FreeRTOS kernel / FreeRTOS+TCP | _TBD_ | |
+| QEMU | 8.2.2 (Debian 1:8.2.2+ds-0ubuntu1.18) | `qemu-system-arm -M mps2-an385` |
+| arm-none-eabi-gcc | 13.2.1 20231009 (15:13.2.rel1-2) | gdb-multiarch 15.1 |
+| FreeRTOS kernel | V11.3.3 (`89592801dd8b73329a7583719b7e3567b50910e5`) | submodule `freertos/third_party/FreeRTOS-Kernel` |
+| FreeRTOS demo (tham chiếu) | tag 202411.00 | clone nông tại `~/ref/FreeRTOS`, ngoài repo; chỉ để copy sang `freertos/port/`, `freertos/app/` |
+| FreeRTOS+TCP | V4.4.2 (`b86ad086e9870099bb0ac18a75dcb7f6dd508cc7`) | submodule `freertos/third_party/FreeRTOS-Plus-TCP` |
 | Python / cantools / pytest | _TBD_ | |
 
 ## 2. License

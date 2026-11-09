@@ -1,0 +1,6 @@
+[submodule "freertos/third_party/FreeRTOS-Kernel"]
+	path = freertos/third_party/FreeRTOS-Kernel
+	url = https://github.com/FreeRTOS/FreeRTOS-Kernel.git
+[submodule "freertos/third_party/FreeRTOS-Plus-TCP"]
+	path = freertos/third_party/FreeRTOS-Plus-TCP
+	url = https://github.com/FreeRTOS/FreeRTOS-Plus-TCP.git
