@@ -96,7 +96,7 @@ qcc -Vgcc_ntox86_64 -o m0_peer m0_peer.c -lsocket   # QNX tách BSD socket ra li
 <pre><code>dir1 (QNX->node->QNX): sent=60000 received=60000 lost=0 mismatch=0
 dir2 (node->QNX):      expected=60033 received=60033 lost=0
 PASS</code></pre>
-<p>Log gốc: <code>docs/results/m0_qnx_600s.result</code> (peer QNX) và <code>docs/results/m0_node_600s.log</code> (UART node). Tiêu chí là đếm gói, nên ms/thời gian thật không tham gia kết luận. Trước đó có diễn tập 10 phút bằng peer Python qua SLIRP (60000/60000) — lần này mới là peer QNX thật.</p>
+<p>Log gốc: <code>docs/results/m0_qnx_600s.result</code> (peer QNX) và <code>docs/results/m0_node_600s.uart.txt</code> (UART node). Tiêu chí là đếm gói, nên ms/thời gian thật không tham gia kết luận. Trước đó có diễn tập 10 phút bằng peer Python qua SLIRP (60000/60000) — lần này mới là peer QNX thật.</p>
 
 <h2>7. Lỗi gặp phải và cách xử lý</h2>
 <table>

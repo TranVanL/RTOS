@@ -14,7 +14,7 @@ for i in $(seq 60); do $SSH true 2>/dev/null && break; sleep 2; done
 $SSH 'ifconfig vtnet1 192.168.50.1/24 up' || exit 2
 scp -q -i ~/.ssh/id_qnxvm -P 2222 ~/qnxvm/m0_peer root@127.0.0.1:/tmp/m0_peer
 qemu-system-arm -machine mps2-an385 -cpu cortex-m3 -kernel "$ROOT/build/freertos_link/node.elf" -monitor null \
-  -semihosting -semihosting-config enable=on,target=native -serial file:"$OUT/m0_node_${DUR}s.log" -nographic \
+  -semihosting -semihosting-config enable=on,target=native -serial file:"$OUT/m0_node_${DUR}s.uart.txt" -nographic \
   -netdev socket,id=n0,connect=127.0.0.1:5555 -net nic,model=lan9118,netdev=n0 >/dev/null 2>&1 & NODEPID=$!
 sleep 5
 $SSH "chmod +x /tmp/m0_peer; /tmp/m0_peer 192.168.50.2 $DUR $RATE" | tee "$OUT/m0_qnx_${DUR}s.result"

@@ -1,0 +1,367 @@
+
+M0 node boot: FreeRTOS V11.3.3, MPU port, FreeRTOS+TCP
+0->FreeRTOS_AddEndPoint 296: FreeRTOS_AddEndPoint: MAC: 34-ad IPv4: c0a83202ip
+network up, ip 192.168.50.2
+udp_echo listening on 5000
+udp_probe -> peer port 5100
+mpu_test faults=5 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_prudp_echo rx=211 tx=211
+obe sent=501 echoed=209
+mpu_test faults=10 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_echo rx=713 tx=713
+udp_probe sent=1001 echoed=709
+mpu_test faults=15 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=1501 echoed=1210
+udp_echo rx=1213 tx=1213
+mpu_test faults=20 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=2001 echoed=1709
+udp_echo rx=1714 tx=1714
+mpu_test faults=25 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=2501 udp_echo rx=2214 tx=2214
+echoed=2209
+mpu_test faults=30 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=3001 echoed=2709
+udp_echo rx=2714 tx=2714
+mpu_test faults=35 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=3501 echoed=3209
+udp_echo rx=3214 tx=3214
+mpu_test faults=40 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_echo rx=3714 tx=3714
+udp_probe sent=4001 echoed=3709
+mpu_test faults=45 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_pudp_echo rx=4214 tx=4214
+robe sent=4501 echoed=4209
+mpu_test faults=50 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=5001 echoed=4709
+udp_echo rx=4715 tx=4715
+mpu_test faults=55 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=5501udp_echo rx=5215 tx=5215
+ echoed=5209
+mpu_test faults=60 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=6001 echoed=5709
+udp_echo rx=5715 tx=5715
+mpu_test faults=65 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=6501udp_echo rx=6215 tx=6215
+ echoed=6209
+mpu_test faults=70 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_echo rx=6715 tx=6715
+udp_probe sent=7001 echoed=6709
+mpu_test faults=75 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=7501 echoed=7210
+udp_echo rx=7215 tx=7215
+mpu_test faults=80 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_echo rx=7716 tx=7716
+udp_probe sent=8001 echoed=7709
+mpu_test faults=85 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=8501 echoed=8209
+udp_echo rx=8216 tx=8216
+mpu_test faults=90 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=9001 echoed=8709
+udp_echo rx=8716 tx=8716
+mpu_test faults=95 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=9501 echoed=9209
+udp_echo rx=9218 tx=9218
+mpu_test faults=100 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_echo rx=9719 tx=9719
+udp_probe sent=10001 echoed=9709
+mpu_test faults=105 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=10501 echoed=10209
+udp_echo rx=10222 tx=10222
+mpu_test faults=110 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_echo rx=10726 tx=10726
+udp_probe sent=11001 echoed=10710
+mpu_test faults=115 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe seudp_echo rx=11227 tx=11227
+nt=11501 echoed=11209
+mpu_test faults=120 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=12001 echoed=11709
+udp_echo rx=11729 tx=11729
+mpu_test faults=125 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=12501 echoed=12209
+udp_echo rx=12229 tx=12229
+mpu_test faults=130 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=13001 echoed=12709
+udp_echo rx=12730 tx=12730
+mpu_test faults=135 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=udp_echo rx=13231 tx=13231
+13501 echoed=13209
+mpu_test faults=140 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=14001 echoed=13709
+udp_echo rx=13731 tx=13731
+mpu_test faults=145 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=14501 echoed=14209
+udp_echo rx=14233 tx=14233
+mpu_test faults=150 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=15001 echoed=14710
+udp_echo rx=14734 tx=14734
+mpu_test faults=155 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=15501 echoed=15209
+udp_echo rx=15236 tx=15236
+mpu_test faults=160 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_echo rx=15741 tx=15741
+udp_probe sent=16001 echoed=15709
+mpu_test faults=165 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=16501 echoed=16209
+udp_echo rx=16246 tx=16246
+mpu_test faults=170 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=17001 echoed=16709
+udp_echo rx=16746 tx=16746
+mpu_test faults=175 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=udp_echo rx=17251 tx=17251
+17501 echoed=17209
+mpu_test faults=180 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=18001 echoed=17709
+udp_echo rx=17754 tx=17754
+mpu_test faults=185 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=18501 echoed=18209
+udp_echo rx=18255 tx=18255
+mpu_test faults=190 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_echo rx=18755 tx=18755
+udp_probe sent=19001 echoed=18709
+mpu_test faults=195 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=19501 echoed=19209
+udp_echo rx=19255 tx=19255
+mpu_test faults=200 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=20001udp_echo rx=19758 tx=19758
+ echoed=19709
+mpu_test faults=205 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_echo rx=20262 tx=20262
+udp_probe sent=20501 echoed=20210
+mpu_test faults=210 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=21001 echoed=20709
+udp_echo rx=20762 tx=20762
+mpu_test faults=215 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=21501 echoed=21210
+udp_echo rx=21264 tx=21264
+mpu_test faults=220 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_echo rx=21765 tx=21765
+udp_probe sent=22001 echoed=21709
+mpu_test faults=225 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=22501 echoed=22210
+udp_echo rx=22265 tx=22265
+mpu_test faults=230 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=23001 echoed=22709
+udp_echo rx=22768 tx=22768
+mpu_test faults=235 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=23501 echoed=23209
+udp_echo rx=23271 tx=23271
+mpu_test faults=240 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udpudp_echo rx=23772 tx=23772
+_probe sent=24001 echoed=23709
+mpu_test faults=245 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=24501 echoed=24209
+udp_echo rx=24276 tx=24276
+mpu_test faults=250 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_echo rx=24776 tx=24776
+udp_probe sent=25001 echoed=24709
+mpu_test faults=255 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=25501 echoed=25209
+udp_echo rx=25276 tx=25276
+mpu_test faults=260 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=26001 echoed=25709
+udp_echo rx=25777 tx=25777
+mpu_test faults=265 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=26501 echoed=26209
+udp_echo rx=26279 tx=26279
+mpu_test faults=270 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=27001 echoed=26709
+udp_echo rx=26780 tx=26780
+mpu_test faults=275 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=27501 echoed=27209
+udp_echo rx=27280 tx=27280
+mpu_test faults=280 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_echo rx=27780 tx=27780
+udp_probe sent=28001 echoed=27709
+mpu_test faults=285 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=28501 echoed=28209
+udp_echo rx=28283 tx=28283
+mpu_test faults=290 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=29001 echoed=28710
+udp_echo rx=28784 tx=28784
+mpu_test faults=295 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=29501 echoed=29210
+udp_echo rx=29289 tx=29289
+mpu_test faults=300 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=30001 echoed=29710
+udp_echo rx=29791 tx=29791
+mpu_test faults=305 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=30501 echoed=30209
+udp_echo rx=30291 tx=30291
+mpu_test faults=310 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_echo rx=30794 tx=30794
+udp_probe sent=31001 echoed=30709
+mpu_test faults=315 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=31501 echoed=31210
+udp_echo rx=31295 tx=31295
+mpu_test faults=320 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=32001 echoed=31710
+udp_echo rx=31798 tx=31798
+mpu_test faults=325 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=32501 echoeudp_echo rx=32300 tx=32300
+d=32209
+mpu_test faults=330 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=33001 echoed=32709
+udp_echo rx=32802 tx=32802
+mpu_test faults=335 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+uudp_echo rx=33304 tx=33304
+dp_probe sent=33501 echoed=33209
+mpu_test faults=340 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_echo rx=33804 tx=33804
+udp_probe sent=34001 echoed=33709
+mpu_test faults=345 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=34501 echoed=34210
+udp_echo rx=34308 tx=34308
+mpu_test faults=350 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=35001 echoed=34710
+udp_echo rx=34809 tx=34809
+mpu_test faults=355 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=35501 echoed=35209
+udp_echo rx=35310 tx=35310
+mpu_test faults=360 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=36001 echoed=35709udp_echo rx=35810 tx=35810
+
+mpu_test faults=365 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=36501 echoed=36210
+udp_echo rx=36310 tx=36310
+mpu_test faults=370 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_echo rx=36811 tx=36811
+udp_probe sent=37001 echoed=36709
+mpu_test faults=375 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=37501 echoed=37209
+udp_echo rx=37314 tx=37314
+mpu_test faults=380 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=38001 echoed=37710
+udp_echo rx=37814 tx=37814
+mpu_test faults=385 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=38501 echoed=38209
+udp_echo rx=38315 tx=38315
+mpu_test faults=390 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sudp_echo rx=38817 tx=38817
+ent=39001 echoed=38709
+mpu_test faults=395 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=39501 echoed=39209
+udp_echo rx=39317 tx=39317
+mpu_test faults=400 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_echo rx=39819 tx=39819
+udp_probe sent=40001 echoed=39709
+mpu_test faults=405 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=4udp_echo rx=40321 tx=40321
+0501 echoed=40209
+mpu_test faults=410 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_echo rx=40821 tx=40821
+udp_probe sent=41001 echoed=40710
+mpu_test faults=415 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+ududp_echo rx=41323 tx=41323
+p_probe sent=41501 echoed=41209
+mpu_test faults=420 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=42001 echoed=41710
+udp_echo rx=41823 tx=41823
+mpu_test faults=425 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=42501 echoed=4220udp_echo rx=42324 tx=42324
+9
+mpu_test faults=430 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_echo rx=42825 tx=42825
+udp_probe sent=43001 echoed=42709
+mpu_test faults=435 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=43501 echoed=43210
+udp_echo rx=43325 tx=43325
+mpu_test faults=440 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=44001 echoed=43709
+udp_echo rx=43825 tx=43825
+mpu_test faults=445 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=44501 echoed=44209
+udp_echo rx=44325 tx=44325
+mpu_test faults=450 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=45001 echoed=44709
+udp_echo rx=44825 tx=44825
+mpu_test faults=455 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=45501 echoed=45209
+udp_echo rx=45326 tx=45326
+mpu_test faults=460 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_echo rx=45826 tx=45826
+udp_probe sent=46001 echoed=45709
+mpu_test faults=465 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=46501 echoed=4620udp_echo rx=46328 tx=46328
+9
+mpu_test faults=470 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=47001 echoed=46710
+udp_echo rx=46833 tx=46833
+mpu_test faults=475 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=47501 echoed=47209
+udp_echo rx=47336 tx=47336
+mpu_test faults=480 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=48001 echoed=47709
+udp_echo rx=47837 tx=47837
+mpu_test faults=485 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=48501 echoed=48209
+udp_echo rx=48339 tx=48339
+mpu_test faults=490 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_echo rx=48839 tx=48839
+udp_probe sent=49001 echoed=48709
+mpu_test faults=495 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=49501 echoed=49209
+udp_echo rx=49339 tx=49339
+mpu_test faults=500 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=50001 echoed=49709
+udp_echo rx=49841 tx=49841
+mpu_test faults=505 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=50501 echoed=50209
+udp_echo rx=50341 tx=50341
+mpu_test faults=510 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+ududp_echo rx=50842 tx=50842
+p_probe sent=51001 echoed=50709
+mpu_test faults=515 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=51501 echoed=51209
+udp_echo rx=51343 tx=51343
+mpu_test faults=520 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_echo rx=51844 tx=51844
+udp_probe sent=52001 echoed=51709
+mpu_test faults=525 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=52501 echoed=52209
+udp_echo rx=52344 tx=52344
+mpu_test faults=530 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=53001 echoed=52709
+udp_echo rx=52851 tx=52851
+mpu_test faults=535 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=53501 echoed=53210
+udp_echo rx=53357 tx=53357
+mpu_test faults=540 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=54001 echoed=53710
+udp_echo rx=53858 tx=53858
+mpu_test faults=545 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=54501 echoed=54209
+udp_echo rx=54358 tx=54358
+mpu_test faults=550 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_echo rx=54859 tx=54859
+udp_probe sent=55001 echoed=54709
+mpu_test faults=555 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=55501 echoed=55209
+udp_echo rx=55360 tx=55360
+mpu_test faults=560 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sudp_echo rx=55860 tx=55860
+ent=56001 echoed=55709
+mpu_test faults=565 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=56501 echoed=56209
+udp_echo rx=56360 tx=56360
+mpu_test faults=570 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=57001 echoed=56710
+udp_echo rx=56861 tx=56861
+mpu_test faults=575 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe seudp_echo rx=57364 tx=57364
+nt=57501 echoed=57209
+mpu_test faults=580 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_echo rx=57865 tx=57865
+udp_probe sent=58001 echoed=57709
+mpu_test faults=585 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=58501 echoed=58209
+udp_echo rx=58369 tx=58369
+mpu_test faults=590 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probeudp_echo rx=58871 tx=58871
+ sent=59001 echoed=58709
+mpu_test faults=595 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sent=59501 echoed=59210
+udp_echo rx=59372 tx=59372
+mpu_test faults=600 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)
+udp_probe sudp_echo rx=59876 tx=59876
+ent=60001 echoed=59709
+mpu_test faults=605 CFSR=0x00000082 MMFAR=0x20042440 PC=0x00012a8c (protected@0x20042440)

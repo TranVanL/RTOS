@@ -106,7 +106,7 @@ dir1 (QNX->node->QNX): sent=60000 received=60000 lost=0 mismatch=0
 dir2 (node->QNX):      expected=60033 received=60033 lost=0
 PASS
 ```
-Log: `docs/results/m0_qnx_600s.result`, `docs/results/m0_node_600s.log`. SIL (QEMU/KVM trên một host); tiêu chí là đếm gói, không phải ms.
+Log: `docs/results/m0_qnx_600s.result`, `docs/results/m0_node_600s.uart.txt`. SIL (QEMU/KVM trên một host); tiêu chí là đếm gói, không phải ms.
 
 Diễn tập trước đó (peer Python thay QNX, `-netdev user` + `hostfwd`): `sent=60000 received=60000 lost=0 mismatch=0 PASS`.
 
