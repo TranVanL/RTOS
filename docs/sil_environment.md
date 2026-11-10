@@ -15,8 +15,8 @@
 | Python / cantools / pytest | _TBD_ | |
 
 ## 2. License
-- Điều khoản QNX non-commercial: _TBD — đọc và tóm tắt; xác nhận được phép public repo/ghi vào CV hay không._
-- Tài khoản myQNX: _TBD_
+- Điều khoản QNX non-commercial: chủ dự án đã đọc điều khoản (2026-11-10) và xác nhận **được phép public repo** cho project này. Không chép lại nguyên văn điều khoản ở đây; nội dung chính thức là bản trên myQNX. Repo chỉ chứa mã nguồn của dự án, không chứa binary/thư viện QNX hay image VM.
+- Tài khoản myQNX: có (chủ dự án); không ghi thông tin tài khoản vào repo.
 
 ## 3. Mạng
 | Thành phần | IP | Cách nối | Đã xác minh |
@@ -110,4 +110,4 @@ Log: `docs/results/m0_qnx_600s.result`, `docs/results/m0_node_600s.uart.txt`. SI
 
 Diễn tập trước đó (peer Python thay QNX, `-netdev user` + `hostfwd`): `sent=60000 received=60000 lost=0 mismatch=0 PASS`.
 
-Còn lại của M0: điều khoản license QNX non-commercial (§2) chưa được ghi; `-netdev tap` không dùng (cần root).
+M0 đã chốt (2026-11-10): license đã xác nhận (§2). Không dùng `-netdev tap` (cần root); thay bằng `-netdev socket`.
