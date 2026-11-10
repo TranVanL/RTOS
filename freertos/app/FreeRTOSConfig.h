@@ -130,6 +130,10 @@ unsigned long ulGetRunTimeCounterValue( void ); /* Prototype of function that re
 #endif
 #define NODE_MAC_ADDR     0x52,0x54,0x00,0x12,0x34,0xAD
 #define NODE_UDP_PORT     5000
+#define NODE_PROBE_PORT   5100
+#ifndef NODE_PEER_IP_ADDR
+#define NODE_PEER_IP_ADDR NODE_GATEWAY
+#endif
 
 #define configENFORCE_SYSTEM_CALLS_FROM_KERNEL_ONLY    ( 1 )
 

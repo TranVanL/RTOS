@@ -43,10 +43,10 @@ target_compile_options(freertos_third_party PRIVATE ${COMMON_FLAGS} -w)
 
 add_executable(node.elf
     port/startup.c port/syscall.c
-    app/main.c app/hooks.c app/net.c app/udp_echo.c app/mpu_selftest.c app/periph_test.c
+    app/main.c app/hooks.c app/net.c app/udp_echo.c app/udp_probe.c app/mpu_selftest.c app/periph_test.c
     $<TARGET_OBJECTS:freertos_third_party>)
 target_include_directories(node.elf PRIVATE ${COMMON_INCLUDES})
-target_compile_definitions(node.elf PRIVATE PERIPH_TEST_${PERIPH_TEST_ID}=1)
+target_compile_definitions(node.elf PRIVATE PERIPH_TEST_${PERIPH_TEST_ID}=1 NODE_PROBE=1)
 target_compile_options(node.elf PRIVATE ${COMMON_FLAGS} -Wall -Wextra -Wno-unused-parameter)
 foreach(v NODE_IP NODE_NETMASK NODE_GATEWAY)
     string(TOUPPER ${v} V)

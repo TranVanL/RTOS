@@ -37,6 +37,9 @@ void vApplicationIPNetworkEventHook_Multi( eIPCallbackEvent_t eNetworkEvent, str
         xStarted = pdTRUE;
         printf( "network up, ip %u.%u.%u.%u\n", ucIPAddress[ 0 ], ucIPAddress[ 1 ], ucIPAddress[ 2 ], ucIPAddress[ 3 ] );
         udp_echo_start();
+#ifdef NODE_PROBE
+        udp_probe_start();
+#endif
     }
 }
 

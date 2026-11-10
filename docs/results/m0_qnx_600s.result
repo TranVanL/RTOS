@@ -1,0 +1,23 @@
+t=30s dir1 sent=3000 recv=3000 | dir2 recv=2996
+t=60s dir1 sent=6000 recv=6000 | dir2 recv=5995
+t=90s dir1 sent=9000 recv=9000 | dir2 recv=8994
+t=120s dir1 sent=12000 recv=12000 | dir2 recv=11981
+t=150s dir1 sent=15000 recv=15000 | dir2 recv=14975
+t=180s dir1 sent=18000 recv=18000 | dir2 recv=17956
+t=210s dir1 sent=21000 recv=21000 | dir2 recv=20947
+t=240s dir1 sent=24000 recv=23999 | dir2 recv=23936
+t=270s dir1 sent=27000 recv=26999 | dir2 recv=26930
+t=300s dir1 sent=30000 recv=30000 | dir2 recv=29919
+t=330s dir1 sent=33000 recv=33000 | dir2 recv=32906
+t=360s dir1 sent=36000 recv=36000 | dir2 recv=35900
+t=390s dir1 sent=39000 recv=39000 | dir2 recv=38893
+t=420s dir1 sent=42000 recv=42000 | dir2 recv=41887
+t=450s dir1 sent=45000 recv=45000 | dir2 recv=44885
+t=480s dir1 sent=48000 recv=48000 | dir2 recv=47873
+t=510s dir1 sent=51000 recv=51000 | dir2 recv=50867
+t=540s dir1 sent=54000 recv=54000 | dir2 recv=53852
+t=570s dir1 sent=57000 recv=57000 | dir2 recv=56846
+t=600s dir1 sent=60000 recv=60000 | dir2 recv=59834
+dir1 (QNX->node->QNX): sent=60000 received=60000 lost=0 mismatch=0
+dir2 (node->QNX):      expected=60033 received=60033 lost=0
+PASS

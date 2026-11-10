@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>M0 – Cấu hình Ethernet giữa QNX và FreeRTOS</title>
+<style>
+  :root { --fg:#1d2430; --muted:#5b6678; --line:#d9dee7; --bg:#fff; --soft:#f4f6fa; --ok:#1a7f4b; --bad:#b3261e; --warn:#a15c00; --acc:#2456c7; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:16px/1.65 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; color:var(--fg); background:var(--bg); }
+  main { max-width: 920px; margin: 0 auto; padding: 32px 20px 80px; }
+  h1 { font-size: 1.9rem; margin: 0 0 6px; } h2 { font-size: 1.35rem; margin: 2.2em 0 .5em; padding-top: .6em; border-top: 1px solid var(--line); }
+  h3 { font-size: 1.05rem; margin: 1.5em 0 .3em; } p.sub { color: var(--muted); margin: 0 0 1.4em; }
+  code { font: .88em/1.4 ui-monospace,Menlo,Consolas,monospace; background: var(--soft); padding: .1em .35em; border-radius: 4px; }
+  pre { background: #0f1722; color: #e6edf6; padding: 14px 16px; border-radius: 8px; overflow-x: auto; font: .85rem/1.5 ui-monospace,Menlo,Consolas,monospace; }
+  pre code { background: none; padding: 0; color: inherit; }
+  table { border-collapse: collapse; width: 100%; margin: .8em 0; font-size: .93rem; }
+  th, td { border: 1px solid var(--line); padding: 7px 10px; text-align: left; vertical-align: top; } th { background: var(--soft); }
+  .ok { color: var(--ok); font-weight: 600; } .bad { color: var(--bad); font-weight: 600; } .warn { color: var(--warn); font-weight: 600; }
+  .box { background: var(--soft); border-left: 4px solid var(--acc); padding: 10px 16px; border-radius: 4px; margin: 1em 0; }
+  .box.warn { border-color: var(--warn); } .box.ok { border-color: var(--ok); }
+  svg text { font: 13px system-ui, sans-serif; fill: #1d2430; }
+</style>
+</head>
+<body>
+<main>
+<h1>M0 – Cấu hình Ethernet giữa QNX và FreeRTOS</h1>
+<p class="sub">Một process QNX (VM x86_64) trao đổi UDP hai chiều với một task FreeRTOS+TCP (Cortex-M3, QEMU <code>mps2-an385</code>, NIC LAN9118) qua một đường Ethernet tầng 2 giữa hai QEMU. Tất cả là SIL (không phần cứng thật).</p>
+
+<div class="box warn"><strong>Phạm vi – nói đúng với những gì đã làm.</strong> Liên kết của dự án là <strong>Ethernet + UDP</strong> (frame kiểu CAN FD đóng gói trong UDP, bảo vệ bằng lớp E2E dựa trên AUTOSAR Profile 4 ở M2). <strong>Không phải EtherCAT</strong>: EtherCAT đã bị loại khỏi phạm vi (<code>docs/00_PROJECT_OVERVIEW.md</code>) vì không có testbed và không phục vụ định vị automotive. Phần chuyển được sang các JD nhắc tới EtherCAT/Ethernet công nghiệp: cấu hình NIC và driver MAC trên RTOS (LAN9118 + FreeRTOS+TCP), cấu hình NIC/mạng trên QNX, nối tầng 2 giữa hai OS, và đo mất gói bằng đếm tất định. Việc master/slave EtherCAT (EtherType 0x88A4, chu kỳ cứng) <em>chưa làm</em>.</div>
+
+<h2>1. Sơ đồ</h2>
+<svg viewBox="0 0 880 300" width="100%" role="img" aria-label="QNX VM nối FreeRTOS node qua socket QEMU">
+  <rect x="10" y="20" width="330" height="230" rx="10" fill="#eef3ff" stroke="#2456c7"/>
+  <text x="25" y="45" font-weight="600">QEMU x86_64 + KVM – QNX SDP 8.0</text>
+  <rect x="30" y="60" width="290" height="50" rx="6" fill="#fff" stroke="#888"/><text x="42" y="82">m0_peer (process QNX, qcc -lsocket)</text><text x="42" y="100">gửi → :5000 | nghe :5100</text>
+  <rect x="30" y="125" width="290" height="40" rx="6" fill="#fff" stroke="#888"/><text x="42" y="150">io-sock: vtnet1 = 192.168.50.1/24</text>
+  <rect x="30" y="180" width="290" height="55" rx="6" fill="#fff" stroke="#bbb" stroke-dasharray="4"/><text x="42" y="202">vtnet0 = SLIRP 10.0.2.15 (chỉ để ssh)</text><text x="42" y="220">hostfwd 127.0.0.1:2222 → :22</text>
+  <rect x="540" y="20" width="330" height="230" rx="10" fill="#effaf3" stroke="#1a7f4b"/>
+  <text x="555" y="45" font-weight="600">QEMU mps2-an385 (Cortex-M3, 25 MHz)</text>
+  <rect x="560" y="60" width="290" height="50" rx="6" fill="#fff" stroke="#888"/><text x="572" y="82">udp_echo :5000 | udp_probe → :5100</text><text x="572" y="100">task đặc quyền (portPRIVILEGE_BIT)</text>
+  <rect x="560" y="125" width="290" height="40" rx="6" fill="#fff" stroke="#888"/><text x="572" y="150">FreeRTOS+TCP 192.168.50.2/24 (static)</text>
+  <rect x="560" y="180" width="290" height="55" rx="6" fill="#fff" stroke="#888"/><text x="572" y="202">LAN9118 (smsc9220 driver, ISR slot 13)</text><text x="572" y="220">BufferAllocation_2, 20 buffer</text>
+  <line x1="340" y1="145" x2="540" y2="145" stroke="#a15c00" stroke-width="3"/>
+  <text x="352" y="130">-netdev socket</text><text x="350" y="168">listen 127.0.0.1:5555</text><text x="352" y="186">⇄ connect (L2 frames)</text>
+</svg>
+
+<h2>2. Vì sao chọn <code>-netdev socket</code></h2>
+<table>
+<tr><th>Phương án</th><th>Kết quả trên máy này</th><th>Lý do</th></tr>
+<tr><td><code>-netdev tap</code> / <code>bridge</code></td><td class="bad">không dùng</td><td><code>runimage</code> của <code>mkqnximage</code> mặc định dùng <code>-netdev bridge</code>; cả tap lẫn bridge cần quyền root, máy không có sudo không mật khẩu.</td></tr>
+<tr><td><code>-netdev user</code> + <code>hostfwd</code></td><td class="warn">chỉ một phần</td><td>Đủ cho host ↔ node (đã làm ở phần FreeRTOS). Với QNX: SLIRP cho node đi ra <em>host</em>, không tới VM; chiều node → QNX cần relay.</td></tr>
+<tr><td><strong><code>-netdev socket</code> (listen/connect)</strong></td><td class="ok">đã dùng</td><td>QEMU chuyển nguyên frame Ethernet giữa hai tiến trình QEMU qua TCP localhost. Không cần root; hai đầu thấy nhau như trên một switch hai cổng. VM giữ thêm NIC SLIRP riêng để ssh.</td></tr>
+</table>
+
+<h2>3. Cấu hình phía QNX</h2>
+<h3>3.1 Image VM</h3>
+<pre><code>source ~/qnx800/qnxsdp-env.sh
+mkqnximage --type=qemu --arch=x86_64 --noprompt --ssh-ident=$HOME/.ssh/id_qnxvm.pub</code></pre>
+<p>Hai chỗ phải sửa để ssh hoạt động (QNX 8.0.0 build 2026/06/05):</p>
+<ul>
+<li><code>sshd</code> báo <code>/usr/libexec/sshd-auth does not exist</code>. Cách sửa: thêm <code>bin/sshd-auth=usr/libexec/sshd-auth</code> vào <code>local/snippets/system_files.custom</code> và <code>procmgr_symlink /system/bin/sshd-auth /usr/libexec/sshd-auth</code> vào <code>ifs_start.custom</code> (file IFS nằm ở <code>/proc/boot</code>, không phải <code>/usr</code>). Hai snippet nằm ở <code>tools/qnxvm/</code>.</li>
+<li>Đăng nhập root chỉ bằng khóa (<code>PasswordAuthentication no</code>) nên cần <code>--ssh-ident</code>.</li>
+</ul>
+<h3>3.2 Lệnh QEMU của VM (<code>tools/qnxvm/run_vm.sh</code>)</h3>
+<pre><code>qemu-system-x86_64 -smp 2 --enable-kvm --cpu host -m 1G \
+  -drive file=output/disk-qemu.vmdk,if=ide \
+  -netdev user,id=net0,hostfwd=tcp:127.0.0.1:2222-:22 -device virtio-net-pci,netdev=net0,mac=52:54:00:12:34:56 \
+  -netdev socket,id=net1,listen=127.0.0.1:5555      -device virtio-net-pci,netdev=net1,mac=52:54:00:12:34:57 \
+  -kernel output/ifs.bin -serial file:output/qemu.out -display none ...</code></pre>
+<h3>3.3 Địa chỉ và chương trình</h3>
+<pre><code>ifconfig vtnet1 192.168.50.1/24 up          # NIC nối tới node (virtio-net → vtnet1)
+qcc -Vgcc_ntox86_64 -o m0_peer m0_peer.c -lsocket   # QNX tách BSD socket ra libsocket</code></pre>
+
+<h2>4. Cấu hình phía FreeRTOS</h2>
+<table>
+<tr><th>Hạng mục</th><th>Giá trị</th><th>Ghi chú</th></tr>
+<tr><td>QEMU</td><td><code>-netdev socket,id=n0,connect=127.0.0.1:5555 -net nic,model=lan9118,netdev=n0</code></td><td>Khởi động sau VM (VM là bên <code>listen</code>).</td></tr>
+<tr><td>Driver</td><td><code>MPS2_AN385/NetworkInterface.c</code> + <code>ether_lan9118/smsc9220_eth_drv.c</code></td><td>Từ FreeRTOS-Plus-TCP V4.4.2; ISR Ethernet ở vector slot 13 trong <code>port/startup.c</code>.</td></tr>
+<tr><td>Stack</td><td>FreeRTOS+TCP, API multi-endpoint (<code>FreeRTOS_FillEndPoint</code>, <code>FreeRTOS_IPInit_Multi</code>)</td><td>DHCP/TCP/DNS/LLMNR/NBNS/IPv6 tắt; <code>BufferAllocation_2</code>, 20 buffer.</td></tr>
+<tr><td>Địa chỉ</td><td>IP tĩnh 192.168.50.2/24, gateway 192.168.50.1</td><td>Build: <code>cmake --preset node -B ../build/freertos_link -DNODE_IP=192,168,50,2 -DNODE_GATEWAY=192,168,50,1</code> (chạy trong <code>freertos/</code>, build dir <code>../build/freertos_link</code>). IP tĩnh để khởi động tất định (không chờ DHCP). MAC <code>52:54:00:12:34:AD</code>.</td></tr>
+<tr><td>Đặc quyền</td><td>task IP, task RX Ethernet, <code>udp_echo</code>, <code>udp_probe</code> có <code>portPRIVILEGE_BIT</code></td><td>Cổng <code>ARM_CM3_MPU</code> tạo task không đặc quyền nếu <code>xTaskCreate</code> không có bit này; socket và buffer nằm trong heap kernel. Task tự test MPU chạy song song và vẫn bị MemManage như mong đợi.</td></tr>
+<tr><td>Đồng hồ</td><td><code>configCPU_CLOCK_HZ 25000000</code>, tick 1 kHz</td><td>QEMU <code>mps2-an385</code> SYSCLK là 25 MHz; demo gốc ghi 20 MHz làm tick lệch 20%.</td></tr>
+</table>
+
+<h2>5. Giao thức thử nghiệm (M0)</h2>
+<table>
+<tr><th>Chiều</th><th>Cổng</th><th>Mô tả</th></tr>
+<tr><td>1: QNX → node → QNX</td><td>5000/udp</td><td><code>m0_peer</code> gửi gói 32 B đánh số, tần số <code>rate</code> Hz; <code>udp_echo</code> trả nguyên văn; peer đếm gói nhận và kiểm tra nội dung (<code>mismatch</code>).</td></tr>
+<tr><td>2: node → QNX → node</td><td>5100/udp</td><td><code>udp_probe</code> gửi gói có magic <code>M0PR</code> + số thứ tự mỗi 10 tick; peer echo lại và đếm khoảng trống số thứ tự (<code>lost</code>).</td></tr>
+</table>
+<p><strong>Tiêu chí PASS:</strong> <code>lost==0 &amp;&amp; mismatch==0</code> ở cả hai chiều — đếm gói, không đo ms (quy ước của dự án). <code>expected</code> ở chiều 2 có thể lớn hơn số gói chiều 1 vì node chạy theo thời gian ảo của QEMU.</p>
+
+<h2>6. Kết quả</h2>
+<div class="box ok"><strong>Nghiệm thu M0: PASS</strong> — 600 s, 100 Hz, process QNX ↔ task FreeRTOS, hai chiều (SIL, QEMU/KVM trên một host).</div>
+<pre><code>dir1 (QNX->node->QNX): sent=60000 received=60000 lost=0 mismatch=0
+dir2 (node->QNX):      expected=60033 received=60033 lost=0
+PASS</code></pre>
+<p>Log gốc: <code>docs/results/m0_qnx_600s.result</code> (peer QNX) và <code>docs/results/m0_node_600s.log</code> (UART node). Tiêu chí là đếm gói, nên ms/thời gian thật không tham gia kết luận. Trước đó có diễn tập 10 phút bằng peer Python qua SLIRP (60000/60000) — lần này mới là peer QNX thật.</p>
+
+<h2>7. Lỗi gặp phải và cách xử lý</h2>
+<table>
+<tr><th>Triệu chứng</th><th>Nguyên nhân</th><th>Cách sửa</th></tr>
+<tr><td><code>sshd-auth does not exist</code>, ssh bị <code>Connection reset</code></td><td>Image 8.0.0 không kèm <code>sshd-auth</code>; sshd tìm ở <code>/usr/libexec</code></td><td>Thêm file vào <code>/system/bin</code> + <code>procmgr_symlink</code> (mục 3.1).</td></tr>
+<tr><td>Đặt file vào <code>ifs_files.custom</code> không có tác dụng</td><td>File IFS nằm ở <code>/proc/boot</code></td><td>Dùng system partition + symlink.</td></tr>
+<tr><td><code>undefined reference to socket/bind/sendto</code></td><td>QNX tách socket ra <code>libsocket</code></td><td>Thêm <code>-lsocket</code>.</td></tr>
+<tr><td><code>runimage</code> cần bridge</td><td><code>-netdev bridge</code> cần root</td><td>Tự chạy QEMU với <code>-netdev user</code> + <code>-netdev socket</code>.</td></tr>
+<tr><td><code>pkill -f</code> thoát 144</td><td>khớp chính shell đang chạy lệnh</td><td>Dùng <code>pgrep -x</code> rồi <code>kill</code> theo PID.</td></tr>
+</table>
+
+<h2>8. Giới hạn (nói thẳng)</h2>
+<ul>
+<li>Đây là SIL: cả hai đầu là QEMU trên cùng host, liên kết là TCP localhost do QEMU chuyển tiếp. Số ms và jitter không đại diện cho Ethernet thật và <strong>không</strong> được dùng làm tiêu chí; không có tuyên bố hard real-time hay xác nhận trên phần cứng.</li>
+<li>Chưa có VLAN/QoS, chưa có tap/bridge, chưa có EtherCAT. IP 192.168.50.0/24 và cổng 5555 là lựa chọn của dự án.</li>
+<li>Lớp E2E (AUTOSAR Profile 4–based) và frame CAN FD-compatible là M2; M0 chỉ chứng minh đường truyền hai chiều không mất gói.</li>
+<li>License QNX non-commercial: <em>chưa đọc/ghi</em> trong <code>sil_environment.md</code> §2 — việc của chủ dự án.</li>
+</ul>
+
+<h2>9. Chạy lại</h2>
+<pre><code>(cd freertos &amp;&amp; cmake --preset node -B ../build/freertos_link -DNODE_IP=192,168,50,2 -DNODE_GATEWAY=192,168,50,1)
+cmake --build build/freertos_link
+tools/qnxvm/run_m0.sh 600 100     # boot VM, ifconfig, chạy node, chạy m0_peer, log vào docs/results/</code></pre>
+</main>
+</body>
+</html>

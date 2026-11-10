@@ -5,7 +5,7 @@
 ## 1. Phiên bản công cụ
 | Công cụ | Phiên bản | Ghi chú |
 |---|---|---|
-| QNX SDP | _TBD_ (8.0) | |
+| QNX SDP | 8.0.0 (`~/qnx800`, build 2026/06/05) | image bằng `mkqnximage`, thêm `sshd-auth` qua snippet (`tools/qnxvm/`) |
 | VMware | _TBD_ | |
 | QEMU | 8.2.2 (Debian 1:8.2.2+ds-0ubuntu1.18) | `qemu-system-arm -M mps2-an385` |
 | arm-none-eabi-gcc | 13.2.1 20231009 (15:13.2.rel1-2) | gdb-multiarch 15.1 |
@@ -21,7 +21,8 @@
 ## 3. Mạng
 | Thành phần | IP | Cách nối | Đã xác minh |
 |---|---|---|---|
-| QNX VM | _TBD_ | host-only/bridge | ☐ |
+| QNX VM | 192.168.50.1/24 (`vtnet1`); `vtnet0` = SLIRP 10.0.2.15 chỉ để ssh `127.0.0.1:2222` | QEMU x86_64 + KVM (`mkqnximage --type=qemu`, chạy bằng `tools/qnxvm/run_vm.sh`) | ☑ ping QNX→node 3/3 |
+| QEMU node | 192.168.50.2/24 (build `-DNODE_IP=192,168,50,2 -DNODE_GATEWAY=192,168,50,1`) | `-netdev socket,connect=127.0.0.1:5555` tới VM (L2, không cần root) | ☑ ping; ☑ UDP 2 chiều (thử 30 s, 0 mất; nghiệm thu 10 phút: xem §5) |
 | QEMU node | 10.0.2.15 (DHCP của SLIRP), host thấy ở 10.0.2.2 | user + `hostfwd=udp::5000-:5000` | ☑ host↔node (xem §4.2); ☐ QNX VM↔node |
 
 Phương án chọn cho M0 (phía FreeRTOS, đã xác minh): **`-netdev user` + `hostfwd=udp:<bind>:5000-:5000`, IP tĩnh 10.0.2.15/24, gateway 10.0.2.2.**
@@ -98,12 +99,15 @@ qemu-system-arm -machine mps2-an385 -cpu cortex-m3 -kernel build/freertos_<t>/no
 Ghi chú: chỉ số "công việc idle mỗi tick" là số vòng idle hook giữa hai tick 1 ms; đây là đại lượng tất định để so sánh, không phải ms. Handler NMI của bài kiểm tra cố ý **không** xoá ngắt để lần hết hạn thứ hai sinh reset.
 
 ## 5. Kết quả M0 acceptance
-UDP echo QNX ↔ FreeRTOS 10 phút: _TBD (gói gửi/nhận/mất)_ — **chưa có QNX VM**.
-
-Diễn tập phía host (peer Python thay QNX, QEMU 8.2.2, `-netdev user` + `hostfwd`, firmware `freertos/` với MPU self-test chạy song song):
+UDP echo 2 chiều process QNX ↔ task FreeRTOS, 600 s, 100 Hz, nối bằng `-netdev socket` (xem `docs/m0_ethernet_qnx_freertos.html`):
 ```
-python3 tools/sil_runner.py echo --duration 600 --rate 100
-sent=60000 received=60000 lost=0 mismatch=0
+tools/qnxvm/run_m0.sh 600 100
+dir1 (QNX->node->QNX): sent=60000 received=60000 lost=0 mismatch=0
+dir2 (node->QNX):      expected=60033 received=60033 lost=0
 PASS
 ```
-Tiêu chí là đếm gói (`lost == 0`), không phải ms. Node tự đếm cùng lúc: `udp_echo rx=59829 tx=59829` ở lần in cuối (in mỗi 5 s) và `mpu_test faults=600`. Mới là diễn tập: chưa tính là đạt M0 cho tới khi chạy với QNX process qua VM.
+Log: `docs/results/m0_qnx_600s.result`, `docs/results/m0_node_600s.log`. SIL (QEMU/KVM trên một host); tiêu chí là đếm gói, không phải ms.
+
+Diễn tập trước đó (peer Python thay QNX, `-netdev user` + `hostfwd`): `sent=60000 received=60000 lost=0 mismatch=0 PASS`.
+
+Còn lại của M0: điều khoản license QNX non-commercial (§2) chưa được ghi; `-netdev tap` không dùng (cần root).
