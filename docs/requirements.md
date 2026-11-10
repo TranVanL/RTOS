@@ -25,6 +25,6 @@ Cột "Test" điền ở traceability matrix, không điền ở đây. Mức: `
 | REQ-FUN-001 | Control task chạy 1 kHz với PID cascade, anti-windup, saturation, rate limit | M | ARCH §5.2 |
 | REQ-FUN-002 | Step response overshoot < 10% | M | Plan M1 |
 | REQ-PERF-001 | Round-trip CMD → telemetry đo trên một đồng hồ QNX, xuất p50/p99/max | S | ARCH §7 |
-| REQ-PERF-002 | Jitter control task đo bằng DWT, xuất histogram | S | ARCH §7 |
+| REQ-PERF-002 | Jitter control task đo bằng DWT hoặc SysTick (fallback: QEMU 8.2.2 không có model DWT, xem `sil_environment.md` §4), xuất histogram | S | ARCH §7 |
 | REQ-PERF-003 | Có test chứng minh priority inheritance (có/không) trên QNX | S | Plan M3 |
 | REQ-ENV-001 | CI chạy build + unit test + QEMU scenario mỗi lần push | M | Plan M6 |

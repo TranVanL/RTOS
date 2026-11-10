@@ -210,7 +210,7 @@ Hai node chạy trên hai đồng hồ khác nhau (VMware vs QEMU, có thể `-i
 | QNX mất heartbeat | DEGRADED sau **3** chu kỳ 10 ms (timer pulse) bị mất; SAFE_STOP sau **10** | thời gian host ≈ 30 / 100 ms ± 10 ms |
 | E-stop | Output disable trong **≤ 1 control tick** sau khi E-stop task xử lý frame hợp lệ; frame gửi 3 lần | lệnh → disable, đo bằng trace phía node, mục tiêu < 10 ms |
 | QNX `motion_sup` crash | Node tự disable sau ≤ 50 tick mất command | ≤ 60 ms host |
-| Jitter control task | Đo bằng DWT cycle counter (đơn vị cycle, **thời gian ảo** khi `-icount`) | p99 / max, vẽ histogram |
+| Jitter control task | Đo bằng DWT cycle counter, hoặc SysTick khi không có DWT (QEMU 8.2.2; đơn vị cycle, **thời gian ảo** khi `-icount`) | p99 / max, vẽ histogram |
 | Round-trip command → telemetry | Đo **chỉ trên đồng hồ QNX** (`CLOCK_MONOTONIC`): thời điểm gửi CMD counter *n* → thời điểm nhận telemetry echo counter *n* | p50/p99/max, không có mục tiêu cứng |
 
 Mọi số liệu ms ghi rõ "SIL trên VM/QEMU, không phải hard real-time".
