@@ -1,0 +1,16 @@
+M1 Part 6 - control task Restricted, QEMU mps2-an385 -icount shift=0 (SIL, thoi gian ao), udp_echo + udp_probe chay, host echo 25 Hz (~100 Hz thoi gian ao)
+build: cmake --preset node && cmake --build build/freertos (CONTROL_TEST_STEP=ON, CONTROL_LOG_CSV=ON); run: python tools/sil_runner.py echo --duration 280 --rate 25 --icount shift=0
+final build (sau khi them do jitter bang TIMER0, vung control 128 KB)
+CSV lines=70040 last_tick=70039 tick_gaps=0
+control tick=5001 missed=0 dropped=0 seqlock snaps=5001 retries=0 torn=0 stack_hwm=976 words
+control tick=35001 missed=0 dropped=0 seqlock snaps=34955 retries=0 torn=0 stack_hwm=976 words
+mpu_test faults=70 CFSR=0x00000082 MMFAR=0x20062040 PC=0x0001492c (protected@0x20062040)
+control tick=70001 missed=0 dropped=0 seqlock snaps=69955 retries=0 torn=0 stack_hwm=970 words
+udp_echo rx=6715 tx=6715
+echo (host): sent=7000 received=6996 lost=4 (4 goi mat o moi luot chay; chua xac minh nguyen nhan, nghi mat luc khoi dong)
+
+--- violate build (CONTROL_TEST_VIOLATE=ON, 40 s) ---
+mpu_test faults=6 CFSR=0x00000082 MMFAR=0x20062060 PC=0x00014df2 (protected@0x20062040)
+control tick=5001 missed=0 dropped=0 seqlock snaps=5001 retries=0 torn=0 stack_hwm=976 words
+control tick=10001 missed=0 dropped=0 seqlock snaps=10001 retries=0 torn=0 stack_hwm=976 words
+CSV lines=10409 last_tick=10408 tick_gaps=0

@@ -18,9 +18,29 @@ static volatile uint8_t ucExpected[ REGION_SIZE ] __attribute__( ( aligned( REGI
 /* Written only by the (privileged) handler, read by the reporter task. */
 static volatile uint32_t ulFaultCount, ulLastCFSR, ulLastMMFAR, ulLastPC;
 
+#ifdef CONTROL_TEST_VIOLATE
+extern volatile uint32_t * pulControlFaultExpected( void ); /* armed by the control task (M1 Part 6) */
+#endif
+
 void vHandleMemoryFault( uint32_t * pulFrame ) __attribute__( ( used ) );
 void vHandleMemoryFault( uint32_t * pulFrame )
 {
+#ifdef CONTROL_TEST_VIOLATE
+    if( *pulControlFaultExpected() == 1 )
+    {
+        uint32_t ulPC = pulFrame[ 6 ];
+        uint16_t usHalf = *( uint16_t * ) ulPC;
+
+        ulLastCFSR = SCB_CFSR;
+        ulLastMMFAR = SCB_MMFAR;
+        ulLastPC = ulPC;
+        ulFaultCount++;
+        SCB_CFSR = ulLastCFSR;
+        pulFrame[ 6 ] = ulPC + ( ( ( usHalf >> 11 ) >= 0x1D ) ? 4 : 2 );
+        *pulControlFaultExpected() = 0;
+        return;
+    }
+#endif
     if( ucExpected[ 0 ] == 1 )
     {
         uint32_t ulPC = pulFrame[ 6 ];

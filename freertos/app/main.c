@@ -12,6 +12,7 @@ int main( void )
     app_net_init();      /* creates the IP task; udp_echo is started from the network-up hook */
     mpu_selftest_start();
     periph_test_start();
+    control_task_start();
     vTaskStartScheduler();
     printf( "vTaskStartScheduler returned\n" );
     for( ; ; ) { }

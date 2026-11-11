@@ -6,6 +6,13 @@ set(NODE_IP      "10,0,2,15"      CACHE STRING "Node IPv4, comma separated")
 set(NODE_NETMASK "255,255,255,0"  CACHE STRING "Netmask, comma separated")
 set(NODE_GATEWAY "10,0,2,2"       CACHE STRING "Gateway, comma separated")
 
+# M1 control task test profile: CONTROL_TEST_STEP (square reference), CONTROL_TEST_VIOLATE (intentional MemManage at tick 5000)
+option(CONTROL_TEST_STEP "Control task: fixed square step reference" ON)
+option(CONTROL_LOG_CSV "Control task: stream 1 kHz CSV samples to UART (OFF for jitter runs: UART I/O stalls the vCPU)" ON)
+option(NODE_PROBE_ENABLE "Node sends udp_probe at 100 Hz" ON)
+option(CONTROL_TEST_VIOLATE "Control task: intentionally write outside its MPU regions once" OFF)
+set(CONTROL_CORE ${CMAKE_CURRENT_SOURCE_DIR}/../common/control)
+
 # Peripheral verification build (docs/sil_environment.md section 4): none|wdt|wdt_kick|dwt|icount
 set(PERIPH_TEST "none" CACHE STRING "Peripheral test to compile in")
 set_property(CACHE PERIPH_TEST PROPERTY STRINGS none wdt wdt_kick dwt icount)
@@ -43,10 +50,23 @@ target_compile_options(freertos_third_party PRIVATE ${COMMON_FLAGS} -w)
 
 add_executable(node.elf
     port/startup.c port/syscall.c
-    app/main.c app/hooks.c app/net.c app/udp_echo.c app/udp_probe.c app/mpu_selftest.c app/periph_test.c
+    app/main.c app/hooks.c app/net.c app/udp_echo.c app/udp_probe.c app/mpu_selftest.c app/periph_test.c app/control_task.c
+    ${CONTROL_CORE}/plant.c ${CONTROL_CORE}/encoder.c ${CONTROL_CORE}/limits.c ${CONTROL_CORE}/pid.c
     $<TARGET_OBJECTS:freertos_third_party>)
-target_include_directories(node.elf PRIVATE ${COMMON_INCLUDES})
-target_compile_definitions(node.elf PRIVATE PERIPH_TEST_${PERIPH_TEST_ID}=1 NODE_PROBE=1)
+target_include_directories(node.elf PRIVATE ${COMMON_INCLUDES} ${CONTROL_CORE})
+target_compile_definitions(node.elf PRIVATE PERIPH_TEST_${PERIPH_TEST_ID}=1)
+if(NODE_PROBE_ENABLE)
+    target_compile_definitions(node.elf PRIVATE NODE_PROBE=1)
+endif()
+if(CONTROL_LOG_CSV)
+    target_compile_definitions(node.elf PRIVATE CONTROL_LOG_CSV=1)
+endif()
+if(CONTROL_TEST_STEP)
+    target_compile_definitions(node.elf PRIVATE CONTROL_TEST_STEP=1)
+endif()
+if(CONTROL_TEST_VIOLATE)
+    target_compile_definitions(node.elf PRIVATE CONTROL_TEST_VIOLATE=1)
+endif()
 target_compile_options(node.elf PRIVATE ${COMMON_FLAGS} -Wall -Wextra -Wno-unused-parameter)
 foreach(v NODE_IP NODE_NETMASK NODE_GATEWAY)
     string(TOUPPER ${v} V)
@@ -56,3 +76,4 @@ target_compile_definitions(node.elf PRIVATE NODE_IP_ADDR=${NODE_IP} NODE_NETMASK
 target_link_options(node.elf PRIVATE -mthumb -mcpu=cortex-m3 -nostartfiles --specs=nano.specs --specs=nosys.specs
     -T${CMAKE_CURRENT_SOURCE_DIR}/port/mps2_m3.ld -Wl,-Map=node.map -Wl,--gc-sections)
 add_custom_command(TARGET node.elf POST_BUILD COMMAND arm-none-eabi-size node.elf)
+target_link_libraries(node.elf PRIVATE m)
