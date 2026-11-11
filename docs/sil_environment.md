@@ -111,3 +111,17 @@ Log: `docs/results/m0_qnx_600s.result`, `docs/results/m0_node_600s.uart.txt`. SI
 Diễn tập trước đó (peer Python thay QNX, `-netdev user` + `hostfwd`): `sent=60000 received=60000 lost=0 mismatch=0 PASS`.
 
 M0 đã chốt (2026-11-10): license đã xác nhận (§2). Không dùng `-netdev tap` (cần root); thay bằng `-netdev socket`.
+
+## 6. Kết quả M1 (control loop trên node)
+Tất cả là **SIL, QEMU 8.2.2, thời gian ảo (`-icount shift=0`)**; không phải phần cứng, không tuyên bố hard real-time. Chi tiết và code: `docs/m1_part4_pid_cascade_guide.html` … `m1_part8_host_vs_node_guide.html`.
+
+| Hạng mục | Kết quả |
+|---|---|
+| Step response (host, bước 1 rad, tick 1 ms) | overshoot 0,21 %, settling 139 tick (chốt ≤ 200), sai số xác lập 0,19 count; có tải ngoài và nhiễu encoder: đạt (`control_step_response`) |
+| Control task Restricted (MPU) | 70 040 tick, 0 khoảng trống tick, `missed=0`, `dropped=0`, 0 torn read (seqlock); ghi cố ý ngoài vùng → MemManage bị bắt, task chạy tiếp |
+| Nguồn thời gian | DWT không có (§4); SysTick **không đọc được từ task không đặc quyền** (vùng PPB) → dùng CMSDK **TIMER0** (`0x40000000`, 25 MHz, đếm xuống 32 bit, cấp bằng vùng MPU chỉ-đọc 32 B) |
+| Jitter (10 000 chu kỳ, count 40 ns ảo) | A không tải: ±3 (σ 0,15); B echo ≈ 88 Hz ảo + probe 100 Hz: −8…+8 (p99 2); C echo ≈ 1 013 Hz ảo: −10…+10 (p99 4); 0 chu kỳ trễ ≥ 1 tick |
+| Chi phí một bước | controller ≈ 2,6 nghìn lệnh (65,6 count @shift=0; 2 087 count @shift=5, cùng số lệnh); plant trên node ≈ 11,4 nghìn lệnh; controller 10,5 % của 25 000 nếu CPI = 1, cả hai 56 % (> 30 %) |
+| Host ↔ node | max \|Δpos\| = 1·10⁻⁶ rad (làm tròn 1 µrad của log), count lệch 0; overshoot/settling/sai số xác lập giống hệt (0,209 % / 139 / 0,187) |
+
+Ghi chú và giới hạn: (a) không có `-icount`, control task bị trễ chu kỳ 8–16 lần/5 s do vCPU bị chặn khi ghi UART (suy ra, chưa kiểm chứng trực tiếp); (b) `sil_runner echo` mất 4 gói mỗi lượt (nghi lúc khởi động, chưa kiểm chứng); (c) tải "100 Hz / 1 kHz" được hiệu chuẩn theo bộ đếm `udp_echo rx` của node trên thời gian ảo (thực đo 88 Hz và 1 013 Hz); (d) CPI thật của Cortex-M3 không đo được bằng QEMU. Dữ liệu thô: `docs/results/m1_*`.

@@ -1,0 +1,16 @@
+M1 Part 7 jitter (SIL, QEMU -icount shift=0, virtual time; 1 count = 40 ns virtual)
+A: n=10000 missed_in_window=0 late_cycles(>=1.5 tick)=0
+  jitter  [counts] min=-3 mean=0.00 p50=0 p99=0 max=3 std=0.15
+  ctrl    [counts] min=57 mean=65.65 p99=88 max=93   (encoder+speed+cascade)
+  plant   [counts] min=279 mean=285.37 p99=289 max=290   (test-fixture plant model)
+B: n=10000 missed_in_window=0 late_cycles(>=1.5 tick)=0
+  jitter  [counts] min=-8 mean=0.00 p50=0 p99=2 max=8 std=0.86
+  ctrl    [counts] min=57 mean=65.58 p99=88 max=93   (encoder+speed+cascade)
+  plant   [counts] min=279 mean=285.38 p99=289 max=291   (test-fixture plant model)
+C: n=10000 missed_in_window=0 late_cycles(>=1.5 tick)=0
+  jitter  [counts] min=-10 mean=0.00 p50=0 p99=4 max=10 std=1.23
+  ctrl    [counts] min=57 mean=65.59 p99=88 max=93   (encoder+speed+cascade)
+  plant   [counts] min=279 mean=285.40 p99=289 max=293   (test-fixture plant model)
+
+Tai mang (node tu dem udp_echo rx tren thoi gian ao): A=0 (khong probe), B=~88 goi/s + probe 100 Hz, C=~1013 goi/s + probe 100 Hz
+Dong A tren shift=5 xem m1_jitter_shift5_summary.txt (1 lenh = 32 ns ao)

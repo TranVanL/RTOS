@@ -1,0 +1,7 @@
+M1 Part 8: host vs node step response (SIL; node = QEMU mps2-an385, virtual time, 1 tick = 1 ms model)
+compared ticks 0..999
+max |dpos| = 1.000e-06 rad at tick 560 (tolerance 1.0e-03 rad)
+max |dvel| = 5.000e-04 rad/s, max |dV| = 5.000e-04 V, max |dcount| = 0
+host: overshoot=0.209% settling=139 ticks ss_error=0.187 counts
+node: overshoot=0.209% settling=139 ticks ss_error=0.187 counts
+limits: overshoot < 10%, settling <= 200 ticks, ss_error <= 1 count -> PASS

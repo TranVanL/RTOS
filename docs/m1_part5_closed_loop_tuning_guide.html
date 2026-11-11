@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Chạy plant + encoder + cascade trong một mô phỏng vòng kín, tuning gain, đo overshoot/settling/sai số xác lập và khóa kết quả bằng test tự động.">
+<title>Phần 5 — Mô phỏng vòng kín, tuning và đồ thị</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" crossorigin="anonymous" onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'\\(',right:'\\)',display:false}],throwOnError:false});"></script>
+<style>
+:root{--ink:#172033;--muted:#586579;--line:#dce3ed;--paper:#fff;--soft:#f4f7fb;--blue:#2456c7;--teal:#087e75;--green:#167447;--amber:#9a5b00;--red:#ad2c2c;--navy:#101a2b;--shadow:0 12px 32px rgba(22,39,68,.08)}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:#f7f9fc;color:var(--ink);font:16px/1.72 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}main{max-width:1020px;margin:26px auto 70px;background:var(--paper);padding:clamp(22px,5vw,58px);box-shadow:var(--shadow);border:1px solid #e8edf4;border-radius:18px}h1{font-size:clamp(2rem,4vw,3rem);line-height:1.15;letter-spacing:-.035em;margin:.2em 0 .45em}h2{font-size:1.55rem;line-height:1.3;margin:2.4em 0 .65em;padding-top:.7em;border-top:1px solid var(--line);letter-spacing:-.02em}h3{font-size:1.16rem;margin:1.55em 0 .4em;color:#173c7a}p{margin:.65em 0}li{margin:.3em 0}a{color:var(--blue)}.eyebrow{display:inline-block;color:var(--blue);font-weight:750;text-transform:uppercase;letter-spacing:.11em;font-size:.78rem}.sub{font-size:1.08rem;color:var(--muted);max-width:850px}.pills{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0}.pill{border:1px solid var(--line);background:var(--soft);border-radius:999px;padding:4px 11px;color:#34435b;font-size:.86rem}.hero{background:linear-gradient(135deg,#10264a,#1a4c82 65%,#087e75);color:white;padding:25px 28px;border-radius:14px;margin:24px 0}.hero p{color:#e8f1ff;margin:.3em 0}.hero strong{color:#fff}.toc{background:var(--soft);border:1px solid var(--line);border-radius:12px;padding:18px 22px;margin:22px 0}.toc ol{columns:2;padding-left:22px;margin:.6em 0}.toc li{break-inside:avoid}.box{padding:14px 18px;border-left:4px solid var(--blue);background:#eff5ff;border-radius:6px;margin:16px 0}.box.warn{border-color:var(--amber);background:#fff8e9}.box.good{border-color:var(--green);background:#eef8f1}.box.danger{border-color:var(--red);background:#fff1f0}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:13px;margin:14px 0}.card{border:1px solid var(--line);border-radius:10px;padding:14px 16px;background:white}.card h3{margin:.1em 0 .45em}table{width:100%;border-collapse:collapse;margin:14px 0;font-size:.94rem}th,td{border:1px solid var(--line);padding:9px 11px;text-align:left;vertical-align:top}th{background:#edf2f8;color:#25344c}code{font:.88em/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;background:#eff2f7;padding:.13em .35em;border-radius:4px;color:#243b63}pre{background:var(--navy);color:#e5edf8;padding:15px 17px;border-radius:10px;overflow:auto;font:.88rem/1.55 ui-monospace,SFMono-Regular,Consolas,monospace}pre code{background:none;color:inherit;padding:0}.math{overflow-x:auto;background:#fbfcfe;border:1px solid #e8edf4;border-radius:8px;padding:8px 14px;margin:10px 0}.small{font-size:.9rem;color:var(--muted)}.tag{display:inline-block;border-radius:4px;padding:1px 6px;font-size:.78rem;font-weight:700;background:#e8eefb;color:#254d9a}.tag.warn{background:#fff0d4;color:#865000}.tag.ok{background:#e5f5eb;color:#12643a}.checklist li::marker{color:var(--green)}.flow{display:flex;align-items:stretch;gap:8px;flex-wrap:wrap;margin:15px 0}.flow div{flex:1 1 155px;text-align:center;padding:12px;background:var(--soft);border:1px solid var(--line);border-radius:9px}.flow b{display:block;color:#193e79}.flow span{font-size:.9rem;color:var(--muted)}.footer{border-top:1px solid var(--line);margin-top:42px;padding-top:16px;color:var(--muted);font-size:.88rem}.katex-display{overflow-x:auto;overflow-y:hidden;padding:5px 0}
+@media(max-width:650px){main{margin:0;border-radius:0;padding:24px 17px}.toc ol{columns:1}table{font-size:.86rem}th,td{padding:7px}.hero{padding:20px}}
+@media print{body{background:white}main{box-shadow:none;border:0;margin:0;max-width:none;padding:0}.toc a{text-decoration:none;color:var(--ink)}.card,.box,table,pre{break-inside:avoid}.hero{print-color-adjust:exact;-webkit-print-color-adjust:exact}}
+
+.nav{display:flex;justify-content:space-between;gap:12px;margin:2.4em 0 0;padding-top:1em;border-top:1px solid var(--line);font-size:.95rem}
+figure{margin:1.2em 0}figure img{max-width:100%;border:1px solid var(--line);border-radius:8px}figcaption{font-size:.88rem;color:var(--muted)}
+code.k{background:#eef2f8;padding:1px 5px;border-radius:4px}
+.num{font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<main>
+<span class="eyebrow">M1 · Phần 5 · Host</span>
+<h1>Phần 5 — Mô phỏng vòng kín, tuning và đồ thị</h1>
+<p class="sub">Chạy plant + encoder + cascade trong một mô phỏng vòng kín, tuning gain, đo overshoot/settling/sai số xác lập và khóa kết quả bằng test tự động.</p>
+<div class="pills"><span class="pill">Step response</span><span class="pill">Tuning cascade</span><span class="pill">Encoder quantization</span><span class="pill">Test tự động</span><span class="pill">matplotlib</span></div>
+<div class="hero"><strong>Kết quả cuối bài</strong>
+<p>Mô phỏng vòng kín trên host (plant + encoder + bộ ước lượng tốc độ + cascade), chương trình <code>sim_closed_loop</code> xuất CSV, <code>tools/plot_step.py</code> tính chỉ số và vẽ đồ thị. Bộ gain mặc định đã chốt và được <b>test tự động</b> khóa lại: bước 1 rad → overshoot 0,21 %, settling 139 tick, sai số xác lập 0,19 count; cả kịch bản tải ngoài và nhiễu encoder đều đạt.</p></div>
+<nav class="toc" aria-label="Mục lục"><strong>Mục lục</strong><ol><li><a href="#muc-tieu">Mục tiêu và cách làm</a></li><li><a href="#metric">Kiến thức 1 — Chỉ số đáp ứng bậc thang</a></li><li><a href="#quant">Kiến thức 2 — Lượng tử hóa và ước lượng tốc độ</a></li><li><a href="#tuning">Kiến thức 3 — Tuning cascade</a></li><li><a href="#sim">Code mô phỏng</a></li><li><a href="#sweep">Quá trình tuning (bộ gain nháp → bộ gain chốt)</a></li><li><a href="#ket-qua">Kết quả</a></li><li><a href="#test">Test tự động</a></li><li><a href="#plot">Công cụ vẽ đồ thị</a></li><li><a href="#luu-y">Quyết định, giới hạn, việc còn lại</a></li><li><a href="#tu-kiem">Tự kiểm tra</a></li></ol></nav>
+
+<h2 id="muc-tieu">1. Mục tiêu và cách làm</h2>
+<p><b>Mục tiêu (plan M1 Phần 5):</b> chọn gain cho cascade và <em>chứng minh bằng test tự động</em> (không chỉ nhìn đồ thị) rằng: overshoot &lt; 10 %, settling ≤ ngưỡng đã chốt, sai số xác lập ≤ 1 count; thêm hai kịch bản — tải ngoài bậc thang (độ cứng) và nhiễu encoder bật.</p>
+<ol>
+<li>Viết thư viện mô phỏng <code>sim_loop.c</code>: mỗi tick 1 ms chạy <i>plant → encoder → bộ ước lượng tốc độ → cascade → điện áp → plant</i>, đúng thứ tự mà node sẽ chạy ở Phần 6.</li>
+<li>Viết <code>sim_closed_loop</code> (CLI) xuất CSV <code>t,ref,pos,vel,v,count</code> cho 3 kịch bản <code>step | load | noise</code>.</li>
+<li>Viết chương trình quét (sweep) lưới gain để tìm vùng chạy tốt, chọn gain, ghi vào <code>cascade_default_params</code>.</li>
+<li>Viết <code>test_step_response.c</code> khóa các ngưỡng; viết <code>tools/plot_step.py</code> tính chỉ số từ CSV và vẽ PNG.</li>
+</ol>
+
+<h2 id="metric">2. Kiến thức 1 — Chỉ số đáp ứng bậc thang</h2>
+<p>Cho tham chiếu nhảy từ 0 lên \(r\) (bước \(r=1\) rad). Ba chỉ số dùng trong dự án:</p>
+<table><thead><tr><th>Chỉ số</th><th>Định nghĩa</th><th>Ý nghĩa</th></tr></thead><tbody>
+<tr><td>Overshoot</td><td>\(\dfrac{y_{max}-r}{r}\times100\%\) (không âm)</td><td>Vọt lố; quan trọng với cơ cấu có giới hạn hành trình.</td></tr>
+<tr><td>Settling time</td><td>Thời điểm <b>cuối cùng</b> đáp ứng còn ra ngoài dải ±2 % quanh \(r\)</td><td>Bao lâu thì "ổn định". Lấy lần ra ngoài <em>cuối cùng</em> để dao động tắt dần không bị tính sớm.</td></tr>
+<tr><td>Sai số xác lập</td><td>\(|r-y_{\infty}|\) khi \(t\to\infty\); ở đây đo ở cuối mô phỏng, đổi ra count</td><td>Độ chính xác cuối cùng; ngưỡng ≤ 1 count (1 count = 2π/4096 ≈ 1,53 mrad).</td></tr>
+</tbody></table>
+<p>Tất cả đo bằng <b>mẫu của mô hình 1 ms</b> (tick), không bằng giây thật — nên tiêu chí tất định và tái lập hoàn toàn trên mọi máy.</p>
+
+<h2 id="quant">3. Kiến thức 2 — Lượng tử hóa encoder và ước lượng tốc độ</h2>
+<p>Bộ điều khiển không thấy vị trí thật mà thấy <code>count</code> nguyên (4096 count/vòng). Hệ quả:</p>
+<ul>
+<li><b>Lượng tử hóa vị trí:</b> sai số ±½ count ≈ ±0,77 mrad.</li>
+<li><b>Tốc độ từ vi phân count:</b> \(\hat\omega=\Delta\text{count}\cdot\frac{2\pi}{4096}/\Delta t\). Với \(\Delta t=1\) ms, <i>một count chênh</i> tương ứng \(1{,}53\) rad/s — nhiễu tốc độ rất lớn so với tốc độ làm việc cỡ 10–30 rad/s.</li>
+<li><b>Lọc thông thấp bậc 1</b> (<code>speed_estimator</code>) giảm nhiễu nhưng thêm <em>trễ pha</em> vào vòng tốc độ:
+<div class="math">$$\hat\omega_k=\hat\omega_{k-1}+\alpha\,(\omega_{raw,k}-\hat\omega_{k-1}),\quad \tau\approx\Delta t\,\frac{1-\alpha}{\alpha}$$</div>
+\(\alpha=0{,}2\Rightarrow\tau\approx4\) ms; \(\alpha=0{,}5\Rightarrow\tau\approx1\) ms.</li>
+</ul>
+<p>Đây là mâu thuẫn trung tâm của tuning: lọc mạnh → ít nhiễu nhưng trễ lớn → vòng trong dễ mất ổn định; lọc nhẹ → nhanh nhưng nhiễu lọt vào điện áp.</p>
+
+<h2 id="tuning">4. Kiến thức 3 — Tuning cascade</h2>
+<p>Plant mặc định (R=2 Ω, Kt=Ke=0,05, J=5·10⁻⁵, b=2·10⁻⁴): độ lợi tĩnh tốc độ/điện áp \(\dfrac{K_t}{Rb+K_tK_e}\approx17{,}2\) rad/s/V; hằng số thời gian cơ \(\approx\dfrac{JR}{K_tK_e}\approx40\) ms.</p>
+<ol>
+<li><b>Tuning vòng trong (tốc độ) trước</b>: Kp vòng tốc độ quyết định băng thông; Ki xử lý tải. Băng thông phải nằm xa cực của bộ lọc ước lượng.</li>
+<li><b>Khóa vòng trong</b>, rồi tuning vòng ngoài (vị trí): Kp vị trí ≈ băng thông mong muốn của vị trí (rad/s), nhỏ hơn băng thông vòng trong 5–10 lần.</li>
+<li><b>Kiểm tra bằng cả ba kịch bản</b> — đừng chỉ tối ưu một kịch bản sạch.</li>
+</ol>
+
+<h2 id="sim">5. Code mô phỏng</h2>
+<h3>5.1 Cấu hình kịch bản và kết quả (<code>sim_loop.h</code>)</h3>
+<pre><code>typedef struct {
+    float step_rad;        /* position reference step at t=0 */
+    float t_end_s;
+    float load_nm;         /* external load torque step (0 = none) */
+    float load_t_s;        /* time the load is applied */
+    float noise_std_rad;   /* encoder noise, 0 = off */
+    uint32_t seed;
+    float speed_alpha;     /* speed estimator filter */
+    cascade_params_t ctrl;
+    plant_params_t plant;
+} sim_cfg_t;
+
+typedef struct {
+    float overshoot_pct;   /* (peak - step)/step*100, &lt;0 clamped to 0 */
+    float settling_s;      /* last time outside +-2% band of step; (t_end if never settles) */
+    float ss_error_counts; /* |ref - theta| at end, in encoder counts */
+    float max_dev_after_load_rad; /* max |ref - theta| after load applied (0 if none) */
+    float v_peak;
+} sim_result_t;</code></pre><p class="small"><code>tests/control/sim_loop.h</code></p>
+<h3>5.2 Vòng mô phỏng (<code>sim_loop.c</code>)</h3>
+<pre><code>int sim_run(const sim_cfg_t *cfg, sim_result_t *out, FILE *csv)
+{
+    plant_params_t pp = cfg-&gt;plant;
+    plant_state_t ps;
+    plant_reset(&amp;ps);
+    cascade_state_t cs;
+    cascade_reset(&amp;cs);
+    encoder_params_t ep = { .counts_per_rev = SIM_COUNTS_PER_REV, .noise_std_rad = cfg-&gt;noise_std_rad,
+                            .seed = cfg-&gt;seed, .force_stuck = false };
+    encoder_state_t es;
+    encoder_reset(&amp;es, &amp;ep);
+    speed_estimator_t se;
+    speed_estimator_reset(&amp;se, cfg-&gt;speed_alpha);
+
+    const int n = (int)(cfg-&gt;t_end_s / SIM_DT_S + 0.5f);
+    const float band = 0.02f * fabsf(cfg-&gt;step_rad);
+    float peak = 0.0f, vpeak = 0.0f, maxdev = 0.0f;
+    int last_out = 0;
+    float v = 0.0f;
+
+    pp.load_torque_nm = 0.0f;
+    for (int k = 0; k &lt; n; k++) {
+        const float t = (float)k * SIM_DT_S;
+        if (cfg-&gt;load_nm != 0.0f &amp;&amp; t &gt;= cfg-&gt;load_t_s) {
+            pp.load_torque_nm = cfg-&gt;load_nm;
+        }
+        const int32_t count = encoder_step(&amp;es, &amp;ep, ps.position_rad);
+        const float vel_meas = speed_estimator_step(&amp;se, count, SIM_DT_S, SIM_COUNTS_PER_REV);
+        const float pos_meas = (float)count * TWO_PI / (float)SIM_COUNTS_PER_REV;
+        v = cascade_step(&amp;cs, &amp;cfg-&gt;ctrl, cfg-&gt;step_rad, pos_meas, vel_meas);
+        if (!plant_step(&amp;ps, &amp;pp, v, SIM_DT_S)) {
+            return 1;
+        }
+        const float err = cfg-&gt;step_rad - ps.position_rad;
+        if (ps.position_rad &gt; peak) { peak = ps.position_rad; }
+        if (fabsf(v) &gt; vpeak) { vpeak = fabsf(v); }
+        if (fabsf(err) &gt; band) { last_out = k + 1; }
+        if (pp.load_torque_nm != 0.0f &amp;&amp; fabsf(err) &gt; maxdev) { maxdev = fabsf(err); }
+        if (csv != NULL) {
+            fprintf(csv, &quot;%.4f,%.6f,%.6f,%.6f,%.6f,%d\n&quot;, (double)(t + SIM_DT_S),
+                    (double)cfg-&gt;step_rad, (double)ps.position_rad,
+                    (double)ps.velocity_rad_s, (double)v, (int)count);
+        }
+    }
+    const float step = cfg-&gt;step_rad;
+    out-&gt;overshoot_pct = (step != 0.0f) ? fmaxf(0.0f, (peak - step) / step * 100.0f) : 0.0f;
+    out-&gt;settling_s = (float)last_out * SIM_DT_S;
+    out-&gt;ss_error_counts = fabsf(cfg-&gt;step_rad - ps.position_rad) * (float)SIM_COUNTS_PER_REV / TWO_PI;
+    out-&gt;max_dev_after_load_rad = maxdev;
+    out-&gt;v_peak = vpeak;
+    return 0;
+}</code></pre><p class="small"><code>tests/control/sim_loop.c</code></p>
+<p>Điểm cần chú ý: (1) vòng điều khiển <b>chỉ</b> thấy <code>count</code> và tốc độ ước lượng, không thấy trạng thái thật của plant; (2) các chỉ số tính trên vị trí <em>thật</em> của plant, để lượng tử hóa không che sai số; (3) tải ngoài được bật tại <code>load_t_s</code> bằng cách đổi <code>load_torque_nm</code> của plant giữa chừng.</p>
+
+<h2 id="sweep">6. Quá trình tuning (bộ gain nháp → bộ gain chốt)</h2>
+<p><b>Bộ gain nháp của Phần 4</b> (Kp vị trí 20, PI tốc độ Kp=0,5 Ki=5, α=0,2) chạy thử cho kết quả xấu: overshoot 7,5 % nhưng <b>settling 827 ms, sai số xác lập 3,3 count</b> — đáp ứng dao động kéo dài (≈7 Hz) quanh giá trị đặt:</p>
+<table><thead><tr><th>t [s]</th><th>vị trí [rad]</th><th>tốc độ [rad/s]</th><th>V</th></tr></thead><tbody>
+<tr><td>0,051</td><td>0,612</td><td>25,9</td><td>−2,45</td></tr><tr><td>0,101</td><td>0,962</td><td>−6,0</td><td>−3,64</td></tr><tr><td>0,151</td><td>0,873</td><td>−3,0</td><td>6,49</td></tr>
+<tr><td>0,201</td><td>1,031</td><td>12,6</td><td>−5,45</td></tr><tr><td>0,301</td><td>0,946</td><td>5,8</td><td>2,33</td></tr><tr><td>0,501</td><td>1,038</td><td>−3,9</td><td>−1,37</td></tr><tr><td>0,951</td><td>0,986</td><td>−0,6</td><td>1,05</td></tr></tbody></table>
+<p>Giải thích hợp lý (<em>chưa được chứng minh bằng phân tích hay thí nghiệm riêng, chỉ suy ra từ kết quả sweep</em>): độ lợi vòng tốc độ quá cao (Kp·17,2 ≈ 8,6) khiến tần số cắt tiến sát cực của bộ lọc ước lượng, giảm biên pha; cộng với nhiễu lượng tử 1,5 rad/s làm vòng trong rung.</p>
+<p><b>Sweep:</b> chương trình quét 2 (α) × 4 (Kp tốc độ: 0,1–0,3) × 4 (Ki tốc độ: 1–8) × 4 (Kp vị trí: 6–20) = 128 tổ hợp, mỗi tổ hợp chạy 3 kịch bản (bước, nhiễu, tải), giữ những tổ hợp thỏa: overshoot &lt; 8 % (&lt; 9 % khi có nhiễu), settling &lt; 200 ms (&lt; 250 ms khi nhiễu), sai số xác lập &lt; 1 count cả bước và tải. Nhiều tổ hợp thỏa; vùng tốt có Kp tốc độ thấp hơn bản nháp 2–5 lần.</p>
+<p><b>Bộ chốt</b> (cân bằng giữa overshoot, settling và độ cứng khi có tải): </p>
+<table><thead><tr><th>Tham số</th><th>Giá trị</th></tr></thead><tbody>
+<tr><td>Vòng vị trí (P)</td><td>Kp = 20; tốc độ đặt kẹp ±30 rad/s</td></tr>
+<tr><td>Vòng tốc độ (PI)</td><td>Kp = 0,15; Ki = 4; kẹp ±12 V; <code>integral_limit</code> = 12 V</td></tr>
+<tr><td>Bộ lọc tốc độ</td><td>α = 0,5</td></tr>
+<tr><td>Đa tốc độ</td><td><code>outer_divider</code> = 5</td></tr>
+</tbody></table>
+<pre><code>void cascade_default_params(cascade_params_t *c)
+{
+    if (c == NULL) {
+        return;
+    }
+    c-&gt;pos = (pid_params_t){ .kp = 20.0f, .ki = 0.0f, .kd = 0.0f, .dt_s = 0.001f,
+                             .out_min = -30.0f, .out_max = 30.0f,
+                             .integral_limit = 0.0f, .d_alpha = 1.0f };
+    c-&gt;vel = (pid_params_t){ .kp = 0.15f, .ki = 4.0f, .kd = 0.0f, .dt_s = 0.001f,
+                             .out_min = -12.0f, .out_max = 12.0f,
+                             .integral_limit = 12.0f, .d_alpha = 1.0f };
+    c-&gt;pos_min_rad = -6.2831853f;
+    c-&gt;pos_max_rad = 6.2831853f;
+    c-&gt;volt_rate_v_per_tick = 0.0f;
+    c-&gt;outer_divider = 5U;
+}</code></pre><p class="small"><code>common/control/pid.c</code></p>
+
+<h2 id="ket-qua">7. Kết quả</h2>
+<p>Bước 1 rad, 1 tick = 1 ms, SIL host (số liệu từ <code>test_step_response</code> và <code>sim_closed_loop</code>):</p>
+<table><thead><tr><th>Kịch bản</th><th>Overshoot</th><th>Settling</th><th>Sai số xác lập</th><th>Ghi chú</th></tr></thead><tbody>
+<tr><td>Bước</td><td class="num">0,21 %</td><td class="num">139 tick</td><td class="num">0,19 count</td><td>Vpeak ≤ 12 V</td></tr>
+<tr><td>Tải ngoài 0,05 N·m tại t = 0,5 s</td><td class="num">0,21 %</td><td class="num">695 tick (tính từ lúc đặt bước, vì tải đến muộn)</td><td class="num">0,25 count</td><td>Lệch tối đa 0,26 rad rồi hồi phục về ref</td></tr>
+<tr><td>Nhiễu encoder σ = 1,5 mrad (≈ 1 count)</td><td class="num">0,31 %</td><td class="num">139 tick</td><td class="num">0,87 count</td><td>Ngưỡng test: ≤ 2 count</td></tr>
+</tbody></table>
+<figure><img src="results/m1_step_step.png" alt="Đáp ứng bậc thang"><figcaption>Kịch bản bước: vị trí, tốc độ, điện áp (docs/results/m1_step_step.png).</figcaption></figure>
+<figure><img src="results/m1_step_load.png" alt="Đáp ứng khi có tải"><figcaption>Kịch bản tải ngoài: vị trí lệch rồi tích phân vòng tốc độ kéo về.</figcaption></figure>
+<figure><img src="results/m1_step_noise.png" alt="Đáp ứng khi có nhiễu"><figcaption>Kịch bản nhiễu encoder.</figcaption></figure>
+<p><b>Đọc kết quả:</b> overshoot rất nhỏ (0,2–0,3 %) vì vòng vị trí chỉ có P và vòng tốc độ có tích phân; điện áp lúc đầu bão hòa (rate/saturation) rồi tắt dần. Khi có tải, vị trí bị đẩy lệch rồi trở về — chính là tác dụng của tích phân ở vòng tốc độ.</p>
+
+<h2 id="test">8. Test tự động</h2>
+<p><code>tests/control/test_step_response.c</code> (CTest: <code>control_step_response</code>) khóa các ngưỡng:</p>
+<pre><code>#define MAX_OVERSHOOT_PCT 10.0f
+#define MAX_SETTLING_S    0.200f   /* 200 model ticks */
+#define MAX_SS_COUNTS     1.0f
+#define MAX_SS_COUNTS_NOISE 2.0f   /* noise sigma ~1 count: quantisation+noise floor */</code></pre><p class="small"><code>tests/control/test_step_response.c</code></p>
+<ul>
+<li>Bước: overshoot &lt; 10 %, settling ≤ 200 tick, sai số ≤ 1 count, Vpeak ≤ Vmax.</li>
+<li>Tải: overshoot &lt; 10 %, quay về ref (≤ 1 count), lệch tối đa &lt; 0,5 rad.</li>
+<li>Nhiễu: overshoot &lt; 10 %, settling ≤ 250 tick, sai số ≤ 2 count.</li>
+<li>Tất định: chạy lại cùng seed → cùng kết quả (<code>==</code>, không dung sai).</li>
+</ul>
+<div class="box warn"><strong>Ngưỡng 2 count ở kịch bản nhiễu là do tôi tự đặt</strong> (plan chỉ nêu "sai số xác lập &lt; 1 count" cho bộ mặc định). Lý do: σ nhiễu ≈ 1 count nên sàn sai số vốn đã tiến sát 1. Kết quả thực 0,87 vẫn dưới 1; ngưỡng 2 chỉ để test không "flaky" nếu đổi seed.</div>
+
+<h2 id="plot">9. Công cụ vẽ đồ thị</h2>
+<p><code>tools/plot_step.py</code> đọc CSV và tính lại ba chỉ số bằng Python (độc lập với C), vẽ 3 panel (vị trí, tốc độ, điện áp). Chạy:</p>
+<pre><code>def metrics(d, band_frac=0.02):
+    ref = d[&quot;ref&quot;][-1]
+    pos = d[&quot;pos&quot;]
+    peak = max(pos)
+    overshoot = max(0.0, (peak - ref) / ref * 100.0) if ref else 0.0
+    band = band_frac * abs(ref)
+    last_out = 0
+    for i, p in enumerate(pos):
+        if abs(ref - p) &gt; band:
+            last_out = i + 1
+    ss_counts = abs(ref - pos[-1]) * COUNTS_PER_REV / (2 * 3.141592653589793)
+    return {&quot;overshoot_pct&quot;: overshoot, &quot;settling_ticks&quot;: last_out, &quot;ss_error_counts&quot;: ss_counts}</code></pre><p class="small"><code>tools/plot_step.py</code></p>
+<p>Lệnh: <code>sim_closed_loop step &gt; step.csv; py tools/plot_step.py step.csv docs/results/m1_step_step.png</code> (cần <code>matplotlib</code>, đã có trong <code>tools/requirements.txt</code>). Số từ Python trùng với test C (0,2087 % / 139 tick / 0,187 count), nên hai cách tính khớp nhau.</p>
+
+<h2 id="luu-y">10. Quyết định, giới hạn, việc còn lại</h2>
+<ul>
+<li><b>Settling đã chốt = 200 tick</b> cho kịch bản bước. Plan yêu cầu ghi con số chốt vào <code>docs/requirements.md</code> (hiện chỉ có REQ-FUN-002 về overshoot) — <em>chưa sửa file này</em>, chờ bạn xác nhận.</li>
+<li>Bộ gain tối ưu theo mô hình plant <em>minh họa</em>, chưa nhận dạng từ motor thật.</li>
+<li>Tải thử 0,05 N·m (≈ 17 % mô-men cực đại 0,3 N·m) là giá trị chọn để minh họa; không có yêu cầu nào quy định.</li>
+<li>α = 0,5 là một phần của bộ gain; node ở Phần 6 phải dùng đúng cùng α (đã dùng).</li>
+<li>Không cần prefilter bước thang: overshoot đã &lt; 1 %.</li>
+</ul>
+
+<h2 id="tu-kiem">11. Tự kiểm tra</h2>
+<div class="checklist"><ul>
+<li>Vì sao lấy lần ra ngoài dải ±2 % <em>cuối cùng</em> làm settling time?</li>
+<li>1 count chênh trong 1 ms tương ứng bao nhiêu rad/s? Vì sao đó là vấn đề?</li>
+<li>Vì sao tuning vòng trong trước, rồi mới vòng ngoài?</li>
+<li>Vì sao bộ gain nháp dao động còn bộ chốt thì không (giả thuyết nào, thiếu bằng chứng nào)?</li>
+<li>Vì sao vị trí về đúng ref khi có tải dù vòng ngoài không có I?</li>
+</ul></div>
+
+<div class="nav"><span><a href="m1_part4_pid_cascade_guide.html">← Phần 4</a></span><span><a href="m1_part6_control_task_guide.html">Phần 6 →</a></span></div>
+<p class="footer small">Số liệu là <b>SIL</b>: mô hình chạy trên host / QEMU (thời gian ảo). Không phải phần cứng thật, không tuyên bố hard real-time.</p>
+</main>
+</body>
+</html>

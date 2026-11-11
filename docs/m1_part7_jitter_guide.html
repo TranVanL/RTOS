@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Đo jitter và chi phí bước điều khiển bằng bộ đếm TIMER0 25 MHz trong 3 điều kiện tải mạng, xuất histogram và số liệu thô.">
+<title>Phần 7 — Đo jitter control task</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" crossorigin="anonymous" onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'\\(',right:'\\)',display:false}],throwOnError:false});"></script>
+<style>
+:root{--ink:#172033;--muted:#586579;--line:#dce3ed;--paper:#fff;--soft:#f4f7fb;--blue:#2456c7;--teal:#087e75;--green:#167447;--amber:#9a5b00;--red:#ad2c2c;--navy:#101a2b;--shadow:0 12px 32px rgba(22,39,68,.08)}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:#f7f9fc;color:var(--ink);font:16px/1.72 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}main{max-width:1020px;margin:26px auto 70px;background:var(--paper);padding:clamp(22px,5vw,58px);box-shadow:var(--shadow);border:1px solid #e8edf4;border-radius:18px}h1{font-size:clamp(2rem,4vw,3rem);line-height:1.15;letter-spacing:-.035em;margin:.2em 0 .45em}h2{font-size:1.55rem;line-height:1.3;margin:2.4em 0 .65em;padding-top:.7em;border-top:1px solid var(--line);letter-spacing:-.02em}h3{font-size:1.16rem;margin:1.55em 0 .4em;color:#173c7a}p{margin:.65em 0}li{margin:.3em 0}a{color:var(--blue)}.eyebrow{display:inline-block;color:var(--blue);font-weight:750;text-transform:uppercase;letter-spacing:.11em;font-size:.78rem}.sub{font-size:1.08rem;color:var(--muted);max-width:850px}.pills{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0}.pill{border:1px solid var(--line);background:var(--soft);border-radius:999px;padding:4px 11px;color:#34435b;font-size:.86rem}.hero{background:linear-gradient(135deg,#10264a,#1a4c82 65%,#087e75);color:white;padding:25px 28px;border-radius:14px;margin:24px 0}.hero p{color:#e8f1ff;margin:.3em 0}.hero strong{color:#fff}.toc{background:var(--soft);border:1px solid var(--line);border-radius:12px;padding:18px 22px;margin:22px 0}.toc ol{columns:2;padding-left:22px;margin:.6em 0}.toc li{break-inside:avoid}.box{padding:14px 18px;border-left:4px solid var(--blue);background:#eff5ff;border-radius:6px;margin:16px 0}.box.warn{border-color:var(--amber);background:#fff8e9}.box.good{border-color:var(--green);background:#eef8f1}.box.danger{border-color:var(--red);background:#fff1f0}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:13px;margin:14px 0}.card{border:1px solid var(--line);border-radius:10px;padding:14px 16px;background:white}.card h3{margin:.1em 0 .45em}table{width:100%;border-collapse:collapse;margin:14px 0;font-size:.94rem}th,td{border:1px solid var(--line);padding:9px 11px;text-align:left;vertical-align:top}th{background:#edf2f8;color:#25344c}code{font:.88em/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;background:#eff2f7;padding:.13em .35em;border-radius:4px;color:#243b63}pre{background:var(--navy);color:#e5edf8;padding:15px 17px;border-radius:10px;overflow:auto;font:.88rem/1.55 ui-monospace,SFMono-Regular,Consolas,monospace}pre code{background:none;color:inherit;padding:0}.math{overflow-x:auto;background:#fbfcfe;border:1px solid #e8edf4;border-radius:8px;padding:8px 14px;margin:10px 0}.small{font-size:.9rem;color:var(--muted)}.tag{display:inline-block;border-radius:4px;padding:1px 6px;font-size:.78rem;font-weight:700;background:#e8eefb;color:#254d9a}.tag.warn{background:#fff0d4;color:#865000}.tag.ok{background:#e5f5eb;color:#12643a}.checklist li::marker{color:var(--green)}.flow{display:flex;align-items:stretch;gap:8px;flex-wrap:wrap;margin:15px 0}.flow div{flex:1 1 155px;text-align:center;padding:12px;background:var(--soft);border:1px solid var(--line);border-radius:9px}.flow b{display:block;color:#193e79}.flow span{font-size:.9rem;color:var(--muted)}.footer{border-top:1px solid var(--line);margin-top:42px;padding-top:16px;color:var(--muted);font-size:.88rem}.katex-display{overflow-x:auto;overflow-y:hidden;padding:5px 0}
+@media(max-width:650px){main{margin:0;border-radius:0;padding:24px 17px}.toc ol{columns:1}table{font-size:.86rem}th,td{padding:7px}.hero{padding:20px}}
+@media print{body{background:white}main{box-shadow:none;border:0;margin:0;max-width:none;padding:0}.toc a{text-decoration:none;color:var(--ink)}.card,.box,table,pre{break-inside:avoid}.hero{print-color-adjust:exact;-webkit-print-color-adjust:exact}}
+
+.nav{display:flex;justify-content:space-between;gap:12px;margin:2.4em 0 0;padding-top:1em;border-top:1px solid var(--line);font-size:.95rem}
+figure{margin:1.2em 0}figure img{max-width:100%;border:1px solid var(--line);border-radius:8px}figcaption{font-size:.88rem;color:var(--muted)}
+code.k{background:#eef2f8;padding:1px 5px;border-radius:4px}
+.num{font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<main>
+<span class="eyebrow">M1 · Phần 7 · Node FreeRTOS · QEMU -icount</span>
+<h1>Phần 7 — Đo jitter control task</h1>
+<p class="sub">Đo jitter và chi phí bước điều khiển bằng bộ đếm TIMER0 25 MHz trong 3 điều kiện tải mạng, xuất histogram và số liệu thô.</p>
+<div class="pills"><span class="pill">Jitter</span><span class="pill">TIMER0</span><span class="pill">QEMU -icount</span><span class="pill">Percentile</span><span class="pill">Soft-float cost</span></div>
+<div class="hero"><strong>Kết quả cuối bài</strong>
+<p>Đo 10 000 chu kỳ control cho 3 điều kiện tải mạng bằng bộ đếm 25 MHz (CMSDK TIMER0). Jitter (chu kỳ − 25 000 count) nằm trong <b>±3 / ±8 / ±10 count</b> (A: không tải / B: echo ≈ 88 Hz ảo + probe 100 Hz / C: echo ≈ 1 013 Hz ảo + probe), <b>0 chu kỳ trễ ≥ 1 tick</b> ở cả ba. Chi phí controller (encoder + ước lượng tốc độ + cascade) ≈ <b>2,6 nghìn lệnh</b> (65,6 count); với plant mô hình trên node thì ≈ 14 nghìn lệnh. Histogram và số liệu thô nằm trong <code>docs/results/</code>.</p></div>
+<nav class="toc" aria-label="Mục lục"><strong>Mục lục</strong><ol><li><a href="#muc-tieu">Mục tiêu và cách làm</a></li><li><a href="#jitter">Kiến thức 1 — Jitter là gì</a></li><li><a href="#timer">Kiến thức 2 — Đo thời gian trong QEMU</a></li><li><a href="#icount">Kiến thức 3 — Đổi count ↔ lệnh ↔ cycle</a></li><li><a href="#thong-ke">Kiến thức 4 — Percentile và histogram</a></li><li><a href="#code">Code đã viết</a></li><li><a href="#dieu-kien">Ba điều kiện đo</a></li><li><a href="#ket-qua">Kết quả</a></li><li><a href="#chi-phi">Chi phí một bước control</a></li><li><a href="#gioi-han">Giới hạn và cách đọc đúng</a></li><li><a href="#tu-kiem">Tự kiểm tra</a></li></ol></nav>
+
+<h2 id="muc-tieu">1. Mục tiêu và cách làm</h2>
+<p><b>Mục tiêu (plan M1 Phần 7, REQ-PERF-002):</b> định lượng độ ổn định chu kỳ của control task và chi phí một bước điều khiển; xuất histogram. Tiêu chí (plan): (1) histogram + p99/max cho 3 điều kiện; (2) tất định: 0 chu kỳ trễ ≥ 1 tick trong 10 000 chu kỳ ở điều kiện B; (3) chi phí một bước control &lt; 30 % của 25 000 cycle (ngưỡng đề xuất — nếu vượt thì ghi lại và xét Q15); (4) nhãn "SIL, QEMU, thời gian ảo".</p>
+<ol>
+<li>Chọn nguồn thời gian đọc được từ task <i>không đặc quyền</i>.</li>
+<li>Trong vòng control, đọc bộ đếm ở 3 điểm: đầu chu kỳ, sau controller, sau plant; lưu 10 000 mẫu <code>uint16</code> vào vùng dữ liệu control.</li>
+<li>Khi đủ mẫu, task thấp in một khối <code>JITTER_BEGIN … J,i,period,ctrl,plant … JITTER_END</code> qua UART.</li>
+<li><code>tools/metrics.py jitter</code> đọc log, tính min/mean/p50/p99/max/σ, vẽ histogram, ghi CSV.</li>
+<li>Chạy ba điều kiện; hiệu chuẩn tốc độ gửi để đạt tải mong muốn <em>theo thời gian ảo</em>.</li>
+</ol>
+
+<h2 id="jitter">2. Kiến thức 1 — Jitter là gì</h2>
+<p><b>Jitter</b> = độ lệch của thời điểm bắt đầu chu kỳ so với lý tưởng. Với chu kỳ lý tưởng \(T=25\,000\) count (1 ms @ 25 MHz) và thời điểm bắt đầu \(s_k\):</p>
+<div class="math">$$J_k=(s_k-s_{k-1})-T$$</div>
+<p>Đây là jitter <em>chu kỳ-sang-chu kỳ</em> (period jitter): dễ đo, không cần biết pha tuyệt đối. Nguồn jitter trong RTOS: độ trễ ngắt tick, đoạn mã tắt ngắt (critical section) của task/ISR khác, thời gian chuyển ngữ cảnh, tranh chấp bus. Nhìn từ vòng điều khiển, jitter làm \(\Delta t\) thật khác \(\Delta t\) danh định đã dùng trong PID.</p>
+<p>Hai khái niệm khác nhau: <b>jitter</b> (dao động của thời điểm bắt đầu) và <b>trễ chu kỳ / deadline miss</b> (thân vòng lặp chạy quá lâu hoặc bị chiếm quyền nên lỡ cả một tick). Tiêu chí tất định (2) thuộc loại sau và được đếm trực tiếp bằng giá trị trả về của <code>xTaskDelayUntil</code>.</p>
+
+<h2 id="timer">3. Kiến thức 2 — Đo thời gian trong QEMU</h2>
+<table><thead><tr><th>Nguồn</th><th>Có trong QEMU 8.2.2 <code>mps2-an385</code>?</th><th>Đọc được từ task Restricted?</th></tr></thead><tbody>
+<tr><td>DWT <code>CYCCNT</code></td><td><b>Không</b> (đã xác minh ở M0: <code>CYCCNT</code> luôn 0)</td><td>—</td></tr>
+<tr><td>SysTick <code>VAL</code> (plan ghi là phương án dự phòng)</td><td>Có</td><td><b>Không</b>: nằm ở vùng PPB <code>0xE000E018</code>; truy cập từ không đặc quyền bị fault, MPU không cấp quyền được cho vùng này</td></tr>
+<tr><td>CMSDK APB <b>TIMER0</b> (<code>0x40000000</code>)</td><td>Có, đếm theo SYSCLK 25 MHz</td><td><b>Có</b>: là ngoại vi thường, cấp bằng 1 vùng MPU chỉ-đọc 32 B</td></tr>
+</tbody></table>
+<p><b>Quyết định:</b> dùng TIMER0 làm bộ đếm tự do 32 bit đếm xuống (<code>RELOAD = 0xFFFFFFFF</code>, <code>CTRL = 1</code>, không ngắt). Ưu điểm so với SysTick: không bị reload mỗi tick nên <i>không có rủi ro đọc rách cặp (tick, VAL)</i> như plan lo ngại, và thời gian giữa hai lần đọc chỉ là một phép trừ 32 bit:</p>
+<div class="math">$$\Delta=(\text{value}_{k-1}-\text{value}_k)\bmod 2^{32}$$</div>
+<p>(đếm <em>xuống</em> nên lấy giá trị trước trừ giá trị sau; phép trừ <code>uint32_t</code> tự xử lý tràn). Kết quả cất vào <code>uint16_t</code> (tối đa 65 535 count ≈ 2,6 ms) — đủ vì chu kỳ ≈ 25 000.</p>
+<div class="box warn"><strong>Lệch so với plan:</strong> plan ghi "dùng SysTick"; thực tế phải dùng TIMER0 vì SysTick không truy cập được từ task Restricted. Chưa sửa chữ trong <code>m1_plan.md</code>/<code>REQ-PERF-002</code> — chỉ nêu ở đây và trong <code>sil_environment.md</code>.</div>
+
+<h2 id="icount">4. Kiến thức 3 — Đổi count ↔ lệnh ↔ cycle</h2>
+<p>Dưới <code>-icount shift=N</code>, QEMU coi mỗi lệnh guest mất \(2^N\) ns ảo. Còn TIMER0 đếm theo thời gian ảo ở 25 MHz, tức 1 count = 40 ns ảo. Vì thế:</p>
+<div class="math">$$\text{lệnh}=\text{count}\times\frac{40\ \text{ns}}{2^{N}\ \text{ns}}$$</div>
+<table><thead><tr><th><code>-icount</code></th><th>1 lệnh =</th><th>1 count TIMER0 =</th><th>Chi phí controller đo được</th><th>→ số lệnh</th></tr></thead><tbody>
+<tr><td><code>shift=0</code></td><td>1 ns</td><td>40 lệnh</td><td class="num">65,6 count</td><td class="num">≈ 2 624</td></tr>
+<tr><td><code>shift=5</code></td><td>32 ns</td><td>1,25 lệnh</td><td class="num">2 087 count</td><td class="num">≈ 2 609</td></tr>
+</tbody></table>
+<p>Hai cấu hình cho <b>cùng</b> số lệnh (≈ 2,6 nghìn) — đây là kiểm tra chéo cho phép quy đổi. <b>Lưu ý quan trọng:</b> ở <code>shift=0</code> máy ảo "chạy" như 1 GHz so với đồng hồ 25 MHz, nên chi phí tính bằng <i>count</i> trông nhỏ (2 % chu kỳ) một cách <em>đánh lừa</em>; con số trung thực là <b>số lệnh</b>, rồi nhân CPI của lõi thật. QEMU không mô hình hóa pipeline/wait-state nên không biết CPI thật của Cortex-M3.</p>
+
+<h2 id="thong-ke">5. Kiến thức 4 — Percentile và histogram</h2>
+<ul>
+<li><b>p99</b> (nearest-rank): giá trị mà 99 % mẫu không vượt quá — mô tả "đuôi" phân bố mà trung bình che mất. <b>max</b> là trường hợp xấu nhất trong 10 000 mẫu (không phải trong mọi trường hợp có thể).</li>
+<li><b>Histogram</b> ở đây dùng thang <i>log</i> trên trục tần suất vì phần lớn mẫu nằm đúng ở 0 và các "đuôi" chỉ vài mẫu.</li>
+<li>Jitter đo dưới <code>-icount</code> là <b>jitter do phần mềm gây ra</b> (ngắt, critical section, chuyển ngữ cảnh), <em>không</em> chứa nhiễu của host — đó là lý do kết quả tái lập được (σ dưới 1 %, so với tới 25 % khi không dùng <code>-icount</code> — đã ghi ở M0).</li>
+</ul>
+
+<h2 id="code">6. Code đã viết</h2>
+<h3>6.1 Thu mẫu trong control task</h3>
+<pre><code>        if( c-&gt;ulTick &gt;= JITTER_SKIP_TICKS &amp;&amp; c-&gt;ulJitterN &lt; JITTER_SAMPLES )
+        {
+            if( c-&gt;ulJitterN == 0 ) { c-&gt;ulJitterMissedBase = c-&gt;ulMissedDeadlines; }
+            c-&gt;usPeriod[ c-&gt;ulJitterN ] = ( uint16_t ) ( c-&gt;ulPrevStart - ulT0 );   /* wrap-safe */
+            c-&gt;usCostCtrl[ c-&gt;ulJitterN ] = ( uint16_t ) ( ulT0 - ulT1 );
+            c-&gt;usCostPlant[ c-&gt;ulJitterN ] = ( uint16_t ) ( ulT1 - ulT2 );
+            c-&gt;ulJitterN++;
+            if( c-&gt;ulJitterN == JITTER_SAMPLES )
+            {
+                c-&gt;ulJitterMissedEnd = c-&gt;ulMissedDeadlines;
+                c-&gt;ulJitterDone = 1;
+            }
+        }
+        c-&gt;ulPrevStart = ulT0;</code></pre><p class="small"><code>freertos/app/control_task.c</code></p>
+<p>Ba lần đọc <code>TIMER0_VALUE</code>: <code>ulT0</code> (đầu chu kỳ, ngay sau khi <code>xTaskDelayUntil</code> trả về), <code>ulT1</code> (sau encoder + ước lượng + cascade), <code>ulT2</code> (sau plant). Bỏ 500 tick đầu (<code>JITTER_SKIP_TICKS</code>) để loại nhiễu lúc khởi động mạng. Chỉ ghi vào mảng trong vùng dữ liệu của chính task — không gọi OS.</p>
+<h3>6.2 Vùng MPU cho bộ đếm (chỉ đọc)</h3>
+<pre><code>            { ( void * ) TIMER0_BASE, 32,         portMPU_REGION_READ_ONLY | portMPU_REGION_EXECUTE_NEVER },</code></pre><p class="small"><code>freertos/app/control_task.c</code></p>
+<h3>6.3 Công cụ phân tích <code>tools/metrics.py</code></h3>
+<pre><code>def percentile(sorted_vals, q):
+    &quot;&quot;&quot;Nearest-rank percentile, q in [0,100].&quot;&quot;&quot;
+    if not sorted_vals:
+        raise ValueError(&quot;empty&quot;)
+    k = max(0, min(len(sorted_vals) - 1, int(-(-q / 100.0 * len(sorted_vals) // 1)) - 1))
+    return sorted_vals[k]</code></pre><p class="small"><code>tools/metrics.py</code></p>
+<pre><code>def jitter_summary(d):
+    &quot;&quot;&quot;Jitter = period - ideal, in virtual timer counts (1 count = 40 ns virtual).&quot;&quot;&quot;
+    jit = [p - d[&quot;ideal&quot;] for p in d[&quot;period&quot;]]
+    late = sum(1 for p in d[&quot;period&quot;] if p &gt;= 2 * d[&quot;ideal&quot;] - d[&quot;ideal&quot;] // 2)  # &gt;= ~1.5 ticks: a tick was lost
+    return {&quot;jitter&quot;: stats(jit), &quot;ctrl&quot;: stats(d[&quot;ctrl&quot;]), &quot;plant&quot;: stats(d[&quot;plant&quot;]),
+            &quot;missed_in_window&quot;: d[&quot;missed&quot;], &quot;late_cycles&quot;: late, &quot;n&quot;: len(jit)}</code></pre><p class="small"><code>tools/metrics.py</code></p>
+<p>Test: <code>tools/tests/test_metrics_jitter.py</code> (phân tích log mẫu, phát hiện chu kỳ 50 000 count là "trễ", percentile nearest-rank).</p>
+<h3>6.4 Lệnh chạy</h3>
+<pre><code>M1 Part 7 jitter (SIL, QEMU -icount shift=0, virtual time; 1 count = 40 ns virtual)</code></pre><p class="small"><code>docs/results/m1_jitter_summary.txt</code></p>
+<ul>
+<li>Build đo: <code>-DCONTROL_LOG_CSV=OFF</code> (UART 1 kHz làm chậm mô phỏng và gây nhiễu), A thêm <code>-DNODE_PROBE_ENABLE=OFF</code>.</li>
+<li><code>python tools/metrics.py jitter A=logA.txt B=logB.txt C=logC.txt --out docs/results/m1_jitter</code>.</li>
+</ul>
+
+<h2 id="dieu-kien">7. Ba điều kiện đo</h2>
+<table><thead><tr><th>ĐK</th><th>Tải</th><th>Cách tạo</th><th>Tải đo được (node tự đếm, thời gian ảo)</th></tr></thead><tbody>
+<tr><td>A</td><td>Không tải mạng</td><td>Build tắt <code>udp_probe</code>, host không gửi</td><td>0</td></tr>
+<tr><td>B</td><td>"<code>udp_echo</code> 100 Hz"</td><td><code>udp_probe</code> node→peer 100 Hz (ảo) + host gửi echo 21 Hz thật</td><td class="num">echo ≈ 88 gói/s ảo (+ probe 100 Hz)</td></tr>
+<tr><td>C</td><td>Tải cao "1 kHz"</td><td>như B nhưng host gửi 250 Hz thật</td><td class="num">echo ≈ 1 013 gói/s ảo</td></tr>
+</tbody></table>
+<div class="box"><strong>Vì sao phải hiệu chuẩn?</strong> Với <code>-icount</code>, thời gian ảo chạy chậm hơn thời gian thật khi CPU guest bận (mạng làm tăng độ bận). Host gửi 100 Hz <i>thật</i> sẽ thành ~460 Hz <i>ảo</i>. Tôi đã chạy thử, đo tải bằng bộ đếm <code>udp_echo rx</code> của node mỗi 5 s ảo, rồi chỉnh tốc độ gửi. Kết quả B ≈ 88 Hz (hơi dưới 100) và C ≈ 1 013 Hz. Số này là <b>đếm của node</b>, không phải tốc độ gửi của host.</div>
+
+<h2 id="ket-qua">8. Kết quả</h2>
+<p>10 000 chu kỳ mỗi điều kiện, <code>-icount shift=0</code>. Đơn vị: count TIMER0 (1 count = 40 ns ảo); jitter = chu kỳ − 25 000.</p>
+<table><thead><tr><th>ĐK</th><th>min</th><th>mean</th><th>p50</th><th>p99</th><th>max</th><th>σ</th><th>trễ ≥ 1 tick</th></tr></thead><tbody>
+<tr><td>A</td><td class="num">−3</td><td class="num">0,00</td><td class="num">0</td><td class="num">0</td><td class="num">3</td><td class="num">0,15</td><td class="num">0</td></tr>
+<tr><td>B</td><td class="num">−8</td><td class="num">0,00</td><td class="num">0</td><td class="num">2</td><td class="num">8</td><td class="num">0,86</td><td class="num">0</td></tr>
+<tr><td>C</td><td class="num">−10</td><td class="num">0,00</td><td class="num">0</td><td class="num">4</td><td class="num">10</td><td class="num">1,23</td><td class="num">0</td></tr>
+<tr><td>A, <code>shift=5</code></td><td class="num">−120</td><td class="num">0,00</td><td class="num">0</td><td class="num">0</td><td class="num">80</td><td class="num">3,39</td><td class="num">0</td></tr>
+</tbody></table>
+<figure><img src="results/m1_jitter_hist.png" alt="Histogram jitter A B C"><figcaption>Histogram jitter 3 điều kiện (docs/results/m1_jitter_hist.png), trục tần suất thang log.</figcaption></figure>
+<p><b>Đọc kết quả:</b></p>
+<ul>
+<li>Tải mạng làm σ tăng (0,15 → 0,86 → 1,23 count) và mở rộng đuôi (±3 → ±8 → ±10), nhưng tuyệt đối vẫn rất nhỏ: ±10 count = ±400 ns ảo, tức ±0,04 % chu kỳ. Nghĩa là trong mô hình này tranh chấp từ IP task / <code>udp_echo</code> gần như không làm lệch thời điểm bắt đầu của control task (ưu tiên 9 cao nhất).</li>
+<li>Giá trị trung bình đúng 0 là hệ quả của tick ảo chính xác: tổng các độ lệch bị triệt tiêu.</li>
+<li>Ở <code>shift=5</code> đuôi rộng hơn (−120/+80 count) vì mỗi lệnh "đắt" hơn 32 lần: cùng một đoạn mã tắt ngắt dài bằng số lệnh nhưng chiếm nhiều count hơn. Đáng chú ý, vẫn 0 chu kỳ trễ.</li>
+<li><b>Tiêu chí (2)</b> (0 chu kỳ trễ ≥ 1 tick trong 10 000 chu kỳ ở B): đạt, cả hai cách đếm — <code>missed_in_window=0</code> (giá trị trả về của <code>xTaskDelayUntil</code>) và 0 chu kỳ có độ dài ≥ 1,5 tick.</li>
+</ul>
+
+<h2 id="chi-phi">9. Chi phí một bước control</h2>
+<table><thead><tr><th>Thành phần</th><th>count (mean / p99 / max)</th><th>Số lệnh ≈</th><th>% của 25 000 (giả sử CPI = 1)</th></tr></thead><tbody>
+<tr><td><b>Controller</b>: encoder + ước lượng tốc độ + cascade</td><td class="num">65,6 / 88 / 93</td><td class="num">2 624 / 3 520 / 3 720</td><td class="num">10,5 % (p99: 14 %)</td></tr>
+<tr><td>Plant (mô hình trên node, 10 bước con Euler)</td><td class="num">285,4 / 289 / 290</td><td class="num">11 415</td><td class="num">45,7 %</td></tr>
+<tr><td>Cộng cả hai</td><td class="num">351</td><td class="num">≈ 14 040</td><td class="num">56 %</td></tr>
+</tbody></table>
+<p><b>Đối chiếu tiêu chí (3) "&lt; 30 % của 25 000 cycle":</b></p>
+<ul>
+<li><b>Controller riêng:</b> 2,6 nghìn lệnh = 10,5 % nếu CPI = 1; vượt 30 % chỉ khi CPI ≳ 2,9. Với số học float mềm (nhiều lệnh nhảy/nhớ), CPI thật của Cortex-M3 có thể cao hơn 1 — <em>không thể xác nhận bằng QEMU</em>. Kết luận chấp nhận được cho mục đích SIL, kèm giả thiết CPI.</li>
+<li><b>Cả bước gồm plant:</b> 56 % ở CPI = 1 → <b>vượt ngưỡng 30 %</b>. Plant trên node chỉ là đồ giả lập (trong hệ thật là motor); nhưng vì nó chạy cùng task nên làm kín ngân sách tick. Cách giảm nếu cần: giảm số bước con của plant (hiện 10), đổi sang Q15 cho plant, hoặc đẩy plant sang task riêng.</li>
+<li>Giả định "float mềm đủ ở 1 kHz" của Phần 1: đúng cho controller, hẹp cho controller + plant.</li>
+</ul>
+
+<h2 id="gioi-han">10. Giới hạn và cách đọc đúng</h2>
+<ul>
+<li><b>Chỉ là SIL, thời gian ảo.</b> Không phải phần cứng, không phải hard real-time; không suy ra jitter của chip thật.</li>
+<li>Dưới <code>-icount</code>, "độ trễ ngắt" được mô hình hóa theo số lệnh — tốt cho so sánh tương đối giữa các điều kiện, không đại diện cho đường bus/wait-state thật.</li>
+<li>Mô phỏng NIC LAN9118 không có DMA thật; tải mạng có thể nhẹ hơn trên phần cứng.</li>
+<li>Tải B nhận ≈ 88 Hz thay vì đúng 100 Hz; C ≈ 1 013 Hz. Chưa chạy lặp nhiều lần để khảo sát phương sai giữa các lượt.</li>
+<li>Plant và controller đo chung một bộ đếm: chi phí gồm cả thời gian ngắt chen ngang trong khoảng đó (hiển thị ở đuôi max).</li>
+</ul>
+
+<h2 id="tu-kiem">11. Tự kiểm tra</h2>
+<div class="checklist"><ul>
+<li>Vì sao task Restricted không đọc được SysTick, và TIMER0 giải quyết thế nào?</li>
+<li>Jitter khác "trễ chu kỳ" ở điểm nào? Mỗi cái đo bằng gì?</li>
+<li>Vì sao cùng chi phí controller lại là 65,6 count ở <code>shift=0</code> nhưng 2 087 count ở <code>shift=5</code>? Con số nào "thật" hơn?</li>
+<li>Vì sao p99 và max hữu ích hơn mean khi đánh giá jitter?</li>
+<li>Kết luận "controller &lt; 30 %" cần giả thiết gì và vì sao không kiểm chứng được bằng QEMU?</li>
+</ul></div>
+
+<div class="nav"><span><a href="m1_part6_control_task_guide.html">← Phần 6</a></span><span><a href="m1_part8_host_vs_node_guide.html">Phần 8 →</a></span></div>
+<p class="footer small">Số liệu là <b>SIL</b>: mô hình chạy trên host / QEMU (thời gian ảo). Không phải phần cứng thật, không tuyên bố hard real-time.</p>
+</main>
+</body>
+</html>

@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Đưa vòng điều khiển lên node FreeRTOS thành task 1 kHz không đặc quyền: vùng MPU, seqlock, ring buffer log và các bằng chứng đếm được.">
+<title>Phần 6 — Control task trên FreeRTOS (MPU Restricted)</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" crossorigin="anonymous" onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'\\(',right:'\\)',display:false}],throwOnError:false});"></script>
+<style>
+:root{--ink:#172033;--muted:#586579;--line:#dce3ed;--paper:#fff;--soft:#f4f7fb;--blue:#2456c7;--teal:#087e75;--green:#167447;--amber:#9a5b00;--red:#ad2c2c;--navy:#101a2b;--shadow:0 12px 32px rgba(22,39,68,.08)}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:#f7f9fc;color:var(--ink);font:16px/1.72 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}main{max-width:1020px;margin:26px auto 70px;background:var(--paper);padding:clamp(22px,5vw,58px);box-shadow:var(--shadow);border:1px solid #e8edf4;border-radius:18px}h1{font-size:clamp(2rem,4vw,3rem);line-height:1.15;letter-spacing:-.035em;margin:.2em 0 .45em}h2{font-size:1.55rem;line-height:1.3;margin:2.4em 0 .65em;padding-top:.7em;border-top:1px solid var(--line);letter-spacing:-.02em}h3{font-size:1.16rem;margin:1.55em 0 .4em;color:#173c7a}p{margin:.65em 0}li{margin:.3em 0}a{color:var(--blue)}.eyebrow{display:inline-block;color:var(--blue);font-weight:750;text-transform:uppercase;letter-spacing:.11em;font-size:.78rem}.sub{font-size:1.08rem;color:var(--muted);max-width:850px}.pills{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0}.pill{border:1px solid var(--line);background:var(--soft);border-radius:999px;padding:4px 11px;color:#34435b;font-size:.86rem}.hero{background:linear-gradient(135deg,#10264a,#1a4c82 65%,#087e75);color:white;padding:25px 28px;border-radius:14px;margin:24px 0}.hero p{color:#e8f1ff;margin:.3em 0}.hero strong{color:#fff}.toc{background:var(--soft);border:1px solid var(--line);border-radius:12px;padding:18px 22px;margin:22px 0}.toc ol{columns:2;padding-left:22px;margin:.6em 0}.toc li{break-inside:avoid}.box{padding:14px 18px;border-left:4px solid var(--blue);background:#eff5ff;border-radius:6px;margin:16px 0}.box.warn{border-color:var(--amber);background:#fff8e9}.box.good{border-color:var(--green);background:#eef8f1}.box.danger{border-color:var(--red);background:#fff1f0}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:13px;margin:14px 0}.card{border:1px solid var(--line);border-radius:10px;padding:14px 16px;background:white}.card h3{margin:.1em 0 .45em}table{width:100%;border-collapse:collapse;margin:14px 0;font-size:.94rem}th,td{border:1px solid var(--line);padding:9px 11px;text-align:left;vertical-align:top}th{background:#edf2f8;color:#25344c}code{font:.88em/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;background:#eff2f7;padding:.13em .35em;border-radius:4px;color:#243b63}pre{background:var(--navy);color:#e5edf8;padding:15px 17px;border-radius:10px;overflow:auto;font:.88rem/1.55 ui-monospace,SFMono-Regular,Consolas,monospace}pre code{background:none;color:inherit;padding:0}.math{overflow-x:auto;background:#fbfcfe;border:1px solid #e8edf4;border-radius:8px;padding:8px 14px;margin:10px 0}.small{font-size:.9rem;color:var(--muted)}.tag{display:inline-block;border-radius:4px;padding:1px 6px;font-size:.78rem;font-weight:700;background:#e8eefb;color:#254d9a}.tag.warn{background:#fff0d4;color:#865000}.tag.ok{background:#e5f5eb;color:#12643a}.checklist li::marker{color:var(--green)}.flow{display:flex;align-items:stretch;gap:8px;flex-wrap:wrap;margin:15px 0}.flow div{flex:1 1 155px;text-align:center;padding:12px;background:var(--soft);border:1px solid var(--line);border-radius:9px}.flow b{display:block;color:#193e79}.flow span{font-size:.9rem;color:var(--muted)}.footer{border-top:1px solid var(--line);margin-top:42px;padding-top:16px;color:var(--muted);font-size:.88rem}.katex-display{overflow-x:auto;overflow-y:hidden;padding:5px 0}
+@media(max-width:650px){main{margin:0;border-radius:0;padding:24px 17px}.toc ol{columns:1}table{font-size:.86rem}th,td{padding:7px}.hero{padding:20px}}
+@media print{body{background:white}main{box-shadow:none;border:0;margin:0;max-width:none;padding:0}.toc a{text-decoration:none;color:var(--ink)}.card,.box,table,pre{break-inside:avoid}.hero{print-color-adjust:exact;-webkit-print-color-adjust:exact}}
+
+.nav{display:flex;justify-content:space-between;gap:12px;margin:2.4em 0 0;padding-top:1em;border-top:1px solid var(--line);font-size:.95rem}
+figure{margin:1.2em 0}figure img{max-width:100%;border:1px solid var(--line);border-radius:8px}figcaption{font-size:.88rem;color:var(--muted)}
+code.k{background:#eef2f8;padding:1px 5px;border-radius:4px}
+.num{font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<main>
+<span class="eyebrow">M1 · Phần 6 · Node FreeRTOS · QEMU mps2-an385</span>
+<h1>Phần 6 — Control task trên FreeRTOS (MPU Restricted)</h1>
+<p class="sub">Đưa vòng điều khiển lên node FreeRTOS thành task 1 kHz không đặc quyền: vùng MPU, seqlock, ring buffer log và các bằng chứng đếm được.</p>
+<div class="pills"><span class="pill">FreeRTOS</span><span class="pill">MPU Restricted</span><span class="pill">xTaskDelayUntil</span><span class="pill">Seqlock</span><span class="pill">QEMU -icount</span></div>
+<div class="hero"><strong>Kết quả cuối bài</strong>
+<p>Control task chạy <b>không đặc quyền (Restricted)</b> dưới port <code>ARM_CM3_MPU</code> trên QEMU <code>mps2-an385</code>, chu kỳ 1 kHz bằng <code>xTaskDelayUntil</code>, chỉ truy cập được stack riêng + vùng dữ liệu control + vùng seqlock + (chỉ đọc) một bộ đếm. Chạy 70040 tick (70 s ảo) với <code>udp_echo</code>/<code>udp_probe</code> đang chạy: 1 mẫu/tick, <b>0 khoảng trống, 0 trễ chu kỳ, 0 torn read</b>; ghi cố ý ra ngoài vùng bị MemManage bắt và task chạy tiếp.</p></div>
+<nav class="toc" aria-label="Mục lục"><strong>Mục lục</strong><ol><li><a href="#muc-tieu">Mục tiêu và cách làm</a></li><li><a href="#rtos">Kiến thức 1 — Task định kỳ trên FreeRTOS</a></li><li><a href="#mpu">Kiến thức 2 — MPU và task Restricted</a></li><li><a href="#seqlock">Kiến thức 3 — Seqlock và ring buffer</a></li><li><a href="#icount">Kiến thức 4 — Thời gian ảo và -icount</a></li><li><a href="#code">Code đã viết</a></li><li><a href="#chay">Cách build và chạy</a></li><li><a href="#ket-qua">Kết quả</a></li><li><a href="#van-de">Vấn đề gặp và quyết định</a></li><li><a href="#tu-kiem">Tự kiểm tra</a></li></ol></nav>
+
+<h2 id="muc-tieu">1. Mục tiêu và cách làm</h2>
+<p><b>Mục tiêu (plan M1 Phần 6):</b> đưa vòng điều khiển lên node FreeRTOS thành một task chu kỳ 1 kHz, <em>cô lập bằng MPU</em>, không bị mạng (<code>udp_echo</code>) làm hỏng, và chứng minh bằng ba kết quả đếm được: (1) chạy ≥ 60 s không MemManage ngoài ý muốn; (2) ghi cố ý ra ngoài vùng → MemManage bị bắt; (3) CSV có đúng 1 mẫu/tick, 0 lần trễ chu kỳ khi <code>udp_echo</code> chạy.</p>
+<ol>
+<li>Viết adapter <code>freertos/app/control_task.c</code> — chỉ làm phần "dính OS": đợi tick, gọi core (<code>plant_step</code>, <code>encoder_step</code>, <code>speed_estimator_step</code>, <code>cascade_step</code>), ghi kết quả. Toàn bộ thuật toán vẫn nằm trong <code>common/control/</code>.</li>
+<li>Tạo task bằng <code>xTaskCreateRestricted</code> với đúng 3 vùng bộ nhớ.</li>
+<li>Đẩy mẫu vào ring buffer, một task đặc quyền ưu tiên thấp in CSV; chia sẻ trạng thái bằng seqlock.</li>
+<li>Thêm cờ build <code>CONTROL_TEST_STEP</code> (tham chiếu vuông 0 ↔ 1 rad, đổi mỗi 1 s) và <code>CONTROL_TEST_VIOLATE</code> (cố ý ghi ngoài vùng một lần tại tick 5000).</li>
+</ol>
+
+<h2 id="rtos">2. Kiến thức 1 — Task định kỳ trên FreeRTOS</h2>
+<ul>
+<li><b>Tick:</b> <code>configTICK_RATE_HZ = 1000</code> → 1 tick = 1 ms.</li>
+<li><b><code>vTaskDelay(n)</code></b> chờ <em>n tick kể từ lúc gọi</em> → chu kỳ = n + thời gian chạy thân vòng lặp ⇒ <b>trôi</b>. <b><code>xTaskDelayUntil(&amp;last, n)</code></b> chờ tới thời điểm tuyệt đối <code>last + n</code> rồi cập nhật <code>last</code> ⇒ chu kỳ cố định, không trôi.</li>
+<li><code>xTaskDelayUntil</code> trả <code>pdFALSE</code> nếu <em>không phải chờ</em> (thời điểm đã qua rồi) — nghĩa là task đã <b>trễ ≥ 1 chu kỳ</b>. Ta đếm số lần này làm <code>missed_deadlines</code>: tiêu chí đếm được, không phụ thuộc đồng hồ nào.</li>
+<li><b>Ưu tiên:</b> control = 9 (cao nhất ứng dụng, = ưu tiên task timer vốn gần như ngủ), IP task = 8, RX handler = 7, <code>udp_echo</code> = 2, drain/in log = 1. Theo ARCH §5.1 control cao hơn comm/IP. IP/RX task vẫn đặc quyền như M0.</li>
+<li><b>Không <code>printf</code> trong control task:</b> I/O không dự đoán thời gian. Control task chỉ ghi vào ring buffer; task thấp in.</li>
+</ul>
+
+<h2 id="mpu">3. Kiến thức 2 — MPU Cortex-M3 và task Restricted</h2>
+<p>MPU (Memory Protection Unit) cho phép kernel đặt quyền truy cập theo <em>vùng</em> bộ nhớ. Port <code>ARM_CM3_MPU</code> của FreeRTOS cho mỗi task chạy <b>không đặc quyền</b> (<code>xTaskCreateRestricted</code>); khi chuyển task, kernel nạp lại các vùng của task đó. Truy cập ngoài các vùng được cấp → <b>MemManage fault</b>.</p>
+<table><thead><tr><th>Ràng buộc của MPU ARMv7-M</th><th>Hệ quả trong code</th></tr></thead><tbody>
+<tr><td>Kích thước vùng phải là <b>lũy thừa của 2</b> (tối thiểu 32 B)</td><td>Vùng dữ liệu control là <code>union</code> ép đúng 128 KB; vùng seqlock 64 B</td></tr>
+<tr><td>Địa chỉ đầu phải <b>căn theo kích thước</b> vùng</td><td><code>__attribute__((aligned(CONTROL_DATA_SIZE)))</code>; stack 4 KB căn 4096</td></tr>
+<tr><td>Port này cho <b>3 vùng cấu hình được</b> mỗi task (+ vùng stack)</td><td>Đúng 3 vùng: dữ liệu control (RW), seqlock (RW), TIMER0 (chỉ đọc)</td></tr>
+<tr><td>Vùng hệ thống (PPB <code>0xE000xxxx</code>: SysTick, SCB…) <b>không đọc được từ không đặc quyền</b></td><td>Không dùng được SysTick/DWT từ control task → dùng TIMER0 (xem Phần 7)</td></tr>
+<tr><td>Flash (code, const) được đọc ở không đặc quyền</td><td>Mã của core và thư viện float mềm chạy được trong task Restricted</td></tr>
+</tbody></table>
+<p>Hệ quả an toàn: một lỗi con trỏ trong control task không thể ghi đè dữ liệu kernel, dữ liệu của <code>udp_echo</code> hay của task khác — nó bị MemManage bắt. Handler <code>vHandleMemoryFault</code> (từ M0) ghi lại <code>CFSR/MMFAR/PC</code>.</p>
+
+<h2 id="seqlock">4. Kiến thức 3 — Seqlock và ring buffer</h2>
+<p><b>Seqlock</b> cho phép một writer và nhiều reader chia sẻ một struct nhiều trường mà <em>writer không bao giờ phải chờ</em>:</p>
+<ol>
+<li>Writer: <code>seq++</code> (thành lẻ) → ghi các trường → <code>seq++</code> (thành chẵn).</li>
+<li>Reader: đọc <code>seq</code> (nếu lẻ → thử lại) → sao chép trường → đọc lại <code>seq</code>; nếu khác lần đầu → thử lại.</li>
+</ol>
+<p>Phù hợp control task (writer, quan trọng thời gian) và các task đọc (telemetry, supervisor). Có hàng rào bộ nhớ (<code>dmb</code>) để compiler/CPU không đảo thứ tự. Test: struct có <code>ulTick</code> và <code>ulTickCheck</code> luôn bằng nhau trong snapshot nhất quán; ta đếm số snapshot có hai giá trị khác nhau (<i>torn read</i>) — phải bằng 0.</p>
+<p><b>Ring buffer 256 mẫu</b> cho log: writer chỉ <code>ulWriteIdx++</code>, reader chỉ <code>ulReadIdx++</code> (mỗi chỉ số một chủ). Nếu đầy thì <b>bỏ mẫu và đếm</b> (<code>dropped</code>) thay vì chặn control task.</p>
+
+<h2 id="icount">5. Kiến thức 4 — Thời gian ảo và <code>-icount</code></h2>
+<p>QEMU mặc định lấy đồng hồ ảo theo đồng hồ host. Khi vCPU bị chặn trong một lệnh I/O của host (ví dụ ghi UART ra stdout), thời gian ảo vẫn trôi → ngắt SysTick bị trễ → control task thấy "trễ chu kỳ" (đã quan sát: 8–16 lần mỗi 5 s). Đây là <b>hiện tượng của mô phỏng</b>, không phải của mã.</p>
+<p>Với <code>-icount shift=0</code>, thời gian ảo được tính theo <b>số lệnh đã thực thi</b> (1 lệnh = 2⁰ = 1 ns ảo), độc lập với tốc độ host. Kết quả ổn định, tái lập, nhưng chạy chậm hơn thời gian thật khi CPU bận (đã ghi ở <code>sil_environment.md</code> §4). Vì vậy mọi tiêu chí "0 trễ chu kỳ" ở đây được đo dưới <code>-icount shift=0</code> và được ghi nhãn <b>SIL, QEMU, thời gian ảo</b>.</p>
+
+<h2 id="code">6. Code đã viết</h2>
+<h3>6.1 Bố cục bộ nhớ của task (rút gọn)</h3>
+<pre><code>typedef struct
+{
+    uint32_t ulTick;
+    int32_t  lCount;
+    int32_t  lPos_urad;
+    int32_t  lVel_mrads;
+    int32_t  lVolt_mV;
+} LogSample_t;
+
+typedef struct
+{
+    plant_params_t xPlantParams;
+    plant_state_t xPlant;
+    encoder_params_t xEncParams;
+    encoder_state_t xEnc;
+    speed_estimator_t xSpeed;
+    cascade_params_t xCascadeParams;
+    cascade_state_t xCascade;
+
+    uint32_t ulTick;            /* control ticks executed since boot (counts every period) */
+    uint32_t ulMissedDeadlines; /* xTaskDelayUntil() reported &quot;not delayed&quot; */
+    uint32_t ulWriteIdx;        /* ring: written by control task only */
+    uint32_t ulDropped;         /* samples lost because the drain task was too slow */
+    volatile uint32_t ulReadIdx;/* ring: advanced by the drain task (privileged, can write here) */
+    LogSample_t xRing[ LOG_RING_LEN ];
+
+    /* Jitter / cost capture (Part 7). Raw TIMER0 counts @ 25 MHz = 1 count per 40 ns virtual. */
+    uint32_t ulPrevStart;
+    uint32_t ulJitterN;          /* samples captured so far */
+    uint32_t ulJitterMissedBase; /* missed-deadline counter when capture started */
+    uint32_t ulJitterMissedEnd;
+    volatile uint32_t ulJitterDone;
+    uint16_t usPeriod[ JITTER_SAMPLES ];   /* counts between consecutive cycle starts (ideal 25000) */
+    uint16_t usCostCtrl[ JITTER_SAMPLES ]; /* encoder + speed estimator + cascade */
+    uint16_t usCostPlant[ JITTER_SAMPLES ];/* plant model (test fixture on the node, not controller cost) */
+} ControlData_t;
+
+typedef union
+{
+    ControlData_t xData;
+    uint8_t ucPad[ CONTROL_DATA_SIZE ];
+} ControlBlock_t;
+
+typedef char ControlDataFits_t[ ( sizeof( ControlData_t ) &lt;= CONTROL_DATA_SIZE ) ? 1 : -1 ];
+
+/* Single-writer seqlock: writer makes seq odd, writes, makes seq even. */
+typedef struct
+{
+    volatile uint32_t ulSeq;
+    volatile uint32_t ulTick;
+    volatile int32_t lCount;
+    volatile int32_t lPos_urad;
+    volatile int32_t lVel_mrads;
+    volatile int32_t lVolt_mV;
+    volatile uint32_t ulMissed;
+    volatile uint32_t ulTickCheck;   /* == ulTick in every consistent snapshot */
+    volatile uint32_t ulFaultExpected; /* CONTROL_TEST_VIOLATE: armed by control task, consumed by the fault handler */
+} SharedState_t;</code></pre><p class="small"><code>freertos/app/control_task.c</code></p>
+<pre><code>static ControlBlock_t g_ctl __attribute__( ( aligned( CONTROL_DATA_SIZE ) ) );
+static SharedState_t g_shared __attribute__( ( aligned( 64 ) ) );
+static StackType_t g_stack[ CONTROL_STACK_WORDS ] __attribute__( ( aligned( CONTROL_STACK_WORDS * sizeof( StackType_t ) ) ) );
+static TaskHandle_t g_ctl_handle;</code></pre><p class="small"><code>freertos/app/control_task.c</code></p>
+<h3>6.2 Vòng điều khiển</h3>
+<pre><code>static void prvControlTask( void * pv )
+{
+    ControlData_t * c = &amp;g_ctl.xData;
+    TickType_t xLast;
+    float fRef = 0.0f, fVolt = 0.0f;
+
+    ( void ) pv;
+    plant_default_params( &amp;c-&gt;xPlantParams );
+    plant_reset( &amp;c-&gt;xPlant );
+    c-&gt;xEncParams = ( encoder_params_t ) { .counts_per_rev = 4096U, .noise_std_rad = 0.0f, .seed = 1U, .force_stuck = false };
+    encoder_reset( &amp;c-&gt;xEnc, &amp;c-&gt;xEncParams );
+    speed_estimator_reset( &amp;c-&gt;xSpeed, 0.5f );       /* alpha as tuned in Part 5 */
+    cascade_default_params( &amp;c-&gt;xCascadeParams );
+    cascade_reset( &amp;c-&gt;xCascade );
+
+    xLast = xTaskGetTickCount();
+    for( ; ; )
+    {
+        /* Test profile: fixed square reference (Comm + commands from QNX come in M4). */
+#ifdef CONTROL_TEST_STEP
+        fRef = ( ( c-&gt;ulTick / STEP_HALF_PERIOD_TICKS ) &amp; 1U ) ? 0.0f : STEP_REF_RAD;
+#else
+        fRef = 0.0f;
+#endif
+        const uint32_t ulT0 = TIMER0_VALUE;             /* down counter */
+        const int32_t lCount = encoder_step( &amp;c-&gt;xEnc, &amp;c-&gt;xEncParams, c-&gt;xPlant.position_rad );
+        const float fVel = speed_estimator_step( &amp;c-&gt;xSpeed, lCount, 0.001f, c-&gt;xEncParams.counts_per_rev );
+        const float fPos = ( float ) lCount * TWO_PI_F / ( float ) c-&gt;xEncParams.counts_per_rev;
+        fVolt = cascade_step( &amp;c-&gt;xCascade, &amp;c-&gt;xCascadeParams, fRef, fPos, fVel );
+        const uint32_t ulT1 = TIMER0_VALUE;
+        ( void ) plant_step( &amp;c-&gt;xPlant, &amp;c-&gt;xPlantParams, fVolt, 0.001f );
+        const uint32_t ulT2 = TIMER0_VALUE;
+
+        if( c-&gt;ulTick &gt;= JITTER_SKIP_TICKS &amp;&amp; c-&gt;ulJitterN &lt; JITTER_SAMPLES )
+        {
+            if( c-&gt;ulJitterN == 0 ) { c-&gt;ulJitterMissedBase = c-&gt;ulMissedDeadlines; }
+            c-&gt;usPeriod[ c-&gt;ulJitterN ] = ( uint16_t ) ( c-&gt;ulPrevStart - ulT0 );   /* wrap-safe */
+            c-&gt;usCostCtrl[ c-&gt;ulJitterN ] = ( uint16_t ) ( ulT0 - ulT1 );
+            c-&gt;usCostPlant[ c-&gt;ulJitterN ] = ( uint16_t ) ( ulT1 - ulT2 );
+            c-&gt;ulJitterN++;
+            if( c-&gt;ulJitterN == JITTER_SAMPLES )
+            {
+                c-&gt;ulJitterMissedEnd = c-&gt;ulMissedDeadlines;
+                c-&gt;ulJitterDone = 1;
+            }
+        }
+        c-&gt;ulPrevStart = ulT0;
+
+#ifdef CONTROL_LOG_CSV
+        {
+            LogSample_t * s = &amp;c-&gt;xRing[ c-&gt;ulWriteIdx &amp; ( LOG_RING_LEN - 1U ) ];
+            if( ( c-&gt;ulWriteIdx - c-&gt;ulReadIdx ) &gt;= LOG_RING_LEN )
+            {
+                c-&gt;ulDropped++;                         /* ring full: drop, never block */
+            }
+            else
+            {
+                s-&gt;ulTick = c-&gt;ulTick;
+                s-&gt;lCount = lCount;
+                s-&gt;lPos_urad = lScale( c-&gt;xPlant.position_rad, 1.0e6f );
+                s-&gt;lVel_mrads = lScale( c-&gt;xPlant.velocity_rad_s, 1.0e3f );
+                s-&gt;lVolt_mV = lScale( fVolt, 1.0e3f );
+                c-&gt;ulWriteIdx++;
+            }
+        }
+#endif
+
+        g_shared.ulSeq++;                               /* odd: write in progress */
+        __asm volatile ( &quot;dmb&quot; ::: &quot;memory&quot; );
+        g_shared.ulTick = c-&gt;ulTick;
+        g_shared.lCount = lCount;
+        g_shared.lPos_urad = lScale( c-&gt;xPlant.position_rad, 1.0e6f );
+        g_shared.lVel_mrads = lScale( c-&gt;xPlant.velocity_rad_s, 1.0e3f );
+        g_shared.lVolt_mV = lScale( fVolt, 1.0e3f );
+        g_shared.ulMissed = c-&gt;ulMissedDeadlines;
+        g_shared.ulTickCheck = c-&gt;ulTick;
+        __asm volatile ( &quot;dmb&quot; ::: &quot;memory&quot; );
+        g_shared.ulSeq++;                               /* even: consistent */
+
+        c-&gt;ulTick++;
+
+#ifdef CONTROL_TEST_VIOLATE
+        if( c-&gt;ulTick == VIOLATE_AT_TICK )
+        {
+            g_shared.ulFaultExpected = 1;
+            ulForbidden = 0xBAD0BAD0UL;                 /* outside every region -&gt; MemManage */
+        }
+#endif
+
+        if( xTaskDelayUntil( &amp;xLast, CONTROL_PERIOD_TICKS ) == pdFALSE )
+        {
+            c-&gt;ulMissedDeadlines++;                     /* woke up late: a tick was skipped */
+        }
+    }
+}</code></pre><p class="small"><code>freertos/app/control_task.c</code></p>
+<p>Đọc theo thứ tự: tham chiếu → encoder → ước lượng tốc độ → <code>cascade_step</code> → <code>plant_step</code> → (đo thời gian, xem Phần 7) → ghi ring (nếu <code>CONTROL_LOG_CSV</code>) → cập nhật seqlock → <code>xTaskDelayUntil</code> và đếm trễ.</p>
+<h3>6.3 Tạo task Restricted với đúng 3 vùng</h3>
+<pre><code>void control_task_start( void )
+{
+    TaskParameters_t xParams =
+    {
+        .pvTaskCode = prvControlTask, .pcName = &quot;control&quot;, .usStackDepth = CONTROL_STACK_WORDS,
+        .pvParameters = NULL, .uxPriority = CONTROL_PRIORITY, .puxStackBuffer = g_stack,
+        .xRegions =
+        {
+            { &amp;g_ctl,    CONTROL_DATA_SIZE,        portMPU_REGION_READ_WRITE | portMPU_REGION_EXECUTE_NEVER },
+            { &amp;g_shared, sizeof( g_shared ),       portMPU_REGION_READ_WRITE | portMPU_REGION_EXECUTE_NEVER },
+            { ( void * ) TIMER0_BASE, 32,         portMPU_REGION_READ_ONLY | portMPU_REGION_EXECUTE_NEVER },
+        }
+    };
+
+    TIMER0_RELOAD = 0xFFFFFFFFUL;                       /* free-running 32-bit down counter */
+    TIMER0_CTRL = 1UL;                                  /* enable, no interrupt */
+    memset( &amp;g_ctl, 0, sizeof( g_ctl ) );
+    memset( ( void * ) &amp;g_shared, 0, sizeof( g_shared ) );
+    xTaskCreateRestricted( &amp;xParams, &amp;g_ctl_handle );
+    xTaskCreate( prvDrainTask, &quot;ctl_drain&quot;, configMINIMAL_STACK_SIZE * 2, NULL, ( tskIDLE_PRIORITY + 1 ) | portPRIVILEGE_BIT, NULL );
+}</code></pre><p class="small"><code>freertos/app/control_task.c</code></p>
+<h3>6.4 Task in log và đọc seqlock (đặc quyền, ưu tiên thấp)</h3>
+<pre><code>        /* Seqlock read from another task. */
+        {
+            SharedState_t xSnap;
+            uint32_t ulS0, ulS1;
+            do
+            {
+                ulS0 = g_shared.ulSeq;
+                __asm volatile ( &quot;dmb&quot; ::: &quot;memory&quot; );
+                xSnap.ulTick = g_shared.ulTick;
+                xSnap.ulTickCheck = g_shared.ulTickCheck;
+                xSnap.lCount = g_shared.lCount;
+                __asm volatile ( &quot;dmb&quot; ::: &quot;memory&quot; );
+                ulS1 = g_shared.ulSeq;
+                if( ( ulS0 &amp; 1U ) || ( ulS0 != ulS1 ) ) { ulRetries++; }
+            } while( ( ulS0 &amp; 1U ) || ( ulS0 != ulS1 ) );
+            ulSnapshots++;
+            if( xSnap.ulTick != xSnap.ulTickCheck ) { ulTornReads++; }
+        }</code></pre><p class="small"><code>freertos/app/control_task.c</code></p>
+<h3>6.5 Ghi cố ý ngoài vùng (bản <code>CONTROL_TEST_VIOLATE</code>)</h3>
+<pre><code>#ifdef CONTROL_TEST_VIOLATE
+/* Privileged-only variable the control task is NOT allowed to write (not in any of its regions). */
+static volatile uint32_t ulForbidden __attribute__( ( aligned( 32 ) ) );
+#define VIOLATE_AT_TICK 5000U
+#endif</code></pre><p class="small"><code>freertos/app/control_task.c</code></p>
+<p>Biến <code>ulForbidden</code> không nằm trong vùng nào của task ⇒ ghi vào đó gây MemManage. Cờ "lỗi được kỳ vọng" nằm trong vùng seqlock (task ghi được); handler đặc quyền kiểm tra cờ, xóa CFSR, <b>nhảy qua lệnh lỗi</b> rồi trả về, nên task chạy tiếp.</p>
+
+<h2 id="chay">7. Cách build và chạy</h2>
+<pre><code>build: cmake --preset node &amp;&amp; cmake --build build/freertos (CONTROL_TEST_STEP=ON, CONTROL_LOG_CSV=ON); run: python tools/sil_runner.py echo --duration 280 --rate 25 --icount shift=0</code></pre><p class="small"><code>docs/results/m1_part6_control_task.txt</code></p>
+<ul>
+<li>Build chính: <code>cmake --preset node &amp;&amp; cmake --build build/freertos</code> (có CSV + <code>CONTROL_TEST_STEP</code>).</li>
+<li>Bản vi phạm: cấu hình thêm <code>-DCONTROL_TEST_VIOLATE=ON</code> ở thư mục build riêng (toolchain file truyền bằng <i>đường dẫn tuyệt đối</i>).</li>
+<li>Chạy: <code>python tools/sil_runner.py echo --duration 280 --rate 25 --icount shift=0 --log node_uart.txt</code>. Host gửi echo 25 Hz <i>thời gian thật</i> ≈ 100 Hz <i>thời gian ảo</i> vì QEMU với <code>-icount</code> chạy chậm hơn thật ~4×.</li>
+</ul>
+
+<h2 id="ket-qua">8. Kết quả</h2>
+<table><thead><tr><th>Tiêu chí plan</th><th>Kết quả (SIL, QEMU <code>-icount shift=0</code>)</th></tr></thead><tbody>
+<tr><td>(1) Chạy ≥ 60 s không MemManage ngoài ý muốn</td><td class="num">70040 tick ≈ 70 s ảo; <code>stack_hwm</code> ≈ 970 / 1024 từ còn trống (task dùng ≈ 54 từ)</td></tr>
+<tr><td>(2) Ghi ngoài vùng → MemManage bị bắt</td><td>Bản violate: bị bắt tại tick 5000 (<code>CFSR=0x00000082</code>: DACCVIOL + MMARVALID, <code>MMFAR</code> = địa chỉ <code>ulForbidden</code>), <code>PC</code> nằm trong <code>prvControlTask</code>; control task chạy tiếp, 0 trễ chu kỳ, 0 khoảng trống tick</td></tr>
+<tr><td>(3a) 1 mẫu/tick, tick liên tục</td><td class="num">70040 dòng CSV, tick cuối 70039, <b>0 khoảng trống</b></td></tr>
+<tr><td>(3b) 0 lần trễ chu kỳ khi <code>udp_echo</code> chạy</td><td class="num"><code>missed=0</code>, <code>dropped=0</code> (<code>udp_echo</code> nhận/gửi 6715 gói; echo từ host ≈ 100 Hz ảo)</td></tr>
+<tr><td>Seqlock đọc từ task khác</td><td class="num">69955 snapshot, <b>0 torn read</b></td></tr>
+</tbody></table>
+<p>Log đầy đủ: <code>docs/results/m1_part6_control_task.txt</code>, mẫu CSV: <code>docs/results/m1_part6_control_csv_sample.txt</code>. Định dạng CSV: <code>C,tick,count,pos_urad,vel_mrad_s,volt_mV</code>.</p>
+
+<h2 id="van-de">9. Vấn đề gặp và quyết định</h2>
+<ul>
+<li><b>Trễ chu kỳ khi không dùng <code>-icount</code></b> (8–16 lần/5 s): nguyên nhân suy ra là vCPU bị chặn khi ghi UART ra host — <em>chưa kiểm chứng trực tiếp</em>, nhưng biến mất hoàn toàn dưới <code>-icount</code>, phù hợp giả thuyết. Ghi vào kết quả như một giới hạn của SIL.</li>
+<li><b>Echo mất 4 gói mỗi lần chạy</b> (<code>sil_runner</code> báo FAIL theo tiêu chí M0): cùng 4 gói ở mọi lượt chạy; nghi mất lúc khởi động (trước khi mạng lên). Chưa kiểm chứng; không liên quan đến control task.</li>
+<li><b>Lỗi link <code>logf/sqrtf/cosf/floorf</code></b>: <code>encoder.c</code> dùng <code>libm</code>; phải <code>target_link_libraries(node.elf PRIVATE m)</code> (đặt <em>sau</em> object, không đặt trong <code>link_options</code>).</li>
+<li><b><code>INCLUDE_xTaskDelayUntil</code></b> cần định nghĩa và <b>không</b> được định nghĩa cùng <code>INCLUDE_vTaskDelayUntil</code> (kernel V11.3.3 báo lỗi); đã thay.</li>
+<li><b>Ưu tiên 9</b> bằng ưu tiên timer task: chấp nhận được vì timer task gần như luôn ngủ; không tăng <code>configMAX_PRIORITIES</code>.</li>
+<li>Tham chiếu vuông là <b>cấu hình thử</b>; lệnh thật từ QNX là M4.</li>
+</ul>
+
+<h2 id="tu-kiem">10. Tự kiểm tra</h2>
+<div class="checklist"><ul>
+<li>Vì sao <code>vTaskDelay</code> không phù hợp cho vòng điều khiển cố định, còn <code>xTaskDelayUntil</code> thì có?</li>
+<li>Vì sao vùng MPU 128 KB phải căn 128 KB? Điều gì xảy ra nếu đặt sai?</li>
+<li>Vì sao control task không đọc được SysTick, và nó đã được giải quyết thế nào?</li>
+<li>Seqlock khác mutex ở điểm nào, và vì sao hợp với control task?</li>
+<li>Vì sao "0 trễ chu kỳ" chỉ có ý nghĩa khi kèm nhãn <code>-icount</code>?</li>
+</ul></div>
+
+<div class="nav"><span><a href="m1_part5_closed_loop_tuning_guide.html">← Phần 5</a></span><span><a href="m1_part7_jitter_guide.html">Phần 7 →</a></span></div>
+<p class="footer small">Số liệu là <b>SIL</b>: mô hình chạy trên host / QEMU (thời gian ảo). Không phải phần cứng thật, không tuyên bố hard real-time.</p>
+</main>
+</body>
+</html>

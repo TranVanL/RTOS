@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="So đáp ứng bậc thang trên node (QEMU) với mô phỏng host, tổng hợp bằng chứng của ba tiêu chí M1 và các việc còn mở.">
+<title>Phần 8 — Đối chiếu host ↔ node và chốt M1</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" crossorigin="anonymous" onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'\\(',right:'\\)',display:false}],throwOnError:false});"></script>
+<style>
+:root{--ink:#172033;--muted:#586579;--line:#dce3ed;--paper:#fff;--soft:#f4f7fb;--blue:#2456c7;--teal:#087e75;--green:#167447;--amber:#9a5b00;--red:#ad2c2c;--navy:#101a2b;--shadow:0 12px 32px rgba(22,39,68,.08)}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:#f7f9fc;color:var(--ink);font:16px/1.72 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}main{max-width:1020px;margin:26px auto 70px;background:var(--paper);padding:clamp(22px,5vw,58px);box-shadow:var(--shadow);border:1px solid #e8edf4;border-radius:18px}h1{font-size:clamp(2rem,4vw,3rem);line-height:1.15;letter-spacing:-.035em;margin:.2em 0 .45em}h2{font-size:1.55rem;line-height:1.3;margin:2.4em 0 .65em;padding-top:.7em;border-top:1px solid var(--line);letter-spacing:-.02em}h3{font-size:1.16rem;margin:1.55em 0 .4em;color:#173c7a}p{margin:.65em 0}li{margin:.3em 0}a{color:var(--blue)}.eyebrow{display:inline-block;color:var(--blue);font-weight:750;text-transform:uppercase;letter-spacing:.11em;font-size:.78rem}.sub{font-size:1.08rem;color:var(--muted);max-width:850px}.pills{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0}.pill{border:1px solid var(--line);background:var(--soft);border-radius:999px;padding:4px 11px;color:#34435b;font-size:.86rem}.hero{background:linear-gradient(135deg,#10264a,#1a4c82 65%,#087e75);color:white;padding:25px 28px;border-radius:14px;margin:24px 0}.hero p{color:#e8f1ff;margin:.3em 0}.hero strong{color:#fff}.toc{background:var(--soft);border:1px solid var(--line);border-radius:12px;padding:18px 22px;margin:22px 0}.toc ol{columns:2;padding-left:22px;margin:.6em 0}.toc li{break-inside:avoid}.box{padding:14px 18px;border-left:4px solid var(--blue);background:#eff5ff;border-radius:6px;margin:16px 0}.box.warn{border-color:var(--amber);background:#fff8e9}.box.good{border-color:var(--green);background:#eef8f1}.box.danger{border-color:var(--red);background:#fff1f0}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:13px;margin:14px 0}.card{border:1px solid var(--line);border-radius:10px;padding:14px 16px;background:white}.card h3{margin:.1em 0 .45em}table{width:100%;border-collapse:collapse;margin:14px 0;font-size:.94rem}th,td{border:1px solid var(--line);padding:9px 11px;text-align:left;vertical-align:top}th{background:#edf2f8;color:#25344c}code{font:.88em/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;background:#eff2f7;padding:.13em .35em;border-radius:4px;color:#243b63}pre{background:var(--navy);color:#e5edf8;padding:15px 17px;border-radius:10px;overflow:auto;font:.88rem/1.55 ui-monospace,SFMono-Regular,Consolas,monospace}pre code{background:none;color:inherit;padding:0}.math{overflow-x:auto;background:#fbfcfe;border:1px solid #e8edf4;border-radius:8px;padding:8px 14px;margin:10px 0}.small{font-size:.9rem;color:var(--muted)}.tag{display:inline-block;border-radius:4px;padding:1px 6px;font-size:.78rem;font-weight:700;background:#e8eefb;color:#254d9a}.tag.warn{background:#fff0d4;color:#865000}.tag.ok{background:#e5f5eb;color:#12643a}.checklist li::marker{color:var(--green)}.flow{display:flex;align-items:stretch;gap:8px;flex-wrap:wrap;margin:15px 0}.flow div{flex:1 1 155px;text-align:center;padding:12px;background:var(--soft);border:1px solid var(--line);border-radius:9px}.flow b{display:block;color:#193e79}.flow span{font-size:.9rem;color:var(--muted)}.footer{border-top:1px solid var(--line);margin-top:42px;padding-top:16px;color:var(--muted);font-size:.88rem}.katex-display{overflow-x:auto;overflow-y:hidden;padding:5px 0}
+@media(max-width:650px){main{margin:0;border-radius:0;padding:24px 17px}.toc ol{columns:1}table{font-size:.86rem}th,td{padding:7px}.hero{padding:20px}}
+@media print{body{background:white}main{box-shadow:none;border:0;margin:0;max-width:none;padding:0}.toc a{text-decoration:none;color:var(--ink)}.card,.box,table,pre{break-inside:avoid}.hero{print-color-adjust:exact;-webkit-print-color-adjust:exact}}
+
+.nav{display:flex;justify-content:space-between;gap:12px;margin:2.4em 0 0;padding-top:1em;border-top:1px solid var(--line);font-size:.95rem}
+figure{margin:1.2em 0}figure img{max-width:100%;border:1px solid var(--line);border-radius:8px}figcaption{font-size:.88rem;color:var(--muted)}
+code.k{background:#eef2f8;padding:1px 5px;border-radius:4px}
+.num{font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<main>
+<span class="eyebrow">M1 · Phần 8 · Cổng M1</span>
+<h1>Phần 8 — Đối chiếu host ↔ node và chốt M1</h1>
+<p class="sub">So đáp ứng bậc thang trên node (QEMU) với mô phỏng host, tổng hợp bằng chứng của ba tiêu chí M1 và các việc còn mở.</p>
+<div class="pills"><span class="pill">Host ↔ node</span><span class="pill">Tính tất định</span><span class="pill">Cổng M1</span><span class="pill">SIL</span></div>
+<div class="hero"><strong>Kết quả cuối bài — cổng M1</strong>
+<p>Cùng mã lõi, cùng tham số, không nhiễu: đáp ứng bậc thang của <b>node (QEMU)</b> khớp <b>host</b> với sai lệch lớn nhất <b>1·10⁻⁶ rad</b> (chỉ là sai số làm tròn khi in 1 µrad ra UART), count lệch 0, overshoot 0,209 % ở cả hai nơi. Cả ba tiêu chí của plan M1 đã có bằng chứng: overshoot &lt; 10 % (host và node), histogram jitter xuất được, unit test host pass.</p></div>
+<nav class="toc" aria-label="Mục lục"><strong>Mục lục</strong><ol><li><a href="#muc-tieu">Mục tiêu và cách làm</a></li><li><a href="#tuong-duong">Kiến thức — Vì sao host và node phải khớp</a></li><li><a href="#code">Công cụ đối chiếu</a></li><li><a href="#ket-qua">Kết quả đối chiếu</a></li><li><a href="#cong">Cổng M1: ba tiêu chí</a></li><li><a href="#tai-lieu">Tài liệu và trạng thái đã cập nhật</a></li><li><a href="#con-lai">Việc còn mở</a></li><li><a href="#tu-kiem">Tự kiểm tra</a></li></ol></nav>
+
+<h2 id="muc-tieu">1. Mục tiêu và cách làm</h2>
+<p><b>Mục tiêu (plan M1 Phần 8):</b> chứng minh lõi điều khiển <em>không phụ thuộc môi trường</em> — cùng mã chạy trên x86 (host) và Cortex-M3 (QEMU, float mềm, <code>-Os</code>) cho đáp ứng giống nhau — rồi chốt M1.</p>
+<ol>
+<li>Chạy node (<code>CONTROL_TEST_STEP</code>, <code>-icount shift=0</code>), lấy CSV UART (<code>C,tick,count,pos_urad,vel_mrad_s,volt_mV</code>).</li>
+<li>Chạy <code>sim_closed_loop step</code> trên host với cấu hình mặc định (không nhiễu, α = 0,5) lấy CSV tham chiếu.</li>
+<li><code>tools/compare_host_node.py</code>: so 1000 tick đầu (bước 1 rad đầu tiên) theo vị trí, tốc độ, điện áp, count; tính lại overshoot/settling/sai số xác lập <em>từ dữ liệu của node</em>.</li>
+<li>Tổng hợp tài liệu từng phần và cập nhật trạng thái.</li>
+</ol>
+
+<h2 id="tuong-duong">2. Kiến thức — Vì sao host và node phải khớp</h2>
+<ul>
+<li><b>Tính tất định:</b> cùng mã + cùng trạng thái đầu + cùng chuỗi đầu vào ⇒ cùng đầu ra. Ở đây mô hình plant, encoder (PRNG xorshift có seed; noise = 0) và cascade đều tất định và không có thời gian thật chen vào (dt = 1 ms là tham số).</li>
+<li><b>Khác biệt duy nhất được phép:</b> số học dấu phẩy động. Host dùng SSE <code>float</code>; node dùng thư viện float <em>mềm</em> của GCC. Cả hai theo IEEE 754 nên phép <code>+ - * /</code> cho kết quả giống từng bit; chênh lệch (nếu có) đến từ trình biên dịch (thứ tự biểu thức, hợp nhất FMA) và hàm toán (<code>cosf/logf</code>, chỉ dùng khi bật nhiễu). Vì vòng kín <em>ổn định</em>, sai lệch nhỏ không bị khuếch đại.</li>
+<li><b>Ý nghĩa của việc khớp:</b> thuật toán đã được kiểm chứng ở host (nhanh, nhiều kịch bản) có thể tin cậy khi chạy trên node; ngược lại nếu lệch thì lỗi nằm ở <em>adapter</em> (thứ tự gọi, đơn vị, vùng MPU), không phải ở lõi.</li>
+<li><b>Dung sai chọn:</b> 1·10⁻³ rad (≈ 0,65 count) cho vị trí — đủ chặt để phát hiện sai thứ tự/đơn vị, đủ rộng cho sai khác float. Giá trị thực đo được nhỏ hơn dung sai ba bậc độ lớn.</li>
+</ul>
+<div class="box"><strong>Căn thẳng hàng tick:</strong> dòng <code>C,k,…</code> của node in trạng thái <em>sau</em> bước plant thứ k; dòng thứ k (0-based) của CSV host cũng là trạng thái sau bước k. Trong cả hai, vòng điều khiển đọc encoder từ vị trí <em>trước</em> khi bước plant, nên cùng thứ tự.</div>
+
+<h2 id="code">3. Công cụ đối chiếu</h2>
+<pre><code>def main(argv=None):
+    ap = argparse.ArgumentParser()
+    ap.add_argument(&quot;node&quot;)
+    ap.add_argument(&quot;host&quot;)
+    ap.add_argument(&quot;--ticks&quot;, type=int, default=1000)
+    ap.add_argument(&quot;--tol-rad&quot;, type=float, default=1e-3)
+    ap.add_argument(&quot;--out&quot;)
+    a = ap.parse_args(argv)
+
+    node = load_node(a.node)
+    host = load_host(a.host)
+    missing = [k for k in range(a.ticks) if k not in node]
+    if missing:
+        print(&quot;FAIL: node CSV is missing %d of the first %d ticks (first missing: %d)&quot; % (len(missing), a.ticks, missing[0]))
+        return 1
+
+    dpos = [abs(node[k][1] - host[k][&quot;pos&quot;]) for k in range(a.ticks)]
+    dvel = [abs(node[k][2] - host[k][&quot;vel&quot;]) for k in range(a.ticks)]
+    dv = [abs(node[k][3] - host[k][&quot;v&quot;]) for k in range(a.ticks)]
+    dcount = [abs(node[k][0] - int(host[k][&quot;count&quot;])) for k in range(a.ticks)]
+    worst = max(range(a.ticks), key=lambda k: dpos[k])
+
+    nd = {&quot;ref&quot;: [1.0] * a.ticks, &quot;pos&quot;: [node[k][1] for k in range(a.ticks)]}
+    nm = step_metrics(nd)
+    hd = {&quot;ref&quot;: [1.0] * a.ticks, &quot;pos&quot;: [host[k][&quot;pos&quot;] for k in range(a.ticks)]}
+    hm = step_metrics(hd)
+
+    ok = (max(dpos) &lt;= a.tol_rad and nm[&quot;overshoot_pct&quot;] &lt; 10.0 and nm[&quot;settling_ticks&quot;] &lt;= 200
+          and nm[&quot;ss_error_counts&quot;] &lt;= 1.0)
+    lines = [
+        &quot;M1 Part 8: host vs node step response (SIL; node = QEMU mps2-an385, virtual time, 1 tick = 1 ms model)&quot;,
+        &quot;compared ticks 0..%d&quot; % (a.ticks - 1),
+        &quot;max |dpos| = %.3e rad at tick %d (tolerance %.1e rad)&quot; % (max(dpos), worst, a.tol_rad),
+        &quot;max |dvel| = %.3e rad/s, max |dV| = %.3e V, max |dcount| = %d&quot; % (max(dvel), max(dv), max(dcount)),
+        &quot;host: overshoot=%.3f%% settling=%d ticks ss_error=%.3f counts&quot; % (hm[&quot;overshoot_pct&quot;], hm[&quot;settling_ticks&quot;], hm[&quot;ss_error_counts&quot;]),
+        &quot;node: overshoot=%.3f%% settling=%d ticks ss_error=%.3f counts&quot; % (nm[&quot;overshoot_pct&quot;], nm[&quot;settling_ticks&quot;], nm[&quot;ss_error_counts&quot;]),
+        &quot;limits: overshoot &lt; 10%%, settling &lt;= 200 ticks, ss_error &lt;= 1 count -&gt; %s&quot; % (&quot;PASS&quot; if ok else &quot;FAIL&quot;),
+    ]
+    text = &quot;\n&quot;.join(lines)
+    print(text)
+    if a.out:
+        Path(a.out).write_text(text + &quot;\n&quot;)
+    return 0 if ok else 1</code></pre><p class="small"><code>tools/compare_host_node.py</code></p>
+<p>Mã thoát 0 = PASS khi đồng thời: max |Δpos| ≤ dung sai, overshoot &lt; 10 %, settling ≤ 200 tick, sai số xác lập ≤ 1 count (tính từ dữ liệu <b>node</b>). Lệnh:</p>
+<pre><code>M1 Part 8: host vs node step response (SIL; node = QEMU mps2-an385, virtual time, 1 tick = 1 ms model)</code></pre><p class="small"><code>docs/results/m1_part8_host_vs_node.txt</code></p>
+
+<h2 id="ket-qua">4. Kết quả đối chiếu</h2>
+<table><thead><tr><th>Đại lượng (1000 tick đầu)</th><th>Host</th><th>Node (QEMU)</th><th>Chênh lệch lớn nhất</th></tr></thead><tbody>
+<tr><td>Vị trí</td><td>—</td><td>—</td><td class="num">1,0·10⁻⁶ rad (tick 560) — làm tròn 1 µrad khi in</td></tr>
+<tr><td>Tốc độ</td><td>—</td><td>—</td><td class="num">5·10⁻⁴ rad/s — làm tròn 1 mrad/s</td></tr>
+<tr><td>Điện áp</td><td>—</td><td>—</td><td class="num">5·10⁻⁴ V — làm tròn 1 mV</td></tr>
+<tr><td>Count encoder</td><td>—</td><td>—</td><td class="num">0</td></tr>
+<tr><td>Overshoot</td><td class="num">0,209 %</td><td class="num">0,209 %</td><td>—</td></tr>
+<tr><td>Settling</td><td class="num">139 tick</td><td class="num">139 tick</td><td>—</td></tr>
+<tr><td>Sai số xác lập</td><td class="num">0,187 count</td><td class="num">0,187 count</td><td>—</td></tr>
+</tbody></table>
+<p>Các chênh lệch bằng đúng bước làm tròn khi in số nguyên ra UART (µrad, mrad/s, mV), nghĩa là <b>bên trong hai bên khớp tới giới hạn độ phân giải của log</b>. Tôi không nói "bằng từng bit": log không đủ độ phân giải để khẳng định điều đó.</p>
+<div class="box warn"><strong>Phạm vi của phép so:</strong> chỉ kịch bản bước, không nhiễu, 1000 tick đầu. Kịch bản có nhiễu encoder chưa so host↔node (cần <code>cosf/logf</code> — nơi hai libm có thể khác nhau); tải ngoài chưa chạy trên node (chưa có cơ chế đặt tải trên node).</div>
+
+<h2 id="cong">5. Cổng M1: ba tiêu chí của plan</h2>
+<table><thead><tr><th>Tiêu chí (02_PROJECT_PLAN.md)</th><th>Bằng chứng</th><th>Trạng thái</th></tr></thead><tbody>
+<tr><td>Step response overshoot &lt; 10 %</td><td>Host: <code>control_step_response</code> (0,21 %; kèm tải và nhiễu). Node: tính từ CSV UART → 0,209 %</td><td>Đạt</td></tr>
+<tr><td>Settling theo thông số chọn</td><td>Chốt 200 tick; đo 139 tick (host và node)</td><td>Đạt (chốt vào <code>requirements.md</code> chờ xác nhận)</td></tr>
+<tr><td>Histogram jitter xuất được</td><td><code>docs/results/m1_jitter_hist.png</code>, <code>m1_jitter_summary.txt</code>, CSV thô cho 3 điều kiện</td><td>Đạt</td></tr>
+<tr><td>Unit test PID/plant (và encoder, giới hạn) pass trên host</td><td>CTest: smoke, plant, encoder, pid, step_response, kiến trúc — 6/6 pass</td><td>Đạt</td></tr>
+<tr><td>Đối chiếu host ↔ node</td><td>Phần này</td><td>Đạt</td></tr>
+</tbody></table>
+<p>Tiêu chí phụ của từng phần (plan):</p>
+<table><thead><tr><th>Phần</th><th>Tiêu chí</th><th>Kết quả</th></tr></thead><tbody>
+<tr><td>3 Encoder</td><td>floor chính xác, thống kê nhiễu 10⁵ mẫu, cùng seed → cùng dãy, stuck</td><td>Test pass (đã có từ trước)</td></tr>
+<tr><td>4 PID</td><td>5 tiêu chí unit test</td><td>Pass</td></tr>
+<tr><td>5 Vòng kín</td><td>overshoot, settling, sai số xác lập; tải; nhiễu</td><td>Pass</td></tr>
+<tr><td>6 Control task</td><td>≥ 60 s không MemManage; MemManage khi vi phạm; 1 mẫu/tick, 0 trễ</td><td>70040 tick, 0 trễ, 0 khoảng trống; vi phạm bị bắt</td></tr>
+<tr><td>7 Jitter</td><td>Histogram + p99/max 3 điều kiện; 0 trễ ≥ 1 tick ở B; chi phí bước &lt; 30 % của 25 000</td><td>Xem trang Phần 7 (chi phí controller đạt; cả bước gồm plant thì không — ghi rõ)</td></tr>
+</tbody></table>
+
+<h2 id="tai-lieu">6. Tài liệu và trạng thái đã cập nhật</h2>
+<ul>
+<li>Các trang hướng dẫn: <a href="m1_part4_pid_cascade_guide.html">Phần 4</a>, <a href="m1_part5_closed_loop_tuning_guide.html">Phần 5</a>, <a href="m1_part6_control_task_guide.html">Phần 6</a>, <a href="m1_part7_jitter_guide.html">Phần 7</a>, và trang này.</li>
+<li>Kết quả thô trong <code>docs/results/</code>: <code>m1_step_*.png</code>, <code>m1_part6_*.txt</code>, <code>m1_jitter_*</code>, <code>m1_part8_host_vs_node.txt</code>.</li>
+<li><code>docs/sil_environment.md</code> và <code>README.md</code>: thêm mục M1 (cách đo jitter bằng TIMER0, kết quả, nhãn SIL) — xem diff.</li>
+<li><code>tools/metrics.py</code> (phần jitter), <code>tools/compare_host_node.py</code>, <code>tools/plot_step.py</code>, test <code>tools/tests/test_metrics_jitter.py</code>.</li>
+</ul>
+
+<h2 id="con-lai">7. Việc còn mở</h2>
+<ul>
+<li><code>docs/traceability_matrix.md</code>: plan yêu cầu hỏi lại trước khi sửa — <b>chưa sửa</b>.</li>
+<li><code>docs/requirements.md</code>: chốt settling ≤ 200 tick vào REQ-FUN-002 — <b>chưa sửa</b>, chờ xác nhận.</li>
+<li>Pytest chưa chạy được trong môi trường này (chưa cài <code>pytest</code>, venv không tạo được vì thiếu <code>python3-venv</code>); các hàm test của <code>test_metrics_jitter.py</code> đã chạy trực tiếp bằng Python và pass. <code>test_control_host.py</code> gọi ctest nhưng chưa chạy qua pytest.</li>
+<li>Echo mất 4 gói / lượt chạy (nghi do khởi động) và nguyên nhân trễ khi không <code>-icount</code>: chưa kiểm chứng.</li>
+<li>Chưa có CI build firmware (M6).</li>
+</ul>
+
+<h2 id="tu-kiem">8. Tự kiểm tra</h2>
+<div class="checklist"><ul>
+<li>Vì sao khớp host↔node chứng minh được điều gì về <em>lõi</em> mà unit test host không chứng minh?</li>
+<li>Vì sao chênh lệch 1·10⁻⁶ rad không nên được hiểu là "sai khác float"?</li>
+<li>Vì sao so 1000 tick đầu mà không so cả log 71 000 tick?</li>
+<li>Kịch bản nào chưa được so, và vì sao đó là chỗ có rủi ro nhất?</li>
+</ul></div>
+
+<div class="nav"><span><a href="m1_part7_jitter_guide.html">← Phần 7</a></span><span></span></div>
+<p class="footer small">Số liệu là <b>SIL</b>: mô hình chạy trên host / QEMU (thời gian ảo). Không phải phần cứng thật, không tuyên bố hard real-time.</p>
+</main>
+</body>
+</html>

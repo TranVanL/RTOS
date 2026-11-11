@@ -1,0 +1,5 @@
+M1 Part 7 jitter (SIL, QEMU -icount shift=0, virtual time; 1 count = 40 ns virtual)
+A_shift5: n=9999 missed_in_window=0 late_cycles(>=1.5 tick)=0
+  jitter  [counts] min=-120 mean=0.00 p50=0 p99=0 max=80 std=3.39
+  ctrl    [counts] min=1825 mean=2087.29 p99=2800 max=2952   (encoder+speed+cascade)
+  plant   [counts] min=8935 mean=9133.55 p99=9238 max=9265   (test-fixture plant model)

@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Cách xây dựng bộ điều khiển PID cascade (vị trí → tốc độ) với anti-windup, saturation, rate limit và giới hạn mềm; kiến thức nền và kết quả test.">
+<title>Phần 4 — PID cascade và các giới hạn</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" crossorigin="anonymous" onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'\\(',right:'\\)',display:false}],throwOnError:false});"></script>
+<style>
+:root{--ink:#172033;--muted:#586579;--line:#dce3ed;--paper:#fff;--soft:#f4f7fb;--blue:#2456c7;--teal:#087e75;--green:#167447;--amber:#9a5b00;--red:#ad2c2c;--navy:#101a2b;--shadow:0 12px 32px rgba(22,39,68,.08)}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:#f7f9fc;color:var(--ink);font:16px/1.72 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}main{max-width:1020px;margin:26px auto 70px;background:var(--paper);padding:clamp(22px,5vw,58px);box-shadow:var(--shadow);border:1px solid #e8edf4;border-radius:18px}h1{font-size:clamp(2rem,4vw,3rem);line-height:1.15;letter-spacing:-.035em;margin:.2em 0 .45em}h2{font-size:1.55rem;line-height:1.3;margin:2.4em 0 .65em;padding-top:.7em;border-top:1px solid var(--line);letter-spacing:-.02em}h3{font-size:1.16rem;margin:1.55em 0 .4em;color:#173c7a}p{margin:.65em 0}li{margin:.3em 0}a{color:var(--blue)}.eyebrow{display:inline-block;color:var(--blue);font-weight:750;text-transform:uppercase;letter-spacing:.11em;font-size:.78rem}.sub{font-size:1.08rem;color:var(--muted);max-width:850px}.pills{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0}.pill{border:1px solid var(--line);background:var(--soft);border-radius:999px;padding:4px 11px;color:#34435b;font-size:.86rem}.hero{background:linear-gradient(135deg,#10264a,#1a4c82 65%,#087e75);color:white;padding:25px 28px;border-radius:14px;margin:24px 0}.hero p{color:#e8f1ff;margin:.3em 0}.hero strong{color:#fff}.toc{background:var(--soft);border:1px solid var(--line);border-radius:12px;padding:18px 22px;margin:22px 0}.toc ol{columns:2;padding-left:22px;margin:.6em 0}.toc li{break-inside:avoid}.box{padding:14px 18px;border-left:4px solid var(--blue);background:#eff5ff;border-radius:6px;margin:16px 0}.box.warn{border-color:var(--amber);background:#fff8e9}.box.good{border-color:var(--green);background:#eef8f1}.box.danger{border-color:var(--red);background:#fff1f0}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:13px;margin:14px 0}.card{border:1px solid var(--line);border-radius:10px;padding:14px 16px;background:white}.card h3{margin:.1em 0 .45em}table{width:100%;border-collapse:collapse;margin:14px 0;font-size:.94rem}th,td{border:1px solid var(--line);padding:9px 11px;text-align:left;vertical-align:top}th{background:#edf2f8;color:#25344c}code{font:.88em/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;background:#eff2f7;padding:.13em .35em;border-radius:4px;color:#243b63}pre{background:var(--navy);color:#e5edf8;padding:15px 17px;border-radius:10px;overflow:auto;font:.88rem/1.55 ui-monospace,SFMono-Regular,Consolas,monospace}pre code{background:none;color:inherit;padding:0}.math{overflow-x:auto;background:#fbfcfe;border:1px solid #e8edf4;border-radius:8px;padding:8px 14px;margin:10px 0}.small{font-size:.9rem;color:var(--muted)}.tag{display:inline-block;border-radius:4px;padding:1px 6px;font-size:.78rem;font-weight:700;background:#e8eefb;color:#254d9a}.tag.warn{background:#fff0d4;color:#865000}.tag.ok{background:#e5f5eb;color:#12643a}.checklist li::marker{color:var(--green)}.flow{display:flex;align-items:stretch;gap:8px;flex-wrap:wrap;margin:15px 0}.flow div{flex:1 1 155px;text-align:center;padding:12px;background:var(--soft);border:1px solid var(--line);border-radius:9px}.flow b{display:block;color:#193e79}.flow span{font-size:.9rem;color:var(--muted)}.footer{border-top:1px solid var(--line);margin-top:42px;padding-top:16px;color:var(--muted);font-size:.88rem}.katex-display{overflow-x:auto;overflow-y:hidden;padding:5px 0}
+@media(max-width:650px){main{margin:0;border-radius:0;padding:24px 17px}.toc ol{columns:1}table{font-size:.86rem}th,td{padding:7px}.hero{padding:20px}}
+@media print{body{background:white}main{box-shadow:none;border:0;margin:0;max-width:none;padding:0}.toc a{text-decoration:none;color:var(--ink)}.card,.box,table,pre{break-inside:avoid}.hero{print-color-adjust:exact;-webkit-print-color-adjust:exact}}
+
+.nav{display:flex;justify-content:space-between;gap:12px;margin:2.4em 0 0;padding-top:1em;border-top:1px solid var(--line);font-size:.95rem}
+figure{margin:1.2em 0}figure img{max-width:100%;border:1px solid var(--line);border-radius:8px}figcaption{font-size:.88rem;color:var(--muted)}
+code.k{background:#eef2f8;padding:1px 5px;border-radius:4px}
+.num{font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<main>
+<span class="eyebrow">M1 · Phần 4 · Host · OS-free core</span>
+<h1>Phần 4 — PID cascade và các giới hạn</h1>
+<p class="sub">Cách xây dựng bộ điều khiển PID cascade (vị trí → tốc độ) với anti-windup, saturation, rate limit và giới hạn mềm; kiến thức nền và kết quả test.</p>
+<div class="pills"><span class="pill">C thuần</span><span class="pill">PID rời rạc</span><span class="pill">Anti-windup</span><span class="pill">Cascade</span><span class="pill">Unit test</span></div>
+<div class="hero"><strong>Kết quả cuối bài</strong>
+<p>Bộ điều khiển PID cascade (vị trí → tốc độ) viết bằng C thuần trong <code>common/control/</code>: PID có anti-windup, đạo hàm trên đo lường, saturation; <code>limits</code> (clamp / rate limit); cascade có kẹp vị trí mềm, vòng ngoài chạy chậm hơn vòng trong. 7 nhóm unit test trên host pass; core không include header FreeRTOS.</p></div>
+<nav class="toc" aria-label="Mục lục"><strong>Mục lục</strong><ol><li><a href="#muc-tieu">Mục tiêu và cách làm</a></li><li><a href="#pid">Kiến thức 1 — PID rời rạc</a></li><li><a href="#windup">Kiến thức 2 — Windup và anti-windup</a></li><li><a href="#dterm">Kiến thức 3 — Đạo hàm trên đo lường</a></li><li><a href="#cascade">Kiến thức 4 — Cascade và đa tốc độ</a></li><li><a href="#limits">Kiến thức 5 — Saturation, rate limit, giới hạn mềm</a></li><li><a href="#code">Code đã viết</a></li><li><a href="#test">Test và kết quả</a></li><li><a href="#quyet-dinh">Quyết định thiết kế và lưu ý</a></li><li><a href="#tu-kiem">Tự kiểm tra</a></li></ol></nav>
+
+<h2 id="muc-tieu">1. Mục tiêu và cách làm</h2>
+<p><b>Mục tiêu (plan M1 Phần 4):</b> có bộ điều khiển PID cascade đủ an toàn để đưa lên node: không "windup", không giật khi đổi tham chiếu, đầu ra bị giới hạn (điện áp, tốc độ thay đổi điện áp, vị trí). Tất cả là hàm C không phụ thuộc OS, trạng thái truyền tường minh, để test trên host rồi dùng lại nguyên mã trên FreeRTOS (Phần 6).</p>
+<p><b>Cách làm:</b></p>
+<ol>
+<li>Tách <code>limits.c</code> (clamp, rate limit) — hàm nhỏ nhất, test độc lập.</li>
+<li>Viết <code>pid_step()</code>: một vòng PID tổng quát (P + I + D) với anti-windup và saturation. Cấu hình bất biến (<code>pid_params_t</code>) tách khỏi trạng thái thay đổi (<code>pid_state_t</code>).</li>
+<li>Viết <code>cascade_step()</code> bằng cách ghép hai <code>pid_step()</code>: vòng ngoài vị trí → tốc độ đặt; vòng trong tốc độ → điện áp. Thêm kẹp tham chiếu vị trí và rate limit điện áp.</li>
+<li>Viết <code>test_pid.c</code> bám đúng 5 tiêu chí của plan, đưa vào CTest.</li>
+</ol>
+
+<h2 id="pid">2. Kiến thức 1 — PID rời rạc</h2>
+<p>PID liên tục tính điều khiển \(u(t)\) từ sai số \(e(t)=r(t)-y(t)\) (tham chiếu trừ đo lường):</p>
+<div class="math">$$u(t)=K_p\,e(t)+K_i\int_0^t e(\tau)\,d\tau+K_d\,\frac{de}{dt}$$</div>
+<ul>
+<li><b>P</b> (tỉ lệ): phản ứng ngay với sai số hiện tại. Kp lớn → nhanh nhưng dễ dao động.</li>
+<li><b>I</b> (tích phân): cộng dồn sai số theo thời gian → triệt tiêu sai số xác lập (ví dụ khi có tải ngoài).</li>
+<li><b>D</b> (vi phân): phản ứng với tốc độ thay đổi → "giảm chấn", nhưng khuếch đại nhiễu.</li>
+</ul>
+<p>Trên vi điều khiển, thời gian là rời rạc với bước cố định \(\Delta t\) (ở đây 1 ms). Tích phân Euler tiến:</p>
+<div class="math">$$I_{k+1}=I_k+K_i\,e_k\,\Delta t,\qquad u_k=K_p e_k+I_{k+1}+D_k$$</div>
+<p>Trong code, <code>integral</code> lưu luôn <b>phần tích phân đã nhân Ki</b> (đơn vị của đầu ra), không lưu tích phân thô của e. Lý do: khi cần kẹp "ngưỡng anti-windup" ta kẹp thẳng theo đơn vị đầu ra (vôn), dễ hiểu và không phải chia cho Ki.</p>
+<div class="box"><strong>Vì sao <code>dt</code> nằm trong tham số?</strong> Core không tự đọc đồng hồ. Mọi thứ phụ thuộc thời gian đi vào qua tham số <code>dt_s</code>, nên chạy lại cùng chuỗi đầu vào luôn ra cùng kết quả (tất định) và test được bằng số tick, không bằng giây thật.</div>
+
+<h2 id="windup">3. Kiến thức 2 — Windup và anti-windup</h2>
+<p>Bộ tích phân luôn cộng dồn khi còn sai số. Nếu đầu ra đã bão hòa (ví dụ đã ở +12 V) mà sai số còn dương, tích phân vẫn phình to dù đầu ra thực không tăng thêm. Khi tham chiếu đạt tới, bộ tích phân đã "no" quá mức nên phải xả bằng cách tạo sai số âm lâu → <b>overshoot lớn và hồi phục chậm</b>. Đây là <em>integrator windup</em>.</p>
+<table><thead><tr><th>Kỹ thuật</th><th>Cách làm</th><th>Dùng ở đây?</th></tr></thead><tbody>
+<tr><td>Clamping có điều kiện</td><td>Không tích phân khi đầu ra đang bão hòa <b>và</b> sai số đẩy tiếp vào hướng bão hòa.</td><td>Có — đơn giản, dễ test, không thêm tham số tuning.</td></tr>
+<tr><td>Back-calculation</td><td>Đưa chênh lệch (đầu ra bão hòa − chưa bão hòa) ngược lại bộ tích phân qua hệ số \(K_b\).</td><td>Không — thêm hệ số cần tuning.</td></tr>
+<tr><td>Kẹp ngưỡng tích phân</td><td>Ép \(|I|\le I_{max}\) bất kể trạng thái.</td><td>Có (<code>integral_limit</code>), là lớp bảo vệ thứ hai.</td></tr>
+</tbody></table>
+<p>Lưu ý: điều kiện "sai số đẩy tiếp" quan trọng. Nếu chỉ "dừng tích phân khi bão hòa" thì khi sai số đảo dấu, bộ tích phân cũng không xả được. Với điều kiện đúng dấu, khi sai số đảo chiều tích phân lại chạy ngay và đầu ra thoát bão hòa nhanh (test xác nhận: &lt; 10 tick).</p>
+
+<h2 id="dterm">4. Kiến thức 3 — Đạo hàm trên đo lường và bộ lọc</h2>
+<p>Nếu lấy đạo hàm của sai số \(e=r-y\), khi tham chiếu \(r\) nhảy bậc, \(de/dt\) rất lớn trong một mẫu → đầu ra giật mạnh (<em>derivative kick</em>). Vì \(r\) thường là hằng số giữa hai lần đổi, \(\frac{de}{dt}=-\frac{dy}{dt}\) ngoài thời điểm nhảy, nên ta lấy thẳng <b>đạo hàm của đo lường</b>:</p>
+<div class="math">$$D_k=-K_d\,\frac{y_k-y_{k-1}{\Delta t}\ \text{(sau lọc thông thấp bậc 1: } d_f \leftarrow d_f+\alpha(d_{raw}-d_f)\text{)}$$</div>
+<p>Lần gọi đầu tiên chưa có \(y_{k-1}\) nên <code>has_prev=false</code> và số hạng D bằng 0. Trong cascade hiện tại \(K_d=0\) (vòng tốc độ đã nhận tốc độ từ bộ ước lượng nên không cần thêm D), nhưng code D vẫn có và được test.</p>
+
+<h2 id="cascade">5. Kiến thức 4 — Cascade và đa tốc độ</h2>
+<p>Motor DC: điện áp → dòng/tốc độ → vị trí (tích phân của tốc độ). Điều khiển cascade chia thành hai vòng lồng nhau:</p>
+<div class="flow"><div><b>Vòng ngoài (vị trí)</b><span>P: sai số vị trí → tốc độ đặt [rad/s]</span></div><div><b>Vòng trong (tốc độ)</b><span>PI: sai số tốc độ → điện áp [V]</span></div><div><b>Plant</b><span>motor DC</span></div></div>
+<ul>
+<li>Vòng trong phải nhanh hơn vòng ngoài khoảng 5–10 lần để từ góc nhìn vòng ngoài, vòng trong gần như "tức thời" — nhờ đó tuning được từng vòng riêng (tuning vòng trong trước).</li>
+<li>Vòng ngoài chỉ cần P: vị trí là tích phân của tốc độ, nên vòng tốc độ + plant đã chứa một tích phân, sai số xác lập về vị trí sẽ bằng 0 mà không cần I ngoài.</li>
+<li>Vòng trong dùng PI: I để triệt tiêu sai số tốc độ do tải.</li>
+<li><b>Đa tốc độ:</b> <code>outer_divider</code> = 5 nghĩa là vòng ngoài chạy mỗi 5 tick (200 Hz), vòng trong mỗi tick (1 kHz); tốc độ đặt được giữ giữa hai lần cập nhật.</li>
+</ul>
+
+<h2 id="limits">6. Kiến thức 5 — Saturation, rate limit, giới hạn mềm</h2>
+<table><thead><tr><th>Giới hạn</th><th>Ý nghĩa</th><th>Ở đâu trong code</th></tr></thead><tbody>
+<tr><td>Saturation</td><td>Đầu ra không vượt khả năng thực (±12 V; tốc độ đặt ±30 rad/s).</td><td><code>out_min/out_max</code> trong <code>pid_step</code></td></tr>
+<tr><td>Rate limit</td><td>Giới hạn \(|\Delta V|\) mỗi tick — bảo vệ bộ khuếch đại/motor khỏi bước điện áp quá gắt. Đặt 0 = tắt.</td><td><code>limits_rate_limit</code> trong <code>cascade_step</code></td></tr>
+<tr><td>Giới hạn mềm vị trí</td><td>Kẹp tham chiếu vị trí vào [min, max] (REQ-FUN-001, ARCH §5.2) <em>trước khi</em> vào vòng ngoài.</td><td><code>limits_clamp</code> đầu <code>cascade_step</code></td></tr>
+</tbody></table>
+<p>Fail-safe: <code>limits_clamp</code> trả 0 khi gặp NaN; các hàm <code>*_step</code> trả 0 (đầu ra an toàn) khi tham số NULL, <code>dt&lt;=0</code> hoặc đầu vào không hữu hạn, và <b>không sửa state</b> trong trường hợp đó.</p>
+
+<h2 id="code">7. Code đã viết</h2>
+<h3>7.1 <code>limits.c</code></h3>
+<pre><code>float limits_clamp(float x, float lo, float hi)
+{
+    if (x != x) {
+        return 0.0f;
+    }
+    if (lo &gt; hi) {
+        const float t = lo;
+        lo = hi;
+        hi = t;
+    }
+    if (x &lt; lo) {
+        return lo;
+    }
+    if (x &gt; hi) {
+        return hi;
+    }
+    return x;
+}</code></pre><p class="small"><code>common/control/limits.c</code></p>
+<pre><code>float limits_rate_limit(float prev, float target, float max_delta)
+{
+    if (target != target) {
+        return prev;
+    }
+    if (max_delta &lt;= 0.0f) {
+        return target;
+    }
+    const float d = target - prev;
+    if (d &gt; max_delta) {
+        return prev + max_delta;
+    }
+    if (d &lt; -max_delta) {
+        return prev - max_delta;
+    }
+    return target;
+}</code></pre><p class="small"><code>common/control/limits.c</code></p>
+<p>Điểm cần chú ý: <code>x != x</code> là cách kiểm tra NaN không cần <code>math.h</code>; clamp tự hoán đổi nếu truyền nhầm <code>lo &gt; hi</code>.</p>
+<h3>7.2 <code>pid_step()</code> — lõi PID</h3>
+<pre><code>float pid_step(pid_state_t *s, const pid_params_t *p, float ref, float meas)
+{
+    if (s == NULL || p == NULL || !(p-&gt;dt_s &gt; 0.0f) || !is_finite_f(ref) || !is_finite_f(meas)) {
+        return 0.0f;
+    }
+
+    const float err = ref - meas;
+    const float pterm = p-&gt;kp * err;
+
+    float d_term = 0.0f;
+    if (s-&gt;has_prev &amp;&amp; p-&gt;kd != 0.0f) {
+        const float raw = -(meas - s-&gt;prev_meas) / p-&gt;dt_s;
+        const float a = (p-&gt;d_alpha &gt; 0.0f &amp;&amp; p-&gt;d_alpha &lt;= 1.0f) ? p-&gt;d_alpha : 1.0f;
+        s-&gt;d_filt += a * (raw - s-&gt;d_filt);
+        d_term = p-&gt;kd * s-&gt;d_filt;
+    }
+    s-&gt;prev_meas = meas;
+    s-&gt;has_prev = true;
+
+    float integ = s-&gt;integral + p-&gt;ki * err * p-&gt;dt_s;
+    if (p-&gt;integral_limit &gt; 0.0f) {
+        integ = limits_clamp(integ, -p-&gt;integral_limit, p-&gt;integral_limit);
+    }
+
+    const float u_unsat = pterm + integ + d_term;
+    const float u = limits_clamp(u_unsat, p-&gt;out_min, p-&gt;out_max);
+    const bool sat = (u != u_unsat);
+
+    /* Conditional clamping: freeze integral if saturated and error pushes further. */
+    const bool pushing = (u_unsat &gt; p-&gt;out_max &amp;&amp; err &gt; 0.0f)
+                      || (u_unsat &lt; p-&gt;out_min &amp;&amp; err &lt; 0.0f);
+    if (!(sat &amp;&amp; pushing)) {
+        s-&gt;integral = integ;
+    }
+    s-&gt;saturated = sat;
+    return u;
+}</code></pre><p class="small"><code>common/control/pid.c</code></p>
+<p>Đọc theo thứ tự: (1) kiểm tra đầu vào; (2) tính P; (3) tính D trên đo lường có lọc; (4) tính tích phân ứng viên và kẹp bằng <code>integral_limit</code>; (5) tính đầu ra chưa bão hòa → bão hòa; (6) chỉ <b>commit</b> tích phân mới nếu không rơi vào trường hợp "bão hòa và sai số đẩy tiếp".</p>
+<h3>7.3 <code>cascade_step()</code></h3>
+<pre><code>float cascade_step(cascade_state_t *s, const cascade_params_t *c,
+                   float ref_pos, float pos, float vel)
+{
+    if (s == NULL || c == NULL || c-&gt;outer_divider == 0U
+        || !is_finite_f(ref_pos) || !is_finite_f(pos) || !is_finite_f(vel)) {
+        return 0.0f;
+    }
+
+    const float ref = limits_clamp(ref_pos, c-&gt;pos_min_rad, c-&gt;pos_max_rad);
+
+    if ((s-&gt;tick % c-&gt;outer_divider) == 0U) {
+        s-&gt;vel_setpoint = pid_step(&amp;s-&gt;pos, &amp;c-&gt;pos, ref, pos);
+    }
+    s-&gt;tick++;
+
+    float v = pid_step(&amp;s-&gt;vel, &amp;c-&gt;vel, s-&gt;vel_setpoint, vel);
+    v = limits_rate_limit(s-&gt;last_volt, v, c-&gt;volt_rate_v_per_tick);
+    s-&gt;last_volt = v;
+    return v;
+}</code></pre><p class="small"><code>common/control/pid.c</code></p>
+<h3>7.4 Các kiểu dữ liệu (rút gọn từ <code>pid.h</code>)</h3>
+<pre><code>typedef struct {
+    float kp;
+    float ki;               /* [1/s] scaling applied to the integral of error */
+    float kd;
+    float dt_s;             /* fixed step, &gt; 0 */
+    float out_min;          /* saturation */
+    float out_max;
+    float integral_limit;   /* |integral term| clamp (anti-windup threshold), &gt;= 0; 0 = no limit */
+    float d_alpha;          /* derivative low-pass in (0,1]; 1 = no filtering */
+} pid_params_t;
+
+typedef struct {
+    float integral;         /* integral TERM (already multiplied by ki) */
+    float prev_meas;
+    float d_filt;
+    bool  has_prev;         /* false until first step (avoids derivative kick) */
+    bool  saturated;        /* last output was clamped */
+} pid_state_t;</code></pre><p class="small"><code>common/control/pid.h</code></p>
+<div class="box warn"><strong>Tên kiểu:</strong> không dùng <code>pid_t</code> vì POSIX đã dùng tên này cho process ID; dự án dùng <code>pid_params_t</code>, <code>pid_state_t</code>.</div>
+
+<h2 id="test">8. Test và kết quả</h2>
+<p>File <code>tests/control/test_pid.c</code>, đăng ký trong CTest với tên <code>control_pid</code> (build với <code>-Wall -Wextra -Werror</code>). Ánh xạ sang 5 tiêu chí của plan:</p>
+<table><thead><tr><th>#</th><th>Tiêu chí plan</th><th>Hàm test</th><th>Kiểm tra gì</th></tr></thead><tbody>
+<tr><td>1</td><td>P thuần: đầu ra = Kp·e</td><td><code>test_p_only</code></td><td>e=2 → 4; e=−2 → −4</td></tr>
+<tr><td>2</td><td>Tích phân tăng tuyến tính; khi bão hòa không vượt ngưỡng</td><td><code>test_integral_linear_and_antiwindup</code></td><td>Ki=10, e=1: sau 100 tick đầu ra=1,0. Bão hòa ±5 sau 10⁵ tick: <code>integral</code> ≤ 5; đảo dấu sai số thì thoát bão hòa trong &lt; 10 tick; <code>integral_limit</code> ép đúng 2,0</td></tr>
+<tr><td>3</td><td>Rate limit |ΔV| ≤ giới hạn mỗi tick</td><td><code>test_limits</code>, <code>test_cascade_limits</code></td><td>Mỗi tick ≤ 0,5 (hàm) và ≤ 0,2 V (cascade, tham chiếu rất lớn)</td></tr>
+<tr><td>4</td><td>Tham chiếu ngoài [min,max] bị kẹp</td><td><code>test_cascade_limits</code></td><td>Ref=100 với pos_max=1 và pos=1 → đầu ra 0</td></tr>
+<tr><td>5</td><td>Không state toàn cục; 2 instance độc lập</td><td><code>test_independent_instances</code></td><td>Instance A chạy 50 tick không ảnh hưởng kết quả instance B mới</td></tr>
+<tr><td>+</td><td>Đạo hàm trên đo lường</td><td><code>test_derivative_on_measurement</code></td><td>Tham chiếu nhảy 100 → D = 0 (không kick); đo lường tăng 1 rad/s → D = −1</td></tr>
+<tr><td>+</td><td>Smoke vòng kín với plant</td><td><code>test_closed_loop_smoke</code></td><td>Bước 1 rad, 2 s: vị trí cuối trong ±0,05 rad</td></tr>
+</tbody></table>
+<div class="box good"><strong>Kết quả:</strong> <code>ctest</code> → <code>control_pid ... Passed</code> (cùng <code>control_core_no_freertos_headers</code> — test kiến trúc quét <code>common/control/</code> không có <code>FreeRTOS.h</code>/<code>task.h</code>/<code>queue.h</code>/<code>semphr.h</code>).</div>
+<p>Chạy lại: <code>cmake -S tests/control -B build/host &amp;&amp; cmake --build build/host &amp;&amp; ctest --test-dir build/host --output-on-failure</code></p>
+
+<h2 id="quyet-dinh">9. Quyết định thiết kế và lưu ý</h2>
+<ul>
+<li><b>Gain trong <code>cascade_default_params</code> ở thời điểm Phần 4 chỉ là nháp</b> (Kp vị trí 20; PI tốc độ 0,5 / 5). Phần 5 sẽ đo rồi đổi — bộ gain nháp thực tế dao động (xem Phần 5).</li>
+<li>Chưa có prefilter / giới hạn tốc độ tham chiếu cho bước thang; chỉ thêm nếu Phần 5 cho thấy overshoot vượt 10 %.</li>
+<li><code>float</code> mềm trên Cortex-M3 (không FPU): chi phí đo ở Phần 7, không đoán.</li>
+<li>Vòng ngoài và trong dùng chung một kiểu <code>pid_params_t</code>/<code>pid_step</code> → ít mã hơn, ít chỗ để lỗi.</li>
+</ul>
+
+<h2 id="tu-kiem">10. Tự kiểm tra</h2>
+<div class="checklist"><ul>
+<li>Vì sao lưu "tích phân đã nhân Ki" thay vì tích phân thô của sai số?</li>
+<li>Khi bão hòa, vì sao phải xét <em>dấu</em> của sai số trước khi dừng tích phân?</li>
+<li>Nếu tham chiếu nhảy bậc, D trên sai số và D trên đo lường khác nhau ở đâu?</li>
+<li>Vì sao vòng ngoài chỉ cần P?</li>
+<li>Tại sao <code>pid_step</code> trả 0 và không sửa state khi gặp NaN?</li>
+</ul></div>
+
+<div class="nav"><span><a href="m1_part1_host_core_guide.html">← Phần 1</a></span><span><a href="m1_part5_closed_loop_tuning_guide.html">Phần 5 →</a></span></div>
+<p class="footer small">Số liệu là <b>SIL</b>: mô hình chạy trên host / QEMU (thời gian ảo). Không phải phần cứng thật, không tuyên bố hard real-time.</p>
+</main>
+</body>
+</html>
