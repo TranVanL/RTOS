@@ -33,6 +33,8 @@ get_filename_component(
 add_library(control_core STATIC
     ${CONTROL_CORE_DIR}/plant.c
     ${CONTROL_CORE_DIR}/encoder.c
+    ${CONTROL_CORE_DIR}/limits.c
+    ${CONTROL_CORE_DIR}/pid.c
 )
 target_include_directories(control_core PUBLIC ${CONTROL_CORE_DIR})
 if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
@@ -78,6 +80,34 @@ add_test(
     NAME control_encoder
     COMMAND test_encoder
 )
+
+add_library(sim_loop STATIC sim_loop.c)
+target_link_libraries(sim_loop PUBLIC control_core m)
+target_include_directories(sim_loop PUBLIC ${CMAKE_CURRENT_LIST_DIR})
+target_compile_options(sim_loop PRIVATE -Wall -Wextra -Werror)
+
+add_executable(sim_closed_loop sim_closed_loop.c)
+target_link_libraries(sim_closed_loop PRIVATE sim_loop)
+target_compile_options(sim_closed_loop PRIVATE -Wall -Wextra -Werror)
+
+add_executable(test_pid
+    test_pid.c
+)
+target_link_libraries(test_pid PRIVATE control_core)
+if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(test_pid PRIVATE -Wall -Wextra -Werror)
+    target_link_libraries(test_pid PRIVATE m)
+endif()
+
+add_test(
+    NAME control_pid
+    COMMAND test_pid
+)
+
+add_executable(test_step_response test_step_response.c)
+target_link_libraries(test_step_response PRIVATE sim_loop)
+target_compile_options(test_step_response PRIVATE -Wall -Wextra -Werror)
+add_test(NAME control_step_response COMMAND test_step_response)
 
 add_test(
     NAME control_core_no_freertos_headers
