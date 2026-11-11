@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Hướng dẫn học và bắt đầu Phần 1 M1: dựng OS-free control core bằng C, CMake, CTest và pytest trên host.">
+<title>M1 · Phần 1 — OS-free core và test host</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" crossorigin="anonymous" onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'\\(',right:'\\)',display:false}],throwOnError:false});"></script>
+<style>
+:root{--ink:#172033;--muted:#586579;--line:#dce3ed;--paper:#fff;--soft:#f4f7fb;--blue:#2456c7;--teal:#087e75;--green:#167447;--amber:#9a5b00;--red:#ad2c2c;--navy:#101a2b;--shadow:0 12px 32px rgba(22,39,68,.08)}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:#f7f9fc;color:var(--ink);font:16px/1.72 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}main{max-width:1020px;margin:26px auto 70px;background:var(--paper);padding:clamp(22px,5vw,58px);box-shadow:var(--shadow);border:1px solid #e8edf4;border-radius:18px}h1{font-size:clamp(2rem,4vw,3rem);line-height:1.15;letter-spacing:-.035em;margin:.2em 0 .45em}h2{font-size:1.55rem;line-height:1.3;margin:2.4em 0 .65em;padding-top:.7em;border-top:1px solid var(--line);letter-spacing:-.02em}h3{font-size:1.16rem;margin:1.55em 0 .4em;color:#173c7a}p{margin:.65em 0}li{margin:.3em 0}a{color:var(--blue)}.eyebrow{display:inline-block;color:var(--blue);font-weight:750;text-transform:uppercase;letter-spacing:.11em;font-size:.78rem}.sub{font-size:1.08rem;color:var(--muted);max-width:850px}.pills{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0}.pill{border:1px solid var(--line);background:var(--soft);border-radius:999px;padding:4px 11px;color:#34435b;font-size:.86rem}.hero{background:linear-gradient(135deg,#10264a,#1a4c82 65%,#087e75);color:white;padding:25px 28px;border-radius:14px;margin:24px 0}.hero p{color:#e8f1ff;margin:.3em 0}.hero strong{color:#fff}.toc{background:var(--soft);border:1px solid var(--line);border-radius:12px;padding:18px 22px;margin:22px 0}.toc ol{columns:2;padding-left:22px;margin:.6em 0}.toc li{break-inside:avoid}.box{padding:14px 18px;border-left:4px solid var(--blue);background:#eff5ff;border-radius:6px;margin:16px 0}.box.warn{border-color:var(--amber);background:#fff8e9}.box.good{border-color:var(--green);background:#eef8f1}.box.danger{border-color:var(--red);background:#fff1f0}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:13px;margin:14px 0}.card{border:1px solid var(--line);border-radius:10px;padding:14px 16px;background:white}.card h3{margin:.1em 0 .45em}table{width:100%;border-collapse:collapse;margin:14px 0;font-size:.94rem}th,td{border:1px solid var(--line);padding:9px 11px;text-align:left;vertical-align:top}th{background:#edf2f8;color:#25344c}code{font:.88em/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;background:#eff2f7;padding:.13em .35em;border-radius:4px;color:#243b63}pre{background:var(--navy);color:#e5edf8;padding:15px 17px;border-radius:10px;overflow:auto;font:.88rem/1.55 ui-monospace,SFMono-Regular,Consolas,monospace}pre code{background:none;color:inherit;padding:0}.math{overflow-x:auto;background:#fbfcfe;border:1px solid #e8edf4;border-radius:8px;padding:8px 14px;margin:10px 0}.small{font-size:.9rem;color:var(--muted)}.tag{display:inline-block;border-radius:4px;padding:1px 6px;font-size:.78rem;font-weight:700;background:#e8eefb;color:#254d9a}.tag.warn{background:#fff0d4;color:#865000}.tag.ok{background:#e5f5eb;color:#12643a}.checklist li::marker{color:var(--green)}.flow{display:flex;align-items:stretch;gap:8px;flex-wrap:wrap;margin:15px 0}.flow div{flex:1 1 155px;text-align:center;padding:12px;background:var(--soft);border:1px solid var(--line);border-radius:9px}.flow b{display:block;color:#193e79}.flow span{font-size:.9rem;color:var(--muted)}.footer{border-top:1px solid var(--line);margin-top:42px;padding-top:16px;color:var(--muted);font-size:.88rem}.katex-display{overflow-x:auto;overflow-y:hidden;padding:5px 0}
+@media(max-width:650px){main{margin:0;border-radius:0;padding:24px 17px}.toc ol{columns:1}table{font-size:.86rem}th,td{padding:7px}.hero{padding:20px}}
+@media print{body{background:white}main{box-shadow:none;border:0;margin:0;max-width:none;padding:0}.toc a{text-decoration:none;color:var(--ink)}.card,.box,table,pre{break-inside:avoid}.hero{print-color-adjust:exact;-webkit-print-color-adjust:exact}}
+</style>
+</head>
+<body>
+<main>
+<span class="eyebrow">M1 · Bài học và bài thực hành đầu tiên · Host trước, node sau</span>
+<h1>Phần 1 — Dựng OS-free control core và test host</h1>
+<p class="sub">Mục tiêu của phần này không phải làm motor chạy. Mục tiêu là thiết lập một đường đi đáng tin cậy: viết C lõi độc lập với OS → build trên máy host → chạy test tự động → sau này dùng lại đúng lõi đó trong FreeRTOS.</p>
+<div class="pills"><span class="pill">C thuần</span><span class="pill">Không phụ thuộc FreeRTOS</span><span class="pill">CMake + CTest</span><span class="pill">pytest integration</span><span class="pill">Float có đo lường</span></div>
+<div class="hero"><strong>Kết quả cuối bài</strong><p>Một test CMake/CTest chạy được; compiler dùng <code>-Wall -Wextra -Werror</code>; test kiến trúc kiểm tra thư mục lõi không include header FreeRTOS; pytest có thể gọi toàn bộ host test. Đây là bộ khung để bắt đầu các module M1 tiếp theo.</p></div>
+<nav class="toc" aria-label="Mục lục"><strong>Mục lục</strong><ol>
+<li><a href="#big-picture">Bức tranh toàn cảnh</a></li><li><a href="#os-free">OS-free core và ranh giới</a></li><li><a href="#determinism">Trạng thái và tính tất định</a></li><li><a href="#float">Float và ngân sách chu kỳ</a></li><li><a href="#units">API, tên kiểu và đơn vị</a></li><li><a href="#build">CMake, CTest, pytest</a></li><li><a href="#guard">Test cấm phụ thuộc FreeRTOS</a></li><li><a href="#hands-on">Bắt đầu thực hành</a></li><li><a href="#acceptance">Checklist và câu hỏi tự kiểm tra</a></li>
+</ol></nav>
+
+<h2 id="big-picture">1. Bức tranh toàn cảnh: vì sao làm host trước?</h2>
+<p>M1 có hai môi trường chạy. Host dùng để chạy unit test và mô phỏng nhiều bước nhanh; QEMU/FreeRTOS dùng để kiểm tra task định kỳ, MPU, jitter và tích hợp. Nếu thuật toán bị gắn chặt vào RTOS ngay từ đầu, mỗi lần sửa PID lại phải build firmware và khởi động môi trường mô phỏng. Tách lõi ra cho phép kiểm tra phần toán học độc lập.</p>
+<div class="flow"><div><b>Đầu vào rõ ràng</b><span>tham chiếu, measurement, trạng thái</span></div><div><b>C control core</b><span>tính toán tất định</span></div><div><b>Kết quả rõ ràng</b><span>đầu ra + trạng thái mới</span></div><div><b>Adapter môi trường</b><span>host test hoặc FreeRTOS task</span></div></div>
+<table><thead><tr><th>Lớp</th><th>Việc của lớp</th><th>Được gọi ở đâu?</th></tr></thead><tbody>
+<tr><td><code>common/control/</code></td><td>Thuật toán và trạng thái điều khiển; không biết scheduler hay thiết bị.</td><td>Host và firmware.</td></tr>
+<tr><td><code>tests/control/</code></td><td>Test C và cấu hình build host độc lập.</td><td>Máy phát triển, CI.</td></tr>
+<tr><td>FreeRTOS adapter</td><td>Đợi tick, đọc dữ liệu, gọi core, ghi kết quả vào buffer.</td><td>QEMU/node ở phần sau.</td></tr>
+<tr><td>pytest wrapper</td><td>Gọi CMake/CTest trong luồng test Python đang có.</td><td><code>python -m pytest tools -q</code>.</td></tr>
+</tbody></table>
+
+<h2 id="os-free">2. OS-free core là gì, và ranh giới nằm ở đâu?</h2>
+<p>“OS-free” không có nghĩa là không được dùng C standard library. Nó có nghĩa là phần lõi không phụ thuộc vào FreeRTOS, QNX, driver, mạng, UART hay cách chương trình được lập lịch. Dữ liệu cần để tính toán phải được truyền vào hoặc lưu trong đối tượng trạng thái của module.</p>
+<div class="grid">
+<div class="card"><h3>Được phép trong core</h3><ul><li>C struct, enum, hàm và phép toán.</li><li>Trạng thái PID được truyền bằng con trỏ.</li><li>Tham số cấu hình và bước thời gian truyền rõ ràng.</li><li>Kiểm tra đầu vào nếu API quy định.</li></ul></div>
+<div class="card"><h3>Không đặt trong core</h3><ul><li><code>xTaskCreate</code>, <code>vTaskDelayUntil</code> hay queue FreeRTOS.</li><li><code>printf</code> hoặc ghi UART trong mỗi lần tính.</li><li><code>malloc</code> trong đường chạy điều khiển.</li><li>Đọc clock, sensor hoặc biến global ẩn.</li></ul></div>
+</div>
+<p>Ví dụ luồng trách nhiệm trong một tick tương lai: adapter đợi tới tick → lấy snapshot measurement → gọi hàm core → áp dụng output → lưu telemetry. Core chỉ làm bước tính toán và không tự chờ hay tự log.</p>
+<div class="box warn"><strong>“Không printf trong core” không cấm test in lỗi.</strong> Nếu test cần thông báo lỗi, test runner có thể in. Quy tắc nhằm bảo vệ đường điều khiển trong firmware khỏi I/O không dự đoán được.</div>
+
+<h2 id="determinism">3. Trạng thái tường minh tạo tính tất định như thế nào?</h2>
+<p>PID có bộ tích phân và thường cần nhớ measurement/error của tick trước. Do đó hàm không chỉ là phép tính từ hai số; nó là một phép chuyển trạng thái. Với state tại tick <em>k</em>, tham chiếu và phép đo tại tick đó, core tạo output và state cho tick kế tiếp:</p>
+<div class="math">$$\big(x_k,\ r_k,\ y_k\big)\ \longrightarrow\ \big(u_k,\ x_{k+1}\big)$$</div>
+<p>Trong đó <code>x</code> là state thuật toán, <code>r</code> là reference, <code>y</code> là measurement, <code>u</code> là output. “Tất định” nghĩa là nếu state ban đầu và toàn bộ chuỗi đầu vào giống nhau, kết quả chạy lại sẽ giống nhau trong cùng cấu hình chương trình.</p>
+<p>Hàm PID sửa state qua con trỏ nên không phải “pure function” theo định nghĩa functional programming nghiêm ngặt. Tuy vậy, state được truyền tường minh, không có biến global, nên vẫn có thể replay và test đáng tin cậy. Điều cần tránh là state ẩn bên trong static/global khiến test này ảnh hưởng test khác.</p>
+<div class="box good"><strong>Kiểm tra độc lập hai instance:</strong> tạo controller A và B, cho A chạy một chuỗi đầu vào; B chạy chuỗi khác. Kết quả của B không được phụ thuộc việc A đã chạy trước hay chưa.</div>
+
+<h2 id="float">4. Float: lựa chọn khởi đầu, không phải kết luận hiệu năng</h2>
+<p>Cortex-M3 không có FPU. Các phép toán float vì vậy thường được thực hiện bằng thư viện phần mềm. Ta chọn float trước vì dễ đọc và tuning; hiệu năng sẽ được đo ở Phần 7 thay vì suy luận từ cảm giác.</p>
+<p>Nếu clock là 25 MHz và vòng điều khiển chạy 1 kHz, ngân sách lý tưởng trên mỗi tick là:</p>
+<div class="math">$$\frac{25\times10^6\ \mathrm{cycle/s}}{10^3\ \mathrm{tick/s}}=25\,000\ \mathrm{cycle/tick}$$</div>
+<p>Ngưỡng đề xuất 30% là $7\,500$ cycle cho bước control cần đo. Đây là ngân sách kỹ thuật để điều tra, chưa phải yêu cầu hard real-time. Tổng chi phí còn gồm các phép toán khác, lời gọi hàm và phần chạy task.</p>
+<table><thead><tr><th>Đo/kiểm ở đâu?</th><th>Điều có thể kết luận</th><th>Điều không thể kết luận</th></tr></thead><tbody>
+<tr><td>Host unit test</td><td>Logic, biên, trạng thái, tính lặp lại của cùng build.</td><td>Cycle count của Cortex-M3.</td></tr>
+<tr><td>QEMU với phương pháp đo M1</td><td>Chi phí tương đối trong SIL/virtual cycles theo cấu hình đã chọn.</td><td>Thời gian thực trên board thật hoặc hard real-time.</td></tr>
+</tbody></table>
+<p>Không dùng <code>-ffast-math</code> một cách vô thức: cờ này cho phép compiler thay đổi một số giả định số học float, có thể ảnh hưởng phép kiểm NaN/Inf và tái lập kết quả. Giai đoạn đầu nên giữ cách biên dịch đơn giản, rồi mới tối ưu khi có số đo.</p>
+
+<h2 id="units">5. API, tên kiểu C và hợp đồng đơn vị</h2>
+<p>Kế hoạch minh họa API khởi tạo controller và chạy một bước. Tách cấu hình bất biến khỏi state thay đổi thường giúp test dễ hơn: cấu hình chứa gain/giới hạn/dt; state chứa integral/giá trị lần trước. Chi tiết struct sẽ được quyết định khi đến phần PID, không cần viết cả thuật toán ở bài khung.</p>
+<div class="box danger"><strong>Tránh đặt type là <code>pid_t</code> trên Linux.</strong> POSIX dùng tên này cho process ID; tên dự án có thể xung đột với header hệ thống. Dùng tên đặc thù như <code>control_pid_t</code> hoặc <code>pid_controller_t</code>. Đây là điều chỉnh tên API để host build sạch, không thay đổi ý nghĩa PID.</div>
+<p>Đơn vị là một phần của giao kèo API. Lõi M1 dùng rad, rad/s, V, A; encoder làm việc bằng count và cần chuyển đổi ở ranh giới phù hợp. Mỗi tham số cần được đặt tên/comment để người gọi biết đơn vị và không trộn degree với radian hoặc RPM với rad/s.</p>
+<table><thead><tr><th>Đại lượng</th><th>Đơn vị lõi</th><th>Ví dụ tên có ý nghĩa</th></tr></thead><tbody>
+<tr><td>Góc</td><td>rad</td><td><code>position_rad</code></td></tr>
+<tr><td>Tốc độ góc</td><td>rad/s</td><td><code>velocity_rad_s</code></td></tr>
+<tr><td>Điện áp</td><td>V</td><td><code>voltage_v</code></td></tr>
+<tr><td>Dòng điện</td><td>A</td><td><code>current_a</code></td></tr>
+<tr><td>Encoder</td><td>count</td><td><code>encoder_count</code></td></tr>
+</tbody></table>
+
+<h2 id="build">6. CMake, CTest và pytest: ba vai trò khác nhau</h2>
+<h3>CMake cấu hình build</h3>
+<p>CMake mô tả source, include path, compiler options và test executable. M1 tạo cấu hình host riêng tại <code>tests/control/CMakeLists.txt</code>, vì repo hiện chưa có CMake gốc hợp nhất cho mọi subsystem. Như vậy host test không phụ thuộc toolchain ARM.</p>
+<h3>Compiler flags làm lỗi lộ ra sớm</h3>
+<ul><li><code>-Wall -Wextra</code>: yêu cầu GCC/Clang báo các cảnh báo phổ biến.</li><li><code>-Werror</code>: biến cảnh báo thành lỗi build; build xanh có nghĩa không còn cảnh báo được bật.</li><li><code>-std=c11</code> / CMake C standard: cố định dialect C để host và firmware có hợp đồng rõ.</li></ul>
+<h3>CTest chạy test đã đăng ký</h3>
+<p>Test executable cần được đăng ký bằng <code>add_test()</code>. CTest sau đó chạy chúng và trả pass/fail. Tên “CTest pass” chỉ xác nhận những test đã đăng ký thực sự chạy; vì vậy khi thêm test module mới, phải thêm nó vào cấu hình thay vì chỉ tạo file source.</p>
+<h3>pytest tích hợp vào luồng repo</h3>
+<p>Repo đang dùng <code>python -m pytest tools -q</code>. Một pytest wrapper có thể cấu hình build vào thư mục tạm, build test C, rồi gọi CTest. Nhờ vậy CI và người phát triển có một lệnh chung. Wrapper phải kiểm tra mã thoát và đưa stdout/stderr ra khi lỗi, nếu không build fail sẽ khó chẩn đoán.</p>
+<div class="box"><strong>Ba bước, ba loại lỗi:</strong> CMake configure lỗi thường là sai cấu hình/path; build lỗi thường là compiler/code; CTest lỗi là test chạy nhưng assertion hoặc chương trình thất bại. Tách bước giúp khoanh vùng nhanh.</div>
+
+<h2 id="guard">7. Kiểm tra lõi không include FreeRTOS</h2>
+<p>Đây là architectural test: nó không kiểm tra PID đúng hay sai, mà bảo vệ ranh giới module. Test sẽ quét source/header trong <code>common/control/</code> và báo lỗi nếu phát hiện include FreeRTOS như <code>FreeRTOS.h</code>, <code>task.h</code>, <code>queue.h</code> hoặc <code>semphr.h</code>.</p>
+<p>Lúc thư mục chưa có source, kiểm tra có thể thông báo rằng chưa có file để quét. Khi thêm module, cùng test tự động bảo vệ file mới. Nếu quy tắc chỉ là grep thủ công, người phát triển có thể quên chạy; đặt nó trong CTest khiến nó thành một phần của cổng kiểm tra.</p>
+<div class="box warn"><strong>Giữ phạm vi quét đúng:</strong> chỉ quét core, không quét toàn repo. Adapter FreeRTOS được phép và cần include header RTOS; mục tiêu là đảm bảo phần OS-free không bị nhiễm phụ thuộc đó.</div>
+
+<h2 id="hands-on">8. Bắt đầu thực hành — trình tự từng bước</h2>
+<ol>
+<li><strong>Xác nhận công cụ host:</strong> cần GCC, CMake và Python/pytest có sẵn.</li>
+<li><strong>Tạo test smoke C:</strong> chỉ xác nhận compiler tạo được executable và chương trình chạy; ghi rõ đây chưa phải test thuật toán.</li>
+<li><strong>Dựng CMake riêng:</strong> bật C11, <code>-Wall -Wextra -Werror</code>, đăng ký smoke test bằng CTest.</li>
+<li><strong>Thêm architectural test:</strong> CTest gọi script kiểm tra header FreeRTOS trong core.</li>
+<li><strong>Thêm pytest wrapper:</strong> pytest tự configure/build/ctest trong thư mục tạm để không làm bẩn source tree.</li>
+<li><strong>Chạy riêng rồi chạy chung:</strong> chạy CMake/CTest trước để hiểu output, sau đó chạy pytest theo luồng repo.</li>
+<li><strong>Chỉ khi nền xanh mới bắt đầu module:</strong> sau đây mới thêm plant/encoder/PID theo kế hoạch; không gộp lỗi hạ tầng build với lỗi thuật toán.</li>
+</ol>
+<p>Các lệnh dự kiến từ thư mục gốc repo trên Linux:</p>
+<pre><code>cmake -S tests/control -B build/host-control
+cmake --build build/host-control
+ctest --test-dir build/host-control --output-on-failure
+python3 -m pytest tools -q</code></pre>
+<p class="small">Build host nằm trong <code>build/host-control</code>; pytest wrapper có thể dùng temporary directory và tự dọn sau test. Nếu thiếu compiler/CMake, cần xử lý môi trường trước thay vì bỏ qua test.</p>
+
+<h2 id="acceptance">9. Checklist nghiệm thu và câu hỏi tự kiểm tra</h2>
+<ul class="checklist">
+<li>Có CMake project host riêng ở <code>tests/control/</code>.</li>
+<li>Build test C bằng <code>-Wall -Wextra -Werror</code> và tiêu chuẩn C cố định.</li>
+<li><code>ctest --output-on-failure</code> chạy ít nhất smoke test và architectural guard.</li>
+<li>Core ở <code>common/control/</code> không include FreeRTOS header.</li>
+<li>pytest gọi được host test từ luồng <code>python -m pytest tools -q</code>.</li>
+<li>Chưa tuyên bố hiệu năng Cortex-M3 dựa trên thời gian host.</li>
+<li>API tránh tên <code>pid_t</code> để không xung đột POSIX.</li>
+</ul>
+<h3>Tự hỏi trước khi sang Phần 2</h3>
+<ol>
+<li>Điều gì khiến cùng chuỗi đầu vào chạy lại cho cùng kết quả?</li>
+<li>Vì sao không được gọi <code>printf</code> hoặc FreeRTOS trong core?</li>
+<li>CTest kiểm tra gì, pytest wrapper bổ sung điều gì?</li>
+<li>Vì sao test host không chứng minh float đủ nhanh trên Cortex-M3?</li>
+<li>Nếu include FreeRTOS xuất hiện ở <code>common/control/</code>, architectural test phải làm gì?</li>
+</ol>
+<div class="box good"><strong>Đáp án cốt lõi:</strong> state và input được truyền tường minh; core không có I/O/scheduler; CTest chạy test C và guard, pytest nối nó vào luồng chung; host không mô phỏng cycle Cortex-M3; header RTOS trong core phải làm test fail.</div>
+<div class="footer">Tài liệu M1, Phần 1 · Tiếng Việt · Nội dung SIL, chưa có kết quả timing phần cứng. Tham chiếu kế hoạch: <a href="m1_plan.md">m1_plan.md</a>.</div>
+</main>
+</body>
+</html>

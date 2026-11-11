@@ -1,0 +1,741 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Giải thích chi tiết luồng UDP hai chiều giữa QNX và FreeRTOS trong milestone M0.">
+<title>M0 — Giải thích UDP QNX ↔ FreeRTOS</title>
+<style>
+:root {
+  color-scheme: light;
+  --ink: #172033;
+  --muted: #56647a;
+  --line: #dce3ed;
+  --paper: #fff;
+  --canvas: #f3f6fb;
+  --blue: #2459c5;
+  --blue-soft: #edf3ff;
+  --green: #157347;
+  --green-soft: #eaf7f0;
+  --amber: #915a00;
+  --amber-soft: #fff5df;
+  --code: #101927;
+  --code-ink: #e7edf7;
+  --shadow: 0 12px 35px rgba(27, 44, 75, .08);
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--canvas);
+  color: var(--ink);
+  font: 16px/1.72 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+a { color: var(--blue); text-underline-offset: 3px; }
+a:hover { text-decoration-thickness: 2px; }
+header {
+  padding: 58px 22px 42px;
+  color: #fff;
+  background: radial-gradient(circle at 82% 10%, #527cdf 0, transparent 30%), linear-gradient(130deg, #10213e, #1d4ca5 72%, #3267c6);
+}
+.hero, main, footer { width: min(1060px, calc(100% - 36px)); margin: 0 auto; }
+.kicker { margin: 0 0 8px; color: #c6d6ff; font-size: .82rem; font-weight: 750; letter-spacing: .13em; text-transform: uppercase; }
+h1 { max-width: 850px; margin: 0; font-size: clamp(2rem, 5vw, 3.25rem); line-height: 1.12; letter-spacing: -.035em; }
+.subtitle { max-width: 780px; margin: 18px 0 0; color: #e0e9ff; font-size: 1.08rem; }
+.hero-badges { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 24px; }
+.badge { padding: 5px 11px; border: 1px solid rgba(255,255,255,.32); border-radius: 999px; background: rgba(255,255,255,.1); font-size: .85rem; }
+main { padding: 28px 0 70px; }
+.card, section {
+  margin: 18px 0;
+  padding: clamp(20px, 4vw, 34px);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--paper);
+  box-shadow: var(--shadow);
+}
+section h2 { margin: 0 0 14px; font-size: clamp(1.45rem, 3vw, 2rem); line-height: 1.25; letter-spacing: -.02em; }
+section h3 { margin: 26px 0 8px; font-size: 1.2rem; line-height: 1.35; }
+p { margin: 10px 0; }
+.lead { color: #31415b; font-size: 1.08rem; }
+.small, .muted { color: var(--muted); font-size: .94rem; }
+.toc { columns: 2; column-gap: 35px; margin: 10px 0 0; padding-left: 22px; }
+.toc li { break-inside: avoid; margin: 4px 0; }
+.callout { margin: 18px 0; padding: 15px 18px; border-left: 4px solid var(--blue); border-radius: 8px; background: var(--blue-soft); }
+.callout.warn { border-color: #d28a16; background: var(--amber-soft); }
+.callout.good { border-color: var(--green); background: var(--green-soft); }
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px; }
+.tile { padding: 17px; border: 1px solid var(--line); border-radius: 12px; background: #fbfcfe; }
+.tile h3 { margin: 0 0 7px; }
+.flow { display: flex; flex-direction: column; gap: 9px; margin: 18px 0; }
+.flow-step { display: grid; grid-template-columns: 42px 1fr; gap: 13px; align-items: start; padding: 14px 16px; border: 1px solid var(--line); border-radius: 11px; background: #fbfcff; }
+.num { display: grid; width: 32px; height: 32px; place-items: center; border-radius: 50%; color: #fff; background: var(--blue); font-weight: 800; }
+.flow-step p { margin: 0; }
+.arrow { margin: -5px 0 -5px 14px; color: #7690bc; font-size: 1.2rem; line-height: 1; }
+.diagram { overflow-x: auto; margin: 20px 0; padding: 18px; border: 1px solid var(--line); border-radius: 13px; background: #f9fbff; }
+.diagram-row { display: grid; grid-template-columns: 1fr 70px 1fr 70px 1fr; gap: 8px; align-items: center; min-width: 680px; text-align: center; }
+.node { padding: 15px 10px; border: 1px solid #cbd7eb; border-radius: 11px; background: #fff; }
+.node strong { display: block; }
+.node span { color: var(--muted); font-size: .88rem; }
+.arrow-right { color: var(--blue); font-size: 1.65rem; font-weight: 800; }
+.reverse { margin-top: 14px; }
+.reverse .arrow-right { transform: rotate(180deg); }
+code:not(pre code) { padding: .12em .38em; border-radius: 5px; background: #edf1f7; color: #20304a; font: .9em ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; overflow-wrap: anywhere; }
+pre {
+  max-width: 100%; margin: 14px 0 18px; padding: 18px; overflow: auto;
+  border: 1px solid #26354c; border-radius: 12px; background: var(--code); color: var(--code-ink);
+  font: 13px/1.62 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  tab-size: 4;
+}
+pre code { color: inherit; white-space: pre; }
+details { margin: 14px 0; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
+summary { padding: 14px 17px; cursor: pointer; color: #20304a; font-weight: 750; }
+details[open] summary { border-bottom: 1px solid var(--line); }
+.detail-body { padding: 4px 17px 17px; }
+table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: .95rem; }
+th, td { padding: 10px 12px; border: 1px solid var(--line); text-align: left; vertical-align: top; }
+th { background: #eef3fb; }
+tr:nth-child(even) td { background: #fbfcfe; }
+.tag { display: inline-block; padding: 2px 8px; border-radius: 999px; color: #164c33; background: var(--green-soft); font-size: .82rem; font-weight: 750; }
+.checklist li { margin: 7px 0; }
+footer { padding: 0 0 45px; color: var(--muted); font-size: .9rem; }
+@media (max-width: 700px) {
+  header { padding: 40px 18px 32px; }
+  .hero, main, footer { width: min(100% - 22px, 1060px); }
+  .grid { grid-template-columns: 1fr; }
+  .toc { columns: 1; }
+  th, td { padding: 8px; }
+  pre { font-size: 12px; padding: 14px; }
+}
+@media print {
+  body { background: #fff; }
+  header { padding: 25px; print-color-adjust: exact; }
+  .card, section { box-shadow: none; break-inside: avoid; }
+  details > .detail-body { display: block; }
+  pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+  a { color: inherit; }
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="hero">
+    <p class="kicker">RTOS/RTOS · Milestone M0 · Software-in-the-Loop</p>
+    <h1>Giải thích thật kỹ luồng UDP giữa QNX và FreeRTOS</h1>
+    <p class="subtitle">Từ lúc node khởi động mạng, tạo socket, gửi/nhận datagram, đến cách QNX đếm gói và kết luận PASS/FAIL. Có mã nguồn thực tế trong project để đối chiếu.</p>
+    <div class="hero-badges"><span class="badge">QNX process</span><span class="badge">FreeRTOS+TCP</span><span class="badge">2 luồng UDP</span><span class="badge">Port 5000 &amp; 5100</span><span class="badge">SIL / QEMU</span></div>
+  </div>
+</header>
+<main>
+  <section class="card" id="muc-luc">
+    <h2>Mục lục</h2>
+    <ol class="toc">
+      <li><a href="#ket-luan">Tóm tắt trước</a></li>
+      <li><a href="#so-do">Hai luồng dữ liệu</a></li>
+      <li><a href="#nen-tang">IP, port, socket, datagram</a></li>
+      <li><a href="#startup">FreeRTOS khởi động mạng</a></li>
+      <li><a href="#echo">Luồng 1: QNX → node → QNX</a></li>
+      <li><a href="#probe">Luồng 2: node → QNX → node</a></li>
+      <li><a href="#peer">QNX peer vận hành ra sao</a></li>
+      <li><a href="#bang-goi">Cấu trúc gói tin</a></li>
+      <li><a href="#chay">Build/run và log kết quả</a></li>
+      <li><a href="#gioi-han">Giới hạn và lưu ý khi đọc</a></li>
+      <li><a href="#nguon">Mã nguồn đầy đủ để xem</a></li>
+    </ol>
+  </section>
+
+  <section id="ket-luan">
+    <h2>1. Tóm tắt trước</h2>
+    <p class="lead">Trong M0, project chưa truyền command điều khiển motor. Mục tiêu là kiểm tra đường mạng bằng hai kiểu echo độc lập: một gói do QNX phát, một gói do FreeRTOS phát.</p>
+    <div class="grid">
+      <div class="tile">
+        <h3>Luồng 1 · port 5000</h3>
+        <p><strong>QNX phát → FreeRTOS echo → QNX kiểm tra.</strong> QNX đếm số gói gửi, số gói quay về và kiểm tra các từ dữ liệu có bị đổi không.</p>
+        <p><span class="tag">QNX chủ động gửi</span></p>
+      </div>
+      <div class="tile">
+        <h3>Luồng 2 · port 5100</h3>
+        <p><strong>FreeRTOS probe → QNX echo → FreeRTOS nhận lại.</strong> QNX theo dõi sequence nhận được để ước lượng gói mất trên chiều node → QNX.</p>
+        <p><span class="tag">FreeRTOS chủ động gửi</span></p>
+      </div>
+    </div>
+    <div class="callout good"><strong>Điểm cần nhớ:</strong> “hai chiều” ở đây là hai bài test riêng. Luồng 1 xác nhận round-trip bắt đầu từ QNX; luồng 2 xác nhận round-trip bắt đầu từ node. Ở cả hai, UDP không tự xác nhận hoặc truyền lại gói; code ứng dụng tự đếm và đánh giá.</div>
+  </section>
+
+  <section id="so-do">
+    <h2>2. Hai luồng dữ liệu nhìn bằng sơ đồ</h2>
+    <h3>Luồng 1 — QNX gửi tới UDP/5000</h3>
+    <div class="diagram" role="img" aria-label="QNX gửi gói đến FreeRTOS port 5000, FreeRTOS echo lại">
+      <div class="diagram-row">
+        <div class="node"><strong>QNX · m0_peer</strong><span>socket s1, port nguồn tạm</span></div>
+        <div class="arrow-right">→</div>
+        <div class="node"><strong>FreeRTOS · udp_echo</strong><span>bind UDP/5000</span></div>
+        <div class="arrow-right">→</div>
+        <div class="node"><strong>QNX · m0_peer</strong><span>nhận echo tại s1</span></div>
+      </div>
+      <div class="diagram-row reverse"><div class="node"><strong>QNX</strong><span>đếm / kiểm tra</span></div><div class="arrow-right">→</div><div class="node"><strong>FreeRTOS</strong><span>không đổi payload</span></div><div class="arrow-right">→</div><div class="node"><strong>QNX</strong><span>gửi datagram</span></div></div>
+    </div>
+    <h3>Luồng 2 — FreeRTOS gửi tới UDP/5100</h3>
+    <div class="diagram" role="img" aria-label="FreeRTOS probe gửi QNX port 5100, QNX echo lại">
+      <div class="diagram-row">
+        <div class="node"><strong>FreeRTOS · udp_probe</strong><span>bind UDP/5100</span></div>
+        <div class="arrow-right">→</div>
+        <div class="node"><strong>QNX · m0_peer</strong><span>socket s2, bind UDP/5100</span></div>
+        <div class="arrow-right">→</div>
+        <div class="node"><strong>FreeRTOS · udp_probe</strong><span>nhận echo tại s2</span></div>
+      </div>
+      <div class="diagram-row reverse"><div class="node"><strong>FreeRTOS</strong><span>đếm echo magic hợp lệ</span></div><div class="arrow-right">→</div><div class="node"><strong>QNX</strong><span>echo về sender</span></div><div class="arrow-right">→</div><div class="node"><strong>FreeRTOS</strong><span>gửi probe có sequence</span></div></div>
+    </div>
+    <p class="small">Các mũi tên trong hai hàng trên minh hoạ hai chiều của cùng một round-trip; sơ đồ không có nghĩa là một gói UDP duy nhất tự đi cả hai hướng.</p>
+  </section>
+
+  <section id="nen-tang">
+    <h2>3. Địa chỉ, port và vài khái niệm cần nắm</h2>
+    <table>
+      <thead><tr><th>Đầu mạng</th><th>Địa chỉ ở bài M0</th><th>Socket phục vụ test</th></tr></thead>
+      <tbody>
+        <tr><td>QNX VM, NIC kết nối node</td><td><code>192.168.50.1/24</code></td><td><code>m0_peer</code> gửi/nhận luồng 1 qua port nguồn tạm; bind <code>5100/udp</code> cho luồng 2</td></tr>
+        <tr><td>FreeRTOS node, QEMU</td><td><code>192.168.50.2/24</code></td><td><code>udp_echo</code> bind <code>5000/udp</code>; <code>udp_probe</code> bind <code>5100/udp</code></td></tr>
+        <tr><td>QEMU-to-QEMU link</td><td><code>127.0.0.1:5555</code> trên host</td><td>QEMU socket backend chuyển Ethernet frame giữa hai QEMU trong môi trường SIL</td></tr>
+      </tbody>
+    </table>
+    <div class="grid">
+      <div class="tile"><h3>IP address</h3><p>Chỉ máy/endpoint nào đang nhận gói. Ví dụ node gửi đến IP peer QNX <code>192.168.50.1</code>.</p></div>
+      <div class="tile"><h3>UDP port</h3><p>Chỉ ứng dụng/socket nào trong máy đích nhận gói. Ví dụ port <code>5100</code> đưa gói tới socket probe/peer.</p></div>
+      <div class="tile"><h3>Socket</h3><p>Endpoint mà code tạo bằng <code>socket()</code> hoặc <code>FreeRTOS_socket()</code>. Socket được bind port để nhận datagram.</p></div>
+      <div class="tile"><h3>Datagram</h3><p>Một gói UDP độc lập. UDP không tạo kết nối như TCP, không đảm bảo giao hàng, thứ tự hay chống trùng.</p></div>
+    </div>
+    <div class="callout warn"><strong>Đừng nhầm hai port với nhau:</strong> <code>5000</code> dùng cho gói test do QNX gửi đến node. <code>5100</code> dùng cho probe do node gửi đến QNX và gói echo quay về. Cổng <code>5555</code> là đường socket backend của QEMU ở host, không phải UDP port trong packet ứng dụng.</div>
+    <p>Ở build nghiệm thu, macro CMake đặt IP node thành <code>192,168,50,2</code> và gateway thành <code>192,168,50,1</code>. Header dùng gateway làm peer mặc định qua <code>NODE_PEER_IP_ADDR</code>. Với hai máy cùng subnet <code>/24</code>, việc gửi tới peer cùng subnet không cần router; ở cấu hình test, gateway cũng được dùng làm địa chỉ peer QNX.</p>
+  </section>
+
+  <section id="startup">
+    <h2>4. FreeRTOS mở mạng và khởi động hai task</h2>
+    <p>Trình tự khởi động trong M0 như sau:</p>
+    <div class="flow">
+      <div class="flow-step"><span class="num">1</span><p><strong><code>main()</code></strong> gọi <code>app_net_init()</code>, sau đó tạo các task test khác rồi chạy scheduler.</p></div>
+      <div class="arrow">↓</div>
+      <div class="flow-step"><span class="num">2</span><p><strong><code>app_net_init()</code></strong> thiết lập driver giao diện MPS2/LAN9118, endpoint IPv4 tĩnh và yêu cầu FreeRTOS+TCP khởi động IP task.</p></div>
+      <div class="arrow">↓</div>
+      <div class="flow-step"><span class="num">3</span><p>Khi stack phát sự kiện <strong><code>eNetworkUp</code></strong>, hook gọi <code>udp_echo_start()</code> và <code>udp_probe_start()</code> (nếu <code>NODE_PROBE</code> được định nghĩa).</p></div>
+      <div class="arrow">↓</div>
+      <div class="flow-step"><span class="num">4</span><p>Mỗi hàm <code>_start()</code> tạo task riêng. Task tự tạo UDP socket, bind port và đi vào vòng lặp nhận/gửi.</p></div>
+    </div>
+    <details>
+      <summary>Mã tích hợp mạng — app_net_init() và network-up hook</summary>
+      <div class="detail-body">
+        <p>Nội dung dưới đây là phần liên quan từ <a href="../freertos/app/net.c">freertos/app/net.c</a>.</p>
+        <pre><code>static const uint8_t ucIPAddress[ 4 ]  = { NODE_IP_ADDR };
+static const uint8_t ucNetMask[ 4 ]    = { NODE_NETMASK };
+static const uint8_t ucGateway[ 4 ]    = { NODE_GATEWAY };
+static const uint8_t ucDNSServer[ 4 ]  = { NODE_GATEWAY };
+static const uint8_t ucMACAddress[ 6 ] = { NODE_MAC_ADDR };
+
+static NetworkInterface_t xInterface;
+static NetworkEndPoint_t xEndPoint;
+
+void app_net_init( void )
+{
+    NVIC_SetPriority( ETHERNET_IRQn, configMAC_INTERRUPT_PRIORITY );
+    pxMPS2_FillInterfaceDescriptor( 0, &amp;xInterface );
+    FreeRTOS_FillEndPoint( &amp;xInterface, &amp;xEndPoint,
+                           ucIPAddress, ucNetMask, ucGateway,
+                           ucDNSServer, ucMACAddress );
+    configASSERT( FreeRTOS_IPInit_Multi() == pdTRUE );
+}
+
+void vApplicationIPNetworkEventHook_Multi(
+    eIPCallbackEvent_t eNetworkEvent,
+    struct xNetworkEndPoint * pxEndPoint )
+{
+    static BaseType_t xStarted = pdFALSE;
+    ( void ) pxEndPoint;
+
+    if( ( eNetworkEvent == eNetworkUp ) &amp;&amp; ( xStarted == pdFALSE ) )
+    {
+        xStarted = pdTRUE;
+        printf( "network up, ip %u.%u.%u.%u\n",
+                ucIPAddress[ 0 ], ucIPAddress[ 1 ],
+                ucIPAddress[ 2 ], ucIPAddress[ 3 ] );
+        udp_echo_start();
+#ifdef NODE_PROBE
+        udp_probe_start();
+#endif
+    }
+}</code></pre>
+        <ul>
+          <li><code>xStarted</code> ngăn việc tạo task lặp lại nếu hook nhận sự kiện mạng lên nhiều lần.</li>
+          <li>Task echo/probe chỉ bắt đầu khi interface đã sẵn sàng; không gửi ngay trong <code>main()</code>.</li>
+          <li><code>FreeRTOS_FillEndPoint()</code> nhận địa chỉ, netmask, gateway, DNS và MAC; ở đây địa chỉ được cấu hình tĩnh.</li>
+        </ul>
+      </div>
+    </details>
+    <details>
+      <summary>Macro port và địa chỉ — FreeRTOSConfig.h</summary>
+      <div class="detail-body">
+        <pre><code>#define NODE_MAC_ADDR     0x52,0x54,0x00,0x12,0x34,0xAD
+#define NODE_UDP_PORT     5000
+#define NODE_PROBE_PORT   5100
+#ifndef NODE_PEER_IP_ADDR
+#define NODE_PEER_IP_ADDR NODE_GATEWAY
+#endif</code></pre>
+        <p>Địa chỉ node, netmask và gateway có giá trị fallback trong <a href="../freertos/app/FreeRTOSConfig.h">FreeRTOSConfig.h</a>, nhưng CMake có thể override lúc build. Vì vậy địa chỉ chạy thực tế phải xác định từ cấu hình build, không chỉ nhìn giá trị fallback trong header.</p>
+      </div>
+    </details>
+  </section>
+
+  <section id="echo">
+    <h2>5. Luồng 1 — giải thích code udp_echo</h2>
+    <p><a href="../freertos/app/udp_echo.c">udp_echo.c</a> là server UDP echo chạy trong task FreeRTOS. Nó không hiểu “sequence” hay cấu trúc payload của QNX; nhiệm vụ của nó là nhận một datagram rồi trả lại nguyên byte cho sender.</p>
+    <h3>Khởi tạo socket</h3>
+    <pre><code>Socket_t xSock = FreeRTOS_socket(
+    FREERTOS_AF_INET, FREERTOS_SOCK_DGRAM, FREERTOS_IPPROTO_UDP );
+configASSERT( xSock != FREERTOS_INVALID_SOCKET );
+
+memset( &amp;xBind, 0, sizeof( xBind ) );
+xBind.sin_family = FREERTOS_AF_INET;
+xBind.sin_port = FreeRTOS_htons( NODE_UDP_PORT );
+configASSERT( FreeRTOS_bind( xSock, &amp;xBind, sizeof( xBind ) ) == 0 );</code></pre>
+    <ol>
+      <li><code>FreeRTOS_socket(... SOCK_DGRAM ... UDP)</code> tạo socket IPv4/UDP.</li>
+      <li><code>sin_family</code> chọn IPv4.</li>
+      <li><code>FreeRTOS_htons()</code> chuyển port 5000 sang network byte order.</li>
+      <li><code>FreeRTOS_bind()</code> gắn socket vào port local 5000. Địa chỉ bind để 0 nên socket nhận trên địa chỉ local của node.</li>
+      <li><code>configASSERT</code> làm firmware dừng ở assert nếu tạo/bind thất bại thay vì âm thầm chạy sai.</li>
+    </ol>
+    <h3>Nhận và gửi echo</h3>
+    <pre><code>xFromLen = sizeof( xFrom );
+int32_t n = FreeRTOS_recvfrom(
+    xSock, ucBuf, sizeof( ucBuf ), 0, &amp;xFrom, &amp;xFromLen );
+
+if( n &gt; 0 )
+{
+    ulRxCount++;
+    if( FreeRTOS_sendto( xSock, ucBuf, ( size_t ) n,
+                         0, &amp;xFrom, xFromLen ) == n )
+    {
+        ulTxCount++;
+    }
+}</code></pre>
+    <ul>
+      <li><code>recvfrom()</code> ghi payload vào <code>ucBuf</code>, trả số byte nhận trong <code>n</code>, đồng thời ghi địa chỉ và port của sender vào <code>xFrom</code>.</li>
+      <li><code>sendto()</code> gửi đúng <code>n</code> byte về chính <code>xFrom</code>. Đó là lý do QNX nhận phản hồi tại socket gửi ban đầu dù node không biết socket QNX dùng port nguồn nào.</li>
+      <li><code>ulRxCount</code> đếm datagram node nhận được; <code>ulTxCount</code> chỉ tăng khi gửi echo đủ số byte.</li>
+      <li>Socket đặt receive timeout 1 giây để task có thể thức dậy định kỳ và in thống kê mỗi 5 giây.</li>
+    </ul>
+    <div class="callout"><strong>Ý nghĩa “echo nguyên văn”:</strong> <code>udp_echo</code> dùng cùng buffer vừa nhận làm dữ liệu gửi lại. Không giải mã, không sửa sequence, không thêm header. Việc kiểm tra payload được làm ở QNX.</div>
+  </section>
+
+  <section id="probe">
+    <h2>6. Luồng 2 — giải thích code udp_probe</h2>
+    <p><a href="../freertos/app/udp_probe.c">udp_probe.c</a> là task client/server UDP nhỏ trên node: nó vừa gửi gói tới QNX, vừa lắng nghe gói QNX echo lại trên cùng socket cổng 5100.</p>
+    <h3>Socket bind local và địa chỉ đích</h3>
+    <pre><code>xSock = FreeRTOS_socket(
+    FREERTOS_AF_INET, FREERTOS_SOCK_DGRAM, FREERTOS_IPPROTO_UDP );
+
+xBind.sin_family = FREERTOS_AF_INET;
+xBind.sin_port = FreeRTOS_htons( NODE_PROBE_PORT );
+FreeRTOS_bind( xSock, &amp;xBind, sizeof( xBind ) );
+
+xPeer.sin_family = FREERTOS_AF_INET;
+xPeer.sin_port = FreeRTOS_htons( NODE_PROBE_PORT );
+xPeer.sin_address.ulIP_IPv4 =
+    FreeRTOS_inet_addr_quick( NODE_PEER_IP_ADDR );</code></pre>
+    <p>Socket bind vào <strong>node:5100</strong> để nhận echo. Địa chỉ đích lại là <strong>QNX:5100</strong>. Cùng một số port nhưng thuộc hai máy khác nhau; không có xung đột vì IP khác nhau.</p>
+    <h3>Tạo payload và phát probe</h3>
+    <pre><code>memset( ulPkt, 0, sizeof( ulPkt ) );
+ulPkt[ 0 ] = PROBE_MAGIC; /* 0x4D305052, chữ "M0PR" */
+ulPkt[ 1 ] = ulSent;      /* sequence */
+
+if( FreeRTOS_sendto( xSock, ulPkt, sizeof( ulPkt ), 0,
+                     &amp;xPeer, sizeof( xPeer ) )
+     == ( int32_t ) sizeof( ulPkt ) )
+{
+    ulSent++;
+}</code></pre>
+    <p><code>ulPkt</code> có 8 phần tử <code>uint32_t</code>, tức 32 byte. Mỗi lần gửi, word 0 là magic, word 1 là sequence, word 2–7 bằng 0. Sequence chỉ tăng khi <code>sendto()</code> báo đã gửi đủ cả datagram 32 byte; nếu send thất bại, số đó sẽ được thử lại ở vòng kế tiếp.</p>
+    <h3>Đọc các gói echo đang chờ</h3>
+    <pre><code>for( ; ; )
+{
+    xFromLen = sizeof( xFrom );
+    int32_t n = FreeRTOS_recvfrom(
+        xSock, ulPkt, sizeof( ulPkt ), 0, &amp;xFrom, &amp;xFromLen );
+    if( n &lt;= 0 ) { break; }
+    if( ulPkt[ 0 ] == PROBE_MAGIC ) { ulEcho++; }
+}</code></pre>
+    <p>Socket được đặt receive timeout bằng 0, tức lần đọc không chờ. Vòng lặp lấy hết các datagram hiện có; khi không còn gói, nó thoát để task tiếp tục báo cáo và chờ nhịp gửi tiếp theo. Node chỉ kiểm tra magic và tăng bộ đếm <code>ulEcho</code>; nó không so sequence với sequence kỳ vọng.</p>
+    <h3>Nhịp chạy và thống kê</h3>
+    <pre><code>if( ( int32_t ) ( xTaskGetTickCount() - xNextReport ) &gt;= 0 )
+{
+    xNextReport += pdMS_TO_TICKS( 5000 );
+    printf( "udp_probe sent=%lu echoed=%lu\n",
+            ( unsigned long ) ulSent,
+            ( unsigned long ) ulEcho );
+}
+vTaskDelayUntil( &amp;xWake, pdMS_TO_TICKS( 10 ) );</code></pre>
+    <p><code>vTaskDelayUntil()</code> lên lịch theo mốc tick định kỳ, mỗi 10 tick. Cấu hình M0 dùng tick 1 kHz, nên mục tiêu danh nghĩa là khoảng 100 probe/giây. Đây là nhịp của scheduler/QEMU, không phải cam kết thời gian thực trên phần cứng.</p>
+    <div class="callout warn"><strong>Bộ đếm trên node không phải tiêu chí mất gói chính.</strong> <code>sent</code> là số lần send thành công; <code>echoed</code> là số datagram nhận lại có magic đúng. Không có so sánh sequence nên muốn biết gói nào bị mất thì xem phép tính phía QNX.</div>
+  </section>
+
+  <section id="peer">
+    <h2>7. QNX m0_peer — phần trung tâm của bài nghiệm thu</h2>
+    <p>QNX process <code>m0_peer</code> tạo <strong>hai socket UDP</strong>: <code>s1</code> cho round-trip luồng 1 (bind port nguồn tạm), <code>s2</code> bind port 5100 cho luồng 2. Nó chờ cả hai socket bằng <code>poll()</code> để phục vụ hai luồng trong cùng vòng lặp.</p>
+    <h3>Socket và địa chỉ node</h3>
+    <ul>
+      <li><code>udp_bind(0)</code> tạo socket rồi bind port 0. Hệ điều hành chọn một port nguồn khả dụng cho QNX.</li>
+      <li><code>udp_bind(PROBE_PORT)</code> bind socket thứ hai vào port 5100 để node gửi probe tới.</li>
+      <li><code>node</code> chứa IP được truyền ở command line và port 5000 để QNX gửi test packet.</li>
+      <li><code>htons()</code> làm cùng vai trò đổi byte order của port như <code>FreeRTOS_htons()</code> ở node.</li>
+    </ul>
+    <h3>Lịch gửi của QNX</h3>
+    <p>Tham số <code>rate_hz</code> được đổi thành khoảng nghỉ <code>period = 1 / rate_hz</code>. Ở mỗi mốc đến hạn trước <code>t_end</code>, QNX dựng 8 word (32 byte): <code>p[0]</code> là sequence, các word còn lại dùng công thức pattern. Chỉ khi <code>sendto()</code> trả đủ 32 byte mới tăng <code>sent</code>.</p>
+    <pre><code>for (int i = 0; i &lt; PKT_WORDS; i++)
+    p[i] = sent * 2654435761u + i;
+p[0] = sent;
+
+if (sendto(s1, p, sizeof p, 0,
+           (struct sockaddr *)&amp;node, sizeof node)
+    == (ssize_t)sizeof p)
+{
+    sent++;
+}</code></pre>
+    <p>Hằng số <code>2654435761u</code> tạo pattern khác nhau theo sequence và vị trí word. Việc đó giúp phát hiện payload bị sửa/cắt; không phải mã hoá hay checksum bảo mật.</p>
+    <h3>Xử lý phản hồi luồng 1</h3>
+    <pre><code>if (pf[0].revents &amp; POLLIN) {
+    fl = sizeof from;
+    ssize_t n = recvfrom(s1, p, sizeof p, 0,
+                         (struct sockaddr *)&amp;from, &amp;fl);
+    if (n == (ssize_t)sizeof p) {
+        int ok = 1;
+        for (int i = 1; i &lt; PKT_WORDS; i++)
+            if (p[i] != p[0] * 2654435761u + i)
+                ok = 0;
+        if (ok) recv1++;
+        else bad++;
+    } else if (n &gt;= 0) {
+        bad++;
+    }
+}</code></pre>
+    <p>QNX nhận datagram trên socket <code>s1</code>. Nếu độ dài không đúng 32 byte, hoặc các word 1–7 không khớp pattern dựa trên word 0, nó tăng <code>bad</code>. Nếu hợp lệ, tăng <code>recv1</code>. Như vậy <code>mismatch</code> là biến <code>bad</code> in ra cuối chương trình.</p>
+    <h3>Nhận probe và echo lại luồng 2</h3>
+    <pre><code>if (pf[1].revents &amp; POLLIN) {
+    fl = sizeof from;
+    ssize_t n = recvfrom(s2, p, sizeof p, 0,
+                         (struct sockaddr *)&amp;from, &amp;fl);
+    if (n == (ssize_t)sizeof p &amp;&amp; p[0] == PROBE_MAGIC) {
+        if (!have2) { first2 = p[1]; have2 = 1; }
+        last2 = p[1];
+        recv2++;
+        sendto(s2, p, sizeof p, 0,
+               (struct sockaddr *)&amp;from, fl);
+    }
+}</code></pre>
+    <p>QNX chỉ chấp nhận gói có đúng kích thước và magic đúng. Nó ghi sequence đầu tiên vào <code>first2</code>, sequence mới nhất vào <code>last2</code>, tăng <code>recv2</code>, rồi echo nguyên datagram về đúng địa chỉ/port node ghi trong <code>from</code>. Ở đây QNX không kiểm tra các word 2–7 của probe.</p>
+    <h3>Poll, báo cáo và thời gian drain</h3>
+    <ul>
+      <li><code>poll(pf, 2, ms)</code> chờ một trong hai socket có dữ liệu, tối đa đến mốc sự kiện tiếp theo.</li>
+      <li>Mỗi 30 giây in số liệu tạm thời; đó chỉ là tiến độ, chưa phải kết quả cuối.</li>
+      <li>Sau thời lượng chạy chính, peer chờ thêm 2 giây (<code>t_drain</code>) để các datagram đang trên đường về kịp được nhận trước khi tính kết quả.</li>
+    </ul>
+  </section>
+
+  <section id="bang-goi">
+    <h2>8. Payload thực tế và cách tính PASS/FAIL</h2>
+    <table>
+      <thead><tr><th>Luồng</th><th>Kích thước</th><th>Word 0</th><th>Word 1</th><th>Phần còn lại</th></tr></thead>
+      <tbody>
+        <tr><td>QNX → node → QNX</td><td>8 × 32-bit = 32 byte</td><td>sequence</td><td>pattern theo sequence và chỉ số word</td><td>các pattern tiếp theo; node echo nguyên gói</td></tr>
+        <tr><td>node → QNX → node</td><td>8 × 32-bit = 32 byte</td><td>magic <code>0x4D305052</code></td><td>sequence</td><td>được zero-fill; QNX echo nguyên gói</td></tr>
+      </tbody>
+    </table>
+    <p>Trong code test, đây là mảng <code>uint32_t</code> được gửi trực tiếp bằng UDP, không có serializer riêng. Hai môi trường chạy của M0 là little-endian, nhưng đây vẫn là format thử nghiệm nội bộ; không nên xem là wire protocol portable cho MCU khác hoặc thiết bị thật.</p>
+    <h3>Các phép tính cuối ở QNX</h3>
+    <pre><code>uint32_t exp2 = have2 ? last2 - first2 + 1 : 0;
+uint32_t lost1 = sent - recv1;
+uint32_t lost2 = exp2 - recv2;
+
+int pass = sent &gt; 0 &amp;&amp; lost1 == 0 &amp;&amp; bad == 0
+           &amp;&amp; recv2 &gt; 0 &amp;&amp; lost2 == 0;</code></pre>
+    <table>
+      <thead><tr><th>Biến</th><th>Diễn giải</th></tr></thead>
+      <tbody>
+        <tr><td><code>sent</code></td><td>Số datagram QNX gửi thành công trong luồng 1.</td></tr>
+        <tr><td><code>recv1</code></td><td>Số echo luồng 1 về đủ kích thước và payload pattern đúng.</td></tr>
+        <tr><td><code>lost1 = sent - recv1</code></td><td>Chênh lệch tổng số gửi và số echo hợp lệ.</td></tr>
+        <tr><td><code>bad</code></td><td>Số datagram luồng 1 có kích thước hoặc payload không đúng.</td></tr>
+        <tr><td><code>first2, last2</code></td><td>Sequence probe đầu và cuối mà QNX quan sát được.</td></tr>
+        <tr><td><code>exp2</code></td><td>Độ dài sequence span từ first tới last, gồm cả hai đầu.</td></tr>
+        <tr><td><code>lost2 = exp2 - recv2</code></td><td>Ước lượng thiếu gói probe trong span sequence đã quan sát.</td></tr>
+      </tbody>
+    </table>
+    <p><strong>PASS</strong> cần có traffic ở cả hai luồng, luồng 1 không mất/không sai payload, và luồng 2 không thiếu sequence theo phép tính trên. Nếu thiếu probe ngay ở đầu hoặc cuối phần chạy, span <code>first2…last2</code> không tính những sequence mà QNX chưa từng thấy; vì vậy cách tính này đo gap bên trong span đã quan sát, không đo chính xác mọi gói có thể đã bị mất ở biên.</p>
+  </section>
+
+  <section id="chay">
+    <h2>9. Script chạy bài nghiệm thu và log</h2>
+    <p><a href="../tools/qnxvm/run_m0.sh">run_m0.sh</a> thực hiện chuỗi thao tác chính:</p>
+    <ol>
+      <li>Dùng QNX SDK <code>qcc</code> biên dịch <code>qnx/tests/m0_peer.c</code> với <code>-lsocket</code>.</li>
+      <li>Khởi động QNX VM và chờ SSH sẵn sàng.</li>
+      <li>Cấu hình QNX NIC <code>vtnet1</code> là <code>192.168.50.1/24</code>, copy binary peer vào VM.</li>
+      <li>Khởi động QEMU Cortex-M3 với node ELF và LAN9118; QEMU ARM kết nối socket backend của VM ở <code>127.0.0.1:5555</code>.</li>
+      <li>Chờ node khởi động, sau đó chạy peer với IP node, thời lượng và rate.</li>
+      <li>Lưu stdout peer vào <code>docs/results/m0_qnx_...result</code>, UART FreeRTOS vào <code>docs/results/m0_node_...uart.txt</code>.</li>
+    </ol>
+    <pre><code># Build node với địa chỉ của mạng nghiệm thu (chạy trong thư mục freertos)
+cmake --preset node -B ../build/freertos_link \
+  -DNODE_IP=192,168,50,2 \
+  -DNODE_GATEWAY=192,168,50,1
+cmake --build ../build/freertos_link
+
+# Chạy QNX VM + node + peer: 600 giây, QNX gửi 100 gói/giây
+../tools/qnxvm/run_m0.sh 600 100</code></pre>
+    <p class="small">Lệnh build được ghi trong hướng dẫn M0 của project. Script <code>run_m0.sh</code> cần QNX image, SDK và key SSH đã được thiết lập; script dùng sẵn ELF ở <code>build/freertos_link/node.elf</code>, không tự build firmware.</p>
+    <h3>Đọc kết quả đã lưu</h3>
+    <pre><code>dir1 (QNX-&gt;node-&gt;QNX): sent=60000 received=60000 lost=0 mismatch=0
+dir2 (node-&gt;QNX):      expected=60033 received=60033 lost=0
+PASS</code></pre>
+    <p><code>expected</code> của luồng 2 có thể không trùng đúng <code>sent</code> luồng 1: node tự chạy probe theo tick FreeRTOS/QEMU, QNX gửi luồng 1 theo lịch monotonic của VM. Hai bộ đếm thuộc hai luồng và hai scheduler khác nhau.</p>
+    <div class="callout good"><strong>Kết quả M0 lưu trong repo:</strong> 600 giây, 100 Hz, luồng QNX→node→QNX nhận đủ 60.000 gói, mismatch 0; probe node→QNX cũng kết thúc với không có gap trong sequence span được đo. Đây là kết quả SIL/QEMU, không phải benchmark Ethernet vật lý.</div>
+  </section>
+
+  <section id="gioi-han">
+    <h2>10. Giới hạn và các điểm cần phân biệt</h2>
+    <ul class="checklist">
+      <li><strong>Chưa có reliability của UDP:</strong> không retransmit, không ACK ở tầng UDP. Bài test quan sát số liệu để phát hiện mất gói.</li>
+      <li><strong>Không phải protocol điều khiển cuối:</strong> chưa có CAN-FD-compatible frame, E2E CRC/counter, heartbeat ứng dụng, safety state machine hay lệnh motor trong hai file này.</li>
+      <li><strong>Luồng 2 không kiểm sequence ở node:</strong> node chỉ tăng <code>echoed</code> nếu magic đúng; QNX tính gap theo sequence nhận phía QNX.</li>
+      <li><strong>Phép đo gap đơn giản:</strong> <code>last2 - first2 + 1 - recv2</code> giả định sequence tăng đều, không wrap trong lần chạy và không có duplicate/reorder làm sai bộ đếm. Nó không phải bộ phân tích protocol tổng quát.</li>
+      <li><strong>Luồng 1 dùng bộ đếm tổng:</strong> QNX so tổng <code>sent</code> với số echo hợp lệ; đây không phải bảng theo dõi sequence đã nhận nên không mô tả chính xác duplicate hay reorder.</li>
+      <li><strong>SIL:</strong> cả hai OS được mô phỏng bằng QEMU trên host. QEMU chuyển Ethernet frame qua socket backend TCP localhost; không có dây Ethernet vật lý trong bài chạy được mô tả.</li>
+      <li><strong>Không suy ra hard real-time:</strong> nhịp 10 tick và số liệu thời gian phản ánh cấu hình mô phỏng, không chứng minh deadline trên phần cứng thật.</li>
+    </ul>
+    <div class="callout warn"><strong>Định vị đúng tài liệu:</strong> kiến trúc tổng thể của project nói đến control/telemetry, E-stop port 5001, management và E2E ở các milestone sau. Nhưng code nghiệm thu M0 đang được giải thích ở đây chỉ mở socket UDP 5000 và 5100 cho echo/probe.</div>
+  </section>
+
+  <section id="nguon">
+    <h2>11. Mã nguồn thực tế đầy đủ</h2>
+    <p>Các khối dưới đây được chép từ project để đọc ngay trên trang. Có thể mở file gốc bằng liên kết trong tiêu đề từng khối.</p>
+
+    <details>
+      <summary>Toàn bộ udp_echo.c — FreeRTOS echo trên 5000</summary>
+      <div class="detail-body">
+        <p>Nguồn: <a href="../freertos/app/udp_echo.c">freertos/app/udp_echo.c</a></p>
+        <pre><code>/* UDP echo on NODE_UDP_PORT: send every datagram back to its sender. Whole M0 application. */
+#include &lt;stdio.h&gt;
+#include &lt;string.h&gt;
+#include "FreeRTOS.h"
+#include "task.h"
+#include "FreeRTOS_IP.h"
+#include "FreeRTOS_Sockets.h"
+#include "app.h"
+
+static volatile uint32_t ulRxCount, ulTxCount;
+
+static void prvUdpEchoTask( void * pvParameters )
+{
+    static uint8_t ucBuf[ 1472 ];
+    struct freertos_sockaddr xBind, xFrom;
+    socklen_t xFromLen;
+    Socket_t xSock;
+    TickType_t xNextReport = xTaskGetTickCount() + pdMS_TO_TICKS( 5000 );
+
+    ( void ) pvParameters;
+    xSock = FreeRTOS_socket( FREERTOS_AF_INET, FREERTOS_SOCK_DGRAM, FREERTOS_IPPROTO_UDP );
+    configASSERT( xSock != FREERTOS_INVALID_SOCKET );
+    memset( &amp;xBind, 0, sizeof( xBind ) );
+    xBind.sin_family = FREERTOS_AF_INET;
+    xBind.sin_port = FreeRTOS_htons( NODE_UDP_PORT );
+    configASSERT( FreeRTOS_bind( xSock, &amp;xBind, sizeof( xBind ) ) == 0 );
+    { TickType_t xTo = pdMS_TO_TICKS( 1000 ); FreeRTOS_setsockopt( xSock, 0, FREERTOS_SO_RCVTIMEO, &amp;xTo, sizeof( xTo ) ); }
+    printf( "udp_echo listening on %d\n", NODE_UDP_PORT );
+
+    for( ; ; )
+    {
+        xFromLen = sizeof( xFrom );
+        int32_t n = FreeRTOS_recvfrom( xSock, ucBuf, sizeof( ucBuf ), 0, &amp;xFrom, &amp;xFromLen );
+        if( n &gt; 0 )
+        {
+            ulRxCount++;
+            if( FreeRTOS_sendto( xSock, ucBuf, ( size_t ) n, 0, &amp;xFrom, xFromLen ) == n ) { ulTxCount++; }
+        }
+        if( ( int32_t ) ( xTaskGetTickCount() - xNextReport ) &gt;= 0 )
+        {
+            xNextReport += pdMS_TO_TICKS( 5000 );
+            printf( "udp_echo rx=%lu tx=%lu\n", ( unsigned long ) ulRxCount, ( unsigned long ) ulTxCount );
+        }
+    }
+}
+
+void udp_echo_start( void )
+{
+    /* Privileged: sockets, queues and network buffers live in the kernel heap. */
+    xTaskCreate( prvUdpEchoTask, "udp_echo", configMINIMAL_STACK_SIZE * 2, NULL,
+                 ( tskIDLE_PRIORITY + 2 ) | portPRIVILEGE_BIT, NULL );
+}</code></pre>
+      </div>
+    </details>
+
+    <details>
+      <summary>Toàn bộ udp_probe.c — FreeRTOS gửi/nhận trên 5100</summary>
+      <div class="detail-body">
+        <p>Nguồn: <a href="../freertos/app/udp_probe.c">freertos/app/udp_probe.c</a></p>
+        <pre><code>/* M0 direction node -&gt; QNX: send numbered datagrams to PEER (QNX) on NODE_PROBE_PORT every 10 ticks;
+ * the peer echoes them back. Node counts sent/echoed; the peer counts gaps in seq (its own PASS criterion). */
+#include &lt;stdio.h&gt;
+#include &lt;string.h&gt;
+#include "FreeRTOS.h"
+#include "task.h"
+#include "FreeRTOS_IP.h"
+#include "FreeRTOS_Sockets.h"
+#include "app.h"
+
+#define PROBE_MAGIC 0x4D305052UL /* "M0PR" */
+#define prvQuick( ... ) FreeRTOS_inet_addr_quick( __VA_ARGS__ ) /* expands NODE_PEER_IP_ADDR (a,b,c,d) first */
+
+static void prvProbeTask( void * pvParameters )
+{
+    struct freertos_sockaddr xPeer, xBind, xFrom;
+    socklen_t xFromLen;
+    uint32_t ulPkt[ 8 ], ulSent = 0, ulEcho = 0;
+    TickType_t xWake = xTaskGetTickCount(), xNextReport = xWake + pdMS_TO_TICKS( 5000 );
+    TickType_t xNoWait = 0;
+    Socket_t xSock = FreeRTOS_socket( FREERTOS_AF_INET, FREERTOS_SOCK_DGRAM, FREERTOS_IPPROTO_UDP );
+
+    ( void ) pvParameters;
+    configASSERT( xSock != FREERTOS_INVALID_SOCKET );
+    memset( &amp;xBind, 0, sizeof( xBind ) );
+    xBind.sin_family = FREERTOS_AF_INET;
+    xBind.sin_port = FreeRTOS_htons( NODE_PROBE_PORT );
+    configASSERT( FreeRTOS_bind( xSock, &amp;xBind, sizeof( xBind ) ) == 0 );
+    FreeRTOS_setsockopt( xSock, 0, FREERTOS_SO_RCVTIMEO, &amp;xNoWait, sizeof( xNoWait ) );
+    memset( &amp;xPeer, 0, sizeof( xPeer ) );
+    xPeer.sin_family = FREERTOS_AF_INET;
+    xPeer.sin_port = FreeRTOS_htons( NODE_PROBE_PORT );
+    xPeer.sin_address.ulIP_IPv4 = prvQuick( NODE_PEER_IP_ADDR );
+    printf( "udp_probe -&gt; peer port %d\n", NODE_PROBE_PORT );
+
+    for( ; ; )
+    {
+        memset( ulPkt, 0, sizeof( ulPkt ) );
+        ulPkt[ 0 ] = PROBE_MAGIC;
+        ulPkt[ 1 ] = ulSent;
+        if( FreeRTOS_sendto( xSock, ulPkt, sizeof( ulPkt ), 0, &amp;xPeer, sizeof( xPeer ) ) == ( int32_t ) sizeof( ulPkt ) ) { ulSent++; }
+        for( ; ; )
+        {
+            xFromLen = sizeof( xFrom );
+            int32_t n = FreeRTOS_recvfrom( xSock, ulPkt, sizeof( ulPkt ), 0, &amp;xFrom, &amp;xFromLen );
+            if( n &lt;= 0 ) { break; }
+            if( ulPkt[ 0 ] == PROBE_MAGIC ) { ulEcho++; }
+        }
+        if( ( int32_t ) ( xTaskGetTickCount() - xNextReport ) &gt;= 0 )
+        {
+            xNextReport += pdMS_TO_TICKS( 5000 );
+            printf( "udp_probe sent=%lu echoed=%lu\n", ( unsigned long ) ulSent, ( unsigned long ) ulEcho );
+        }
+        vTaskDelayUntil( &amp;xWake, pdMS_TO_TICKS( 10 ) );
+    }
+}
+
+void udp_probe_start( void )
+{
+    xTaskCreate( prvProbeTask, "udp_probe", configMINIMAL_STACK_SIZE * 2, NULL,
+                 ( tskIDLE_PRIORITY + 2 ) | portPRIVILEGE_BIT, NULL );
+}</code></pre>
+      </div>
+    </details>
+
+    <details>
+      <summary>Toàn bộ m0_peer.c — QNX xử lý cả hai luồng</summary>
+      <div class="detail-body">
+        <p>Nguồn: <a href="../qnx/tests/m0_peer.c">qnx/tests/m0_peer.c</a></p>
+        <pre><code>/* M0 acceptance peer (QNX process). Both directions over UDP against the FreeRTOS node:
+ *   dir 1 (QNX -&gt; node -&gt; QNX): send numbered datagrams to node:5000 at --rate Hz, node echoes, count replies.
+ *   dir 2 (node -&gt; QNX -&gt; node): node sends numbered probes to us on :5100; we echo them and count gaps in seq.
+ * PASS iff dir1 lost==0 &amp;&amp; mismatch==0 &amp;&amp; dir2 lost==0 (counts, not milliseconds).
+ * Build: qcc -Vgcc_ntox86_64 -o m0_peer m0_peer.c -lsocket       Usage: m0_peer &lt;node_ip&gt; &lt;duration_s&gt; &lt;rate_hz&gt; */
+#include &lt;arpa/inet.h&gt;
+#include &lt;poll.h&gt;
+#include &lt;stdint.h&gt;
+#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;string.h&gt;
+#include &lt;sys/socket.h&gt;
+#include &lt;time.h&gt;
+#include &lt;unistd.h&gt;
+
+#define NODE_PORT 5000
+#define PROBE_PORT 5100
+#define PROBE_MAGIC 0x4D305052u
+#define PKT_WORDS 8
+
+static double now(void) { struct timespec t; clock_gettime(CLOCK_MONOTONIC, &amp;t); return t.tv_sec + t.tv_nsec * 1e-9; }
+
+static int udp_bind(int port)
+{
+    int s = socket(AF_INET, SOCK_DGRAM, 0);
+    struct sockaddr_in a = { .sin_family = AF_INET, .sin_port = htons(port), .sin_addr.s_addr = INADDR_ANY };
+    if (s &lt; 0 || bind(s, (struct sockaddr *)&amp;a, sizeof a) != 0) { perror("bind"); exit(2); }
+    return s;
+}
+
+int main(int argc, char **argv)
+{
+    if (argc &lt; 4) { fprintf(stderr, "usage: %s &lt;node_ip&gt; &lt;duration_s&gt; &lt;rate_hz&gt;\n", argv[0]); return 2; }
+    struct sockaddr_in node = { .sin_family = AF_INET, .sin_port = htons(NODE_PORT) };
+    if (inet_pton(AF_INET, argv[1], &amp;node.sin_addr) != 1) { fprintf(stderr, "bad ip\n"); return 2; }
+    double duration = atof(argv[2]), period = 1.0 / atof(argv[3]);
+
+    int s1 = udp_bind(0), s2 = udp_bind(PROBE_PORT);
+    struct pollfd pf[2] = { { s1, POLLIN, 0 }, { s2, POLLIN, 0 } };
+    uint32_t sent = 0, recv1 = 0, bad = 0;
+    uint32_t first2 = 0, last2 = 0, recv2 = 0; int have2 = 0;
+    double t0 = now(), t_next = t0, t_end = t0 + duration, t_drain = t_end + 2.0, t_rep = t0 + 30;
+
+    for (;;) {
+        double t = now();
+        if (t &gt;= t_drain) break;
+        if (t &lt; t_end &amp;&amp; t &gt;= t_next) {
+            uint32_t p[PKT_WORDS];
+            for (int i = 0; i &lt; PKT_WORDS; i++) p[i] = sent * 2654435761u + i;
+            p[0] = sent;
+            if (sendto(s1, p, sizeof p, 0, (struct sockaddr *)&amp;node, sizeof node) == (ssize_t)sizeof p) sent++;
+            t_next += period;
+        }
+        double wake = (t &lt; t_end ? t_next : t_drain);
+        int ms = (int)((wake - now()) * 1000.0); if (ms &lt; 0) ms = 0;
+        if (poll(pf, 2, ms) &gt; 0) {
+            uint32_t p[PKT_WORDS]; struct sockaddr_in from; socklen_t fl;
+            if (pf[0].revents &amp; POLLIN) {
+                fl = sizeof from; ssize_t n = recvfrom(s1, p, sizeof p, 0, (struct sockaddr *)&amp;from, &amp;fl);
+                if (n == (ssize_t)sizeof p) {
+                    int ok = 1; for (int i = 1; i &lt; PKT_WORDS; i++) if (p[i] != p[0] * 2654435761u + i) ok = 0;
+                    if (ok) recv1++; else bad++;
+                } else if (n &gt;= 0) bad++;
+            }
+            if (pf[1].revents &amp; POLLIN) {
+                fl = sizeof from; ssize_t n = recvfrom(s2, p, sizeof p, 0, (struct sockaddr *)&amp;from, &amp;fl);
+                if (n == (ssize_t)sizeof p &amp;&amp; p[0] == PROBE_MAGIC) {
+                    if (!have2) { first2 = p[1]; have2 = 1; }
+                    last2 = p[1]; recv2++;
+                    sendto(s2, p, sizeof p, 0, (struct sockaddr *)&amp;from, fl);
+                }
+            }
+        }
+        if (now() &gt;= t_rep) { t_rep += 30; printf("t=%.0fs dir1 sent=%u recv=%u | dir2 recv=%u\n", now() - t0, sent, recv1, recv2); fflush(stdout); }
+    }
+    uint32_t exp2 = have2 ? last2 - first2 + 1 : 0, lost1 = sent - recv1, lost2 = exp2 - recv2;
+    printf("dir1 (QNX-&gt;node-&gt;QNX): sent=%u received=%u lost=%u mismatch=%u\n", sent, recv1, lost1, bad);
+    printf("dir2 (node-&gt;QNX):      expected=%u received=%u lost=%u\n", exp2, recv2, lost2);
+    int pass = sent &gt; 0 &amp;&amp; lost1 == 0 &amp;&amp; bad == 0 &amp;&amp; recv2 &gt; 0 &amp;&amp; lost2 == 0;
+    printf("%s\n", pass ? "PASS" : "FAIL");
+    return pass ? 0 : 1;
+}</code></pre>
+      </div>
+    </details>
+  </section>
+</main>
+<footer>
+  <p>Tài liệu giải thích mã nguồn trong workspace tại thời điểm tạo. Xem thêm <a href="m0_ethernet_qnx_freertos.html">hướng dẫn Ethernet M0</a> và <a href="01_ARCHITECTURE.md">kiến trúc dự án</a>. Kết luận luôn nằm trong phạm vi SIL, không đại diện cho xác nhận phần cứng hoặc tuyên bố hard real-time.</p>
+</footer>
+</body>
+</html>
