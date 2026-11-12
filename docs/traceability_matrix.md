@@ -25,5 +25,5 @@ Yêu cầu (`requirements.md`) → thiết kế (`01_ARCHITECTURE.md`) → code 
 | REQ-FUN-002 | Plan M1 | _chưa có_ | plot_step + test | Todo |
 | REQ-PERF-001 | ARCH §7 | _chưa có_ | metrics | Todo |
 | REQ-PERF-002 | ARCH §7 | _chưa có_ | metrics | Todo |
-| REQ-PERF-003 | Plan M3 | _chưa có_ | qnx/tests prio inversion | Todo |
+| REQ-PERF-003 | Plan M3 | [qnx/tests/m3_prio_inv.c](../qnx/tests/m3_prio_inv.c) | [results/m3_wp6_prio_inheritance.txt](results/m3_wp6_prio_inheritance.txt), [trace PI](results/m3_wp6_trace_pi.txt), [trace không PI](results/m3_wp6_trace_nopi.txt) (`run_m3_wp6.sh`) | Done (M3, SIL VM) — có/không PI, 5/5 lần + kernel trace |
 | REQ-ENV-001 | Plan §4 | .github/workflows/ci.yml | CI run | Todo |

@@ -1,0 +1,20 @@
+# M3 WP6 priority inversion on QNX VM (SIL, QEMU/KVM; all threads pinned to CPU 0) — 2026-11-12 commit 3941a4c
+QNX noname 8.0.0 2026/06/05-16:26:03EDT x86pc x86_64
+PRIO_INV pid=8077333 mode=pi N=20000000 m_at_H_acquire=0 order=L_unlock,H_acquire,M_done H_wait_cycles=4583511
+PRIO_INV pid=8114197 mode=nopi N=20000000 m_at_H_acquire=20000000 order=M_done,L_unlock,H_acquire H_wait_cycles=32500554
+PRIO_INV pid=8151061 mode=pi N=20000000 m_at_H_acquire=0 order=L_unlock,H_acquire,M_done H_wait_cycles=3648050
+PRIO_INV pid=8187925 mode=nopi N=20000000 m_at_H_acquire=20000000 order=M_done,L_unlock,H_acquire H_wait_cycles=35165686
+PRIO_INV pid=8224789 mode=pi N=20000000 m_at_H_acquire=0 order=L_unlock,H_acquire,M_done H_wait_cycles=3659990
+PRIO_INV pid=8261653 mode=nopi N=20000000 m_at_H_acquire=20000000 order=M_done,L_unlock,H_acquire H_wait_cycles=31184533
+PRIO_INV pid=8298517 mode=pi N=20000000 m_at_H_acquire=0 order=L_unlock,H_acquire,M_done H_wait_cycles=3808910
+PRIO_INV pid=8335381 mode=nopi N=20000000 m_at_H_acquire=20000000 order=M_done,L_unlock,H_acquire H_wait_cycles=32140655
+PRIO_INV pid=8372245 mode=pi N=20000000 m_at_H_acquire=0 order=L_unlock,H_acquire,M_done H_wait_cycles=8083557
+PRIO_INV pid=8409109 mode=nopi N=20000000 m_at_H_acquire=20000000 order=M_done,L_unlock,H_acquire H_wait_cycles=30125524
+PASS pi: 5 runs
+PASS nopi: 5 runs
+PASS PI: in 5/5 runs H acquires with M at 0 iterations; order L_unlock,H_acquire,M_done
+PASS NO PI: in 5/5 runs H waits until M completed all N; order M_done,L_unlock,H_acquire (priority inversion)
+trace pi (pid 8470549): SHARE_IN_WINDOW L=99.8% M=0.1% window_cyc=8329612
+trace nopi (pid 8581141): SHARE_IN_WINDOW L=10.5% M=89.2% window_cyc=28131773
+PASS trace PI: while H is blocked, L (boosted) gets 99.8% of the CPU and M only 0.1%
+PASS trace NO PI: while H is blocked, M (medium) gets 89.2% of the CPU (L starved)
