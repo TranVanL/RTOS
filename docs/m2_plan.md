@@ -67,7 +67,7 @@ Kết luận của snapshot ban đầu: tài liệu và DBC đã định hướn
 |---|---:|---:|---:|---:|
 | ESTOP | `0x010` | 2 B | 14 B | 16 B |
 | CMD | `0x100` | 7 B | 19 B | 20 B |
-| TELEM | `0x180` | 9 B | 21 B | 24 B |
+| TELEM | `0x180` | 11 B (M4: +CmdEcho) | 23 B | 24 B |
 | HEARTBEAT | `0x1F0` | 5 B | 17 B | 20 B |
 | FAULT_RECORD | `0x1F1` | 16 B | 28 B | 32 B |
 
@@ -173,7 +173,6 @@ Architecture hiện định nghĩa header 6 byte (`magic`, `can_id`, `flags`, `d
 **Việc làm**
 - Chạy sạch host configure/build/CTest, pytest, DBC generation check và firmware cross-build; ghi toolchain/version/command/result.
 - Lưu golden vectors, test summary và giới hạn SIL trong thư mục kết quả của docs; cập nhật [docs/traceability_matrix.md](traceability_matrix.md), [docs/02_PROJECT_PLAN.md](02_PROJECT_PLAN.md) và [README.md](../README.md) sau khi đạt acceptance.
-- Cập nhật [CLAUDE.md](../CLAUDE.md) current state nếu nó còn báo M0; không để tài liệu trợ lý mâu thuẫn với code.
 
 **Done khi**
 - Toàn bộ Definition of Done ở §6 pass, không còn TODO/placeholder M2 gây hiểu nhầm; README chỉ tuyên bố M2 hoàn tất khi CI + cross-build/test evidence tồn tại.
@@ -202,7 +201,7 @@ Architecture hiện định nghĩa header 6 byte (`magic`, `can_id`, `flags`, `d
 | DBC codegen / sniffer | [tools/dbc_codegen.py](../tools/dbc_codegen.py), [tools/frame_sniffer.py](../tools/frame_sniffer.py), [tools/m2_protocol.py](../tools/m2_protocol.py) |
 | Tests | [tests/control/CMakeLists.txt](../tests/control/CMakeLists.txt) (M1), [tests/protocol/](../tests/protocol/), [tools/tests/](../tools/tests/) |
 | Build/CI | [freertos/CMakeLists.txt](../freertos/CMakeLists.txt), [freertos/CMakePresets.json](../freertos/CMakePresets.json), [tools/requirements.txt](../tools/requirements.txt), [.github/workflows/ci.yml](../.github/workflows/ci.yml) |
-| Trace/status | [docs/traceability_matrix.md](traceability_matrix.md), [README.md](../README.md), [CLAUDE.md](../CLAUDE.md) |
+| Trace/status | [docs/traceability_matrix.md](traceability_matrix.md), [README.md](../README.md) |
 
 ## 5. Rủi ro và nguyên tắc giữ scope
 

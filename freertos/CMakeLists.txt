@@ -10,10 +10,13 @@ set(NODE_GATEWAY "10,0,2,2"       CACHE STRING "Gateway, comma separated")
 option(CONTROL_TEST_STEP "Control task: fixed square step reference" ON)
 option(CONTROL_LOG_CSV "Control task: stream 1 kHz CSV samples to UART (OFF for jitter runs: UART I/O stalls the vCPU)" ON)
 option(NODE_PROBE_ENABLE "Node sends udp_probe at 100 Hz" ON)
+option(NODE_M4 "M4 integrated node: comm + E-stop tasks instead of the M0 UDP echo" OFF)
 option(CONTROL_TEST_VIOLATE "Control task: intentionally write outside its MPU regions once" OFF)
 set(CONTROL_CORE ${CMAKE_CURRENT_SOURCE_DIR}/../common/control)
 set(COMMON_FRAME ${CMAKE_CURRENT_SOURCE_DIR}/../common/frame)
 set(COMMON_E2E ${CMAKE_CURRENT_SOURCE_DIR}/../common/e2e)
+set(COMMON_SAFETY ${CMAKE_CURRENT_SOURCE_DIR}/../common/safety)
+set(COMMON_PROTO ${CMAKE_CURRENT_SOURCE_DIR}/../common/proto)
 set(COMMON_GENERATED ${CMAKE_CURRENT_SOURCE_DIR}/../common/generated)
 
 # Peripheral verification build (docs/sil_environment.md section 4): none|wdt|wdt_kick|dwt|icount
@@ -53,7 +56,8 @@ target_compile_options(freertos_third_party PRIVATE ${COMMON_FLAGS} -w)
 
 add_executable(node.elf
     port/startup.c port/syscall.c
-    app/main.c app/hooks.c app/net.c app/udp_echo.c app/udp_probe.c app/mpu_selftest.c app/periph_test.c app/control_task.c
+    app/main.c app/hooks.c app/net.c app/udp_echo.c app/udp_probe.c app/mpu_selftest.c app/periph_test.c app/control_task.c app/comm_task.c
+    ${COMMON_SAFETY}/node_fsm.c ${COMMON_PROTO}/proto_link.c
     ${CONTROL_CORE}/plant.c ${CONTROL_CORE}/encoder.c ${CONTROL_CORE}/limits.c ${CONTROL_CORE}/pid.c
     ${COMMON_FRAME}/can_frame.c
     ${COMMON_E2E}/crc32p4.c ${COMMON_E2E}/e2e.c
@@ -64,8 +68,13 @@ target_include_directories(node.elf PRIVATE
     ${CONTROL_CORE}
     ${COMMON_FRAME}
     ${COMMON_E2E}
+    ${COMMON_SAFETY}
+    ${COMMON_PROTO}
     ${COMMON_GENERATED})
 target_compile_definitions(node.elf PRIVATE PERIPH_TEST_${PERIPH_TEST_ID}=1)
+if(NODE_M4)
+    target_compile_definitions(node.elf PRIVATE NODE_M4=1)
+endif()
 if(NODE_PROBE_ENABLE)
     target_compile_definitions(node.elf PRIVATE NODE_PROBE=1)
 endif()

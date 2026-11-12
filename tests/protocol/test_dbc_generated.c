@@ -52,15 +52,17 @@ static int test_telem(void)
         .velocity = INT16_MIN,
         .current = INT16_MAX,
         .output_state = 1U,
+        .cmd_echo = UINT16_MAX,
     };
-    struct can_matrix_telem_t output = { 0, 0, 0, 0U };
+    struct can_matrix_telem_t output = { 0, 0, 0, 0U, 0U };
     uint8_t payload[CAN_MATRIX_TELEM_LENGTH];
     CHECK(can_matrix_telem_pack(payload, &input, sizeof(payload)) == (int)sizeof(payload),
           "TELEM pack failed");
     CHECK(can_matrix_telem_unpack(&output, payload, sizeof(payload)) == 0,
           "TELEM unpack failed");
     CHECK(output.position == input.position && output.velocity == input.velocity
-              && output.current == input.current && output.output_state == input.output_state,
+              && output.current == input.current && output.output_state == input.output_state
+              && output.cmd_echo == input.cmd_echo,
           "TELEM payload mismatch");
     return 0;
 }

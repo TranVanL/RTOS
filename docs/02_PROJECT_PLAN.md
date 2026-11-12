@@ -12,7 +12,7 @@ Mỗi milestone có **acceptance criteria đo được**; không chuyển milest
 | M1 | 3–4 | FreeRTOS control loop | — |
 | M2 | 5–8 | Frame, DBC, E2E — **xong 2026-11-12** | — |
 | M3 | 9–11 | QNX supervisor — **xong 2026-11-12** | — |
-| M4 | 12–13 | Tích hợp end-to-end | **Mức tối thiểu để ghi CV** (kèm ≥ 4 kịch bản F) |
+| M4 | 12–13 | Tích hợp end-to-end — **xong 2026-11-12** ([m4_plan.md](m4_plan.md)); phạm vi phát hành v1.0 dừng ở đây | **Mức tối thiểu để ghi CV** (kèm ≥ 4 kịch bản F) |
 | M5 | 14–15 | Fault injection đầy đủ + safety_concept | Bản đầy đủ |
 | M6 | 16–17 | CI, traceability, README, video | Hoàn thiện |
 
@@ -66,7 +66,6 @@ Mỗi milestone có **acceptance criteria đo được**; không chuyển milest
 ```
 .
 ├── README.md
-├── CLAUDE.md
 ├── docs/
 │   ├── 00_PROJECT_OVERVIEW.md  01_ARCHITECTURE.md  02_PROJECT_PLAN.md
 │   ├── requirements.md         safety_concept.md

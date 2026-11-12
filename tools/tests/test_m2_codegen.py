@@ -14,7 +14,7 @@ GENERATED_DIR = REPO_ROOT / "common" / "generated"
 EXPECTED = {
     "ESTOP": (0x010, 2, 5001),
     "CMD": (0x100, 7, 5000),
-    "TELEM": (0x180, 9, 5000),
+    "TELEM": (0x180, 11, 5000),
     "HEARTBEAT": (0x1F0, 5, 5000),
     "FAULT_RECORD": (0x1F1, 16, 5000),
 }
@@ -45,8 +45,8 @@ def test_dbc_payload_boundaries_round_trip() -> None:
             {"Mode": 3, "VelLimit": 65535, "TargetPos": 2147483647},
         ],
         "TELEM": [
-            {"Position": -2147483648, "Velocity": -32768, "Current": -32768, "OutputState": 0},
-            {"Position": 2147483647, "Velocity": 32767, "Current": 32767, "OutputState": 1},
+            {"Position": -2147483648, "Velocity": -32768, "Current": -32768, "OutputState": 0, "CmdEcho": 0},
+            {"Position": 2147483647, "Velocity": 32767, "Current": 32767, "OutputState": 1, "CmdEcho": 65535},
         ],
         "HEARTBEAT": [
             {"NodeState": 0, "AliveCounter": 0, "CpuLoad": 0, "FaultCode": 0},

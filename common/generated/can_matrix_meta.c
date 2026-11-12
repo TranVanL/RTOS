@@ -4,7 +4,7 @@
 static const can_matrix_message_info_t messages[] = {
     { 0x0010U, 0x00000010UL, 2U, 14U, 16U, 5001U, 0U, "ESTOP" },
     { 0x0100U, 0x00000100UL, 7U, 19U, 20U, 5000U, 50U, "CMD" },
-    { 0x0180U, 0x00000180UL, 9U, 21U, 24U, 5000U, 30U, "TELEM" },
+    { 0x0180U, 0x00000180UL, 11U, 23U, 24U, 5000U, 30U, "TELEM" },
     { 0x01F0U, 0x000001F0UL, 5U, 17U, 20U, 5000U, 30U, "HEARTBEAT" },
     { 0x01F1U, 0x000001F1UL, 16U, 28U, 32U, 5000U, 0U, "FAULT_RECORD" },
 };

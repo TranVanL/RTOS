@@ -19,11 +19,12 @@ BO_ 256 CMD: 7 QNX
  SG_ VelLimit : 8|16@1+ (1,0) [0|65535] "rpm" FREERTOS
  SG_ TargetPos : 24|32@1- (1,0) [-2147483648|2147483647] "count" FREERTOS
 
-BO_ 384 TELEM: 9 FREERTOS
+BO_ 384 TELEM: 11 FREERTOS
  SG_ Position : 0|32@1- (1,0) [-2147483648|2147483647] "count" QNX
  SG_ Velocity : 32|16@1- (1,0) [-32768|32767] "rpm" QNX
  SG_ Current : 48|16@1- (1,0) [-32768|32767] "mA" QNX
  SG_ OutputState : 64|8@1+ (1,0) [0|1] "" QNX
+ SG_ CmdEcho : 72|16@1+ (1,0) [0|65535] "" QNX
 
 BO_ 496 HEARTBEAT: 5 FREERTOS
  SG_ NodeState : 0|8@1+ (1,0) [0|5] "" QNX
@@ -40,7 +41,7 @@ BO_ 497 FAULT_RECORD: 16 FREERTOS
 CM_ "Application payload only. On the wire: [E2E header 12 B][payload][padding to valid CAN FD DLC]. Data ID = CAN ID.";
 CM_ BO_ 16 "E-stop, UDP :5001, sent 3x at 1 ms spacing";
 CM_ BO_ 256 "Command, UDP :5000, 10 ms, node timeout 50 ms";
-CM_ BO_ 384 "Telemetry, UDP :5000, 10 ms, QNX timeout 30 ms";
+CM_ BO_ 384 "Telemetry, UDP :5000, 10 ms, QNX timeout 30 ms. CmdEcho = E2E counter of the last accepted CMD (M4 round-trip measurement)";
 CM_ BO_ 496 "Heartbeat, UDP :5000, 10 ms, QNX timeout 30 ms";
 CM_ BO_ 497 "Fault record, event, first message after reboot, UDP :5000";
 

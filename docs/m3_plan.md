@@ -47,6 +47,6 @@
 - [x] `devctl`: `EPERM` và `EINVAL` đúng, có log từ VM (REQ-SEC-001/002).
 - [x] `mgmt` ghi SHM chỉ đọc → `SIGSEGV`, hệ thống vẫn chạy; crash `logger`/`mgmt` được phát hiện (REQ-SEC-003/004).
 - [x] Bằng chứng priority inheritance có/không PI (REQ-PERF-003), có nhãn "SIL, VM".
-- [x] Traceability cập nhật; README/CLAUDE.md chỉ ghi M3 complete khi có evidence trong `docs/results/`.
+- [x] Traceability cập nhật; README chỉ ghi M3 complete khi có evidence trong `docs/results/`.
 
 **Tiến độ:** WP0–WP7 xong — M3 hoàn tất.

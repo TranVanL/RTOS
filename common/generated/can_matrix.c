@@ -284,11 +284,11 @@ int can_matrix_telem_pack(
     uint16_t velocity;
     uint32_t position;
 
-    if (size < 9u) {
+    if (size < 11u) {
         return (-EINVAL);
     }
 
-    memset(&dst_p[0], 0, 9);
+    memset(&dst_p[0], 0, 11);
 
     position = (uint32_t)src_p->position;
     dst_p[0] |= pack_left_shift_u32(position, 0u, 0xffu);
@@ -302,8 +302,10 @@ int can_matrix_telem_pack(
     dst_p[6] |= pack_left_shift_u16(current, 0u, 0xffu);
     dst_p[7] |= pack_right_shift_u16(current, 8u, 0xffu);
     dst_p[8] |= pack_left_shift_u8(src_p->output_state, 0u, 0xffu);
+    dst_p[9] |= pack_left_shift_u16(src_p->cmd_echo, 0u, 0xffu);
+    dst_p[10] |= pack_right_shift_u16(src_p->cmd_echo, 8u, 0xffu);
 
-    return (9);
+    return (11);
 }
 
 int can_matrix_telem_unpack(
@@ -315,7 +317,7 @@ int can_matrix_telem_unpack(
     uint16_t velocity;
     uint32_t position;
 
-    if (size < 9u) {
+    if (size < 11u) {
         return (-EINVAL);
     }
 
@@ -331,6 +333,8 @@ int can_matrix_telem_unpack(
     current |= unpack_left_shift_u16(src_p[7], 8u, 0xffu);
     dst_p->current = (int16_t)current;
     dst_p->output_state = unpack_right_shift_u8(src_p[8], 0u, 0xffu);
+    dst_p->cmd_echo = unpack_right_shift_u16(src_p[9], 0u, 0xffu);
+    dst_p->cmd_echo |= unpack_left_shift_u16(src_p[10], 8u, 0xffu);
 
     return (0);
 }
@@ -399,6 +403,23 @@ double can_matrix_telem_output_state_decode(uint8_t value)
 bool can_matrix_telem_output_state_is_in_range(uint8_t value)
 {
     return (value <= 1u);
+}
+
+uint16_t can_matrix_telem_cmd_echo_encode(double value)
+{
+    return (uint16_t)(value);
+}
+
+double can_matrix_telem_cmd_echo_decode(uint16_t value)
+{
+    return ((double)value);
+}
+
+bool can_matrix_telem_cmd_echo_is_in_range(uint16_t value)
+{
+    (void)value;
+
+    return (true);
 }
 
 int can_matrix_heartbeat_pack(

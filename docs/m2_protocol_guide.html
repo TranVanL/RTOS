@@ -375,7 +375,7 @@ timeout  = (elapsed >= timeout_ticks);
 <tr><td>WP3</td><td>Codec outer frame, validate nghiêm</td><td><code>common/frame/*</code> (154 dòng C)</td><td><span class="badge b-ok">Xong</span></td></tr>
 <tr><td>WP4</td><td>Python reference + sniffer</td><td><code>m2_protocol.py</code>, <code>frame_sniffer.py</code></td><td><span class="badge b-ok">Xong</span></td></tr>
 <tr><td>WP5</td><td>CTest riêng, interop 2 chiều, CI (gen-check + pytest), sửa YAML, thêm source common vào firmware CMake, traceability</td><td><code>tests/protocol/</code>, <code>test_m2_*.py</code>, <code>ci.yml</code></td><td><span class="badge b-warn">Host xong · ARM + remote CI chưa</span></td></tr>
-<tr><td>WP6</td><td>Chạy sạch toàn bộ, lưu log, cập nhật README/plan/CLAUDE.md</td><td>—</td><td><span class="badge b-warn">Chờ evidence</span></td></tr>
+<tr><td>WP6</td><td>Chạy sạch toàn bộ, lưu log, cập nhật README/plan</td><td>—</td><td><span class="badge b-warn">Chờ evidence</span></td></tr>
 </table>
 
 <h3>Test map</h3>
@@ -440,7 +440,7 @@ Mục tiêu: firmware build sạch với <code>can_frame.c</code>, <code>e2e.c</
 <li><b>Lưu log host</b> vào <code>docs/results/</code> (versions + lệnh + kết quả: gen-check, pytest, ctest).</li>
 <li><b>Review golden vector</b> lần cuối; (tuỳ chọn) đối chiếu tham số CRC-32P4 với tài liệu AUTOSAR công khai và ghi nguồn — nếu không làm thì giữ nguyên "Profile 4–based".</li>
 <li><b>Commit + push</b> toàn bộ M2, chờ GitHub Actions xanh. Nếu đỏ vì cantools khác version → pin version trong <code>tools/requirements.txt</code> rồi regenerate.</li>
-<li><b>Sau khi xanh</b>: đổi traceability REQ-COM-001/002/003, REQ-SAF-004/005 sang Done; cập nhật <code>README.md</code>, <code>docs/02_PROJECT_PLAN.md</code>, <code>CLAUDE.md</code> ("M2 complete"); tick các ô §6 trong <code>m2_plan.md</code>.</li>
+<li><b>Sau khi xanh</b>: đổi traceability REQ-COM-001/002/003, REQ-SAF-004/005 sang Done; cập nhật <code>README.md</code>, <code>docs/02_PROJECT_PLAN.md</code> ("M2 complete"); tick các ô §6 trong <code>m2_plan.md</code>.</li>
 </ol>
 <div class="box warn"><b class="t">Nếu không cài được ARM GCC trên máy này</b>Có thể để CI cài toolchain (<code>apt-get install gcc-arm-none-eabi</code> trong một job riêng) — khi đó log CI chính là evidence cross-build; plan cho phép "CI hoặc local theo môi trường đã chốt".</div>
 

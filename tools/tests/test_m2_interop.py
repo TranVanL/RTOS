@@ -25,6 +25,7 @@ SIGNAL_CASES = {
         "Velocity": -32768,
         "Current": 32767,
         "OutputState": 1,
+        "CmdEcho": 65535,
     },
     "HEARTBEAT": {"NodeState": 4, "AliveCounter": 255, "CpuLoad": 100, "FaultCode": 65535},
     "FAULT_RECORD": {"PC": 0xFFFFFFFF, "LR": 0x80000000, "CFSR": 0x12345678, "MMFAR": 0},

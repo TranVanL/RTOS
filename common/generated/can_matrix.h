@@ -53,7 +53,7 @@ extern "C" {
 /* Frame lengths in bytes. */
 #define CAN_MATRIX_ESTOP_LENGTH (2u)
 #define CAN_MATRIX_CMD_LENGTH (7u)
-#define CAN_MATRIX_TELEM_LENGTH (9u)
+#define CAN_MATRIX_TELEM_LENGTH (11u)
 #define CAN_MATRIX_HEARTBEAT_LENGTH (5u)
 #define CAN_MATRIX_FAULT_RECORD_LENGTH (16u)
 
@@ -134,7 +134,7 @@ struct can_matrix_cmd_t {
 /**
  * Signals in message TELEM.
  *
- * Telemetry, UDP :5000, 10 ms, QNX timeout 30 ms
+ * Telemetry, UDP :5000, 10 ms, QNX timeout 30 ms. CmdEcho = E2E counter of the last accepted CMD (M4 round-trip measurement)
  *
  * All signal values are as on the CAN bus.
  */
@@ -166,6 +166,13 @@ struct can_matrix_telem_t {
      * Offset: 0
      */
     uint8_t output_state;
+
+    /**
+     * Range: 0..65535 (0..65535 -)
+     * Scale: 1
+     * Offset: 0
+     */
+    uint16_t cmd_echo;
 };
 
 /**
@@ -568,6 +575,33 @@ double can_matrix_telem_output_state_decode(uint8_t value);
  * @return true if in range, false otherwise.
  */
 bool can_matrix_telem_output_state_is_in_range(uint8_t value);
+
+/**
+ * Encode given signal by applying scaling and offset.
+ *
+ * @param[in] value Signal to encode.
+ *
+ * @return Encoded signal.
+ */
+uint16_t can_matrix_telem_cmd_echo_encode(double value);
+
+/**
+ * Decode given signal by applying scaling and offset.
+ *
+ * @param[in] value Signal to decode.
+ *
+ * @return Decoded signal.
+ */
+double can_matrix_telem_cmd_echo_decode(uint16_t value);
+
+/**
+ * Check that given signal is in allowed range.
+ *
+ * @param[in] value Signal to check.
+ *
+ * @return true if in range, false otherwise.
+ */
+bool can_matrix_telem_cmd_echo_is_in_range(uint16_t value);
 
 /**
  * Pack message HEARTBEAT.

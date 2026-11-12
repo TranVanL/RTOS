@@ -23,7 +23,7 @@ GENERATED_FILES = (
 EXPECTED_MESSAGES = {
 	"ESTOP": (0x010, 2),
 	"CMD": (0x100, 7),
-	"TELEM": (0x180, 9),
+	"TELEM": (0x180, 11),
 	"HEARTBEAT": (0x1F0, 5),
 	"FAULT_RECORD": (0x1F1, 16),
 }

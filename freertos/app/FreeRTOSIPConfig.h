@@ -123,8 +123,8 @@ extern void vLoggingPrintf( const char * pcFormatString,
 /* MPU port: xTaskCreate() gives an UNPRIVILEGED task unless portPRIVILEGE_BIT is set.
  * The IP task and the LAN9118 RX task touch heap/queues/sockets, so they run privileged
  * (project risk table: "IP task privileged, isolate only control/comm tasks"). */
-#define ipconfigIP_TASK_PRIORITY                       ( ( configMAX_PRIORITIES - 2 ) | portPRIVILEGE_BIT )
-#define nwETHERNET_RX_HANDLER_TASK_PRIORITY            ( ( configMAX_PRIORITIES - 3 ) | portPRIVILEGE_BIT )
+#define ipconfigIP_TASK_PRIORITY                       ( ( configMAX_PRIORITIES - 3 ) | portPRIVILEGE_BIT )
+#define nwETHERNET_RX_HANDLER_TASK_PRIORITY            ( ( configMAX_PRIORITIES - 4 ) | portPRIVILEGE_BIT )
 
 /* UDP-only IPv4 node. */
 #define ipconfigUSE_IPv6                               0

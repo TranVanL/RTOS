@@ -5,9 +5,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with: { submodules: recursive }
       - uses: actions/setup-python@v5
         with: { python-version: "3.11" }
+      - name: Install ARM toolchain and QEMU
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-arm-none-eabi libnewlib-arm-none-eabi qemu-system-arm
       - run: pip install -r tools/requirements.txt
       - run: python tools/dbc_codegen.py --check
+      # host CTest wrappers + node firmware built and run in QEMU against the Python supervisor (tools/tests/test_m4_node_qemu.py)
       - run: python -m pytest tools -q
-  # TODO M6: run firmware in QEMU against Python-simulated supervisor (F1,F3,F4,F6,F9,F10)

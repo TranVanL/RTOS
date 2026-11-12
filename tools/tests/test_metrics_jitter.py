@@ -32,3 +32,18 @@ def test_late_cycle_detected(tmp_path):
 def test_percentile_nearest_rank():
     assert metrics.percentile(list(range(1, 101)), 99) == 99
     assert metrics.percentile([5], 99) == 5
+
+
+def test_rtt_stats(tmp_path):
+    p = tmp_path / "rtt.txt"
+    p.write_text("# header\n" + "\n".join(str(v) for v in [100, 200, 300, 400, 20000]) + "\n")
+    s = metrics.rtt_summary(metrics.parse_rtt(str(p)))
+    assert s["n"] == 5 and s["min"] == 100 and s["max"] == 20000 and s["p50"] == 300 and s["over_10ms"] == 1
+
+
+def test_reaction_ticks_from_node_log():
+    estop = "NODE_STATE SAFE_STOP ctl_tick=14611 cause=1 output=0 last_cmd_tick=14606 estop_post_tick=14610\n"
+    timeout = "NODE_STATE SAFE_STOP ctl_tick=24616 cause=2 output=0 last_cmd_tick=24566 estop_post_tick=0\n"
+    assert metrics.reaction_ticks(metrics.parse_node_transitions(estop)) == {"cause": "ESTOP", "ticks": 1}
+    assert metrics.reaction_ticks(metrics.parse_node_transitions(timeout)) == {"cause": "CMD_TIMEOUT", "ticks": 50}
+    assert metrics.reaction_ticks([]) is None

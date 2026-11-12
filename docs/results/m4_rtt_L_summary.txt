@@ -1,0 +1,2 @@
+round trip CMD->TELEM echo (SIL: QNX VM + QEMU node, QNX CLOCK_MONOTONIC; informational, not hard real-time)
+n=179301 min=294 us p50=5478 us p99=10306 us max=27982 us mean=5461 us over_10ms=5138

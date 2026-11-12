@@ -5,7 +5,7 @@ Command: cmake --preset node -S freertos -B <tmp> && cmake --build <tmp>
 
 -- Configuring done (0.2s)
 -- Generating done (0.0s)
--- Build files have been written to: /tmp/claude-1000/-home-vanluu-RTOS-Project-RTOS/51975a0c-aefd-43d9-b525-8ed1ecd18e7e/scratchpad/arm
+-- Build files have been written to: /tmp/arm-build
 [ 11%] Building C object CMakeFiles/freertos_third_party.dir/third_party/FreeRTOS-Kernel/portable/Common/mpu_wrappers.c.obj
 [ 13%] Building C object CMakeFiles/freertos_third_party.dir/third_party/FreeRTOS-Kernel/portable/Common/mpu_wrappers_v2.c.obj
 [ 73%] Built target freertos_third_party

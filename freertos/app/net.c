@@ -36,7 +36,12 @@ void vApplicationIPNetworkEventHook_Multi( eIPCallbackEvent_t eNetworkEvent, str
     {
         xStarted = pdTRUE;
         printf( "network up, ip %u.%u.%u.%u\n", ucIPAddress[ 0 ], ucIPAddress[ 1 ], ucIPAddress[ 2 ], ucIPAddress[ 3 ] );
+#ifdef NODE_M4
+        comm_task_start();
+        estop_task_start();
+#else
         udp_echo_start();
+#endif
 #ifdef NODE_PROBE
         udp_probe_start();
 #endif

@@ -1,0 +1,96 @@
+# M4 end-to-end scenarios (SIL: QNX VM + QEMU node, not hard real-time) — 2026-11-12 commit 8d8c0aa
+QNX noname 8.0.0 2026/06/05-16:26:03EDT x86pc x86_64
+=== A: motion_sup --autoenable --ticks 3000 --target 2048 --vel 1000 --square 400
+THREAD death      tid=2 policy=FIFO prio=40
+THREAD estop      tid=3 policy=FIFO prio=60
+THREAD hb_monitor tid=4 policy=FIFO prio=55
+THREAD frame_rx   tid=5 policy=FIFO prio=45
+THREAD frame_tx   tid=6 policy=FIFO prio=45
+THREAD control    tid=7 policy=FIFO prio=50
+THREAD resmgr     tid=8 policy=RR prio=20
+FSM READY cause=0 tick=1 node_state=1
+FSM RUN cause=0 tick=2 node_state=1
+SUMMARY ticks=3000 monitor_ticks=6001 rx_frames=5989 hb_good=2994 hb_miss=9 e2e_err=0 tx_cmd=3000 estop_sent=0 child_deaths=0 final_state=RUN cause=0
+RTT samples=2982 file=/tmp/rtt_A.txt
+--- node UART (NODE_STATE/NODE_STATS)
+M0 node boot: FreeRTOS V11.3.3, MPU port, FreeRTOS+TCP
+estop: UDP 5001
+comm: UDP 5000 (CMD in, TELEM/HB out)
+NODE_STATE READY ctl_tick=0 cause=0 output=0 last_cmd_tick=0 estop_post_tick=0
+NODE_STATE RUN ctl_tick=4604 cause=0 output=1 last_cmd_tick=4604 estop_post_tick=0
+NODE_STATS ctl_tick=4999 missed=2 cmd_ok=41 cmd_bad=0 resync=0 telem_tx=285 hb_tx=285 estop_ok=0 estop_bad=0
+NODE_STATS ctl_tick=9999 missed=7 cmd_ok=542 cmd_bad=0 resync=0 telem_tx=785 hb_tx=785 estop_ok=0 estop_bad=0
+NODE_STATS ctl_tick=14999 missed=8 cmd_ok=1042 cmd_bad=0 resync=0 telem_tx=1284 hb_tx=1284 estop_ok=0 estop_bad=0
+NODE_STATS ctl_tick=19999 missed=9 cmd_ok=1542 cmd_bad=0 resync=0 telem_tx=1784 hb_tx=1784 estop_ok=0 estop_bad=0
+NODE_STATS ctl_tick=24999 missed=14 cmd_ok=2042 cmd_bad=0 resync=0 telem_tx=2283 hb_tx=2283 estop_ok=0 estop_bad=0
+NODE_STATS ctl_tick=29999 missed=16 cmd_ok=2544 cmd_bad=0 resync=0 telem_tx=2783 hb_tx=2783 estop_ok=0 estop_bad=0
+NODE_STATE DEGRADED ctl_tick=34586 cause=0 output=1 last_cmd_tick=34561 estop_post_tick=0
+NODE_STATE SAFE_STOP ctl_tick=34611 cause=2 output=0 last_cmd_tick=34561 estop_post_tick=0
+NODE_STATS ctl_tick=34999 missed=17 cmd_ok=3000 cmd_bad=0 resync=0 telem_tx=3282 hb_tx=3282 estop_ok=0 estop_bad=0
+=== B: motion_sup --autoenable --ticks 2000 --target 2048 --vel 1000 --estop-at 1000
+THREAD death      tid=2 policy=FIFO prio=40
+THREAD estop      tid=3 policy=FIFO prio=60
+THREAD hb_monitor tid=4 policy=FIFO prio=55
+THREAD frame_rx   tid=5 policy=FIFO prio=45
+THREAD frame_tx   tid=6 policy=FIFO prio=45
+THREAD control    tid=7 policy=FIFO prio=50
+THREAD resmgr     tid=8 policy=RR prio=20
+FSM READY cause=0 tick=1 node_state=1
+FSM RUN cause=0 tick=2 node_state=1
+FSM SAFE_STOP cause=1 tick=1000 node_state=2
+SUMMARY ticks=2000 monitor_ticks=4001 rx_frames=3995 hb_good=1997 hb_miss=3 e2e_err=0 tx_cmd=1000 estop_sent=3 child_deaths=0 final_state=SAFE_STOP cause=1
+RTT samples=998 file=/tmp/rtt_B.txt
+--- node UART (NODE_STATE/NODE_STATS)
+M0 node boot: FreeRTOS V11.3.3, MPU port, FreeRTOS+TCP
+estop: UDP 5001
+comm: UDP 5000 (CMD in, TELEM/HB out)
+NODE_STATE READY ctl_tick=0 cause=0 output=0 last_cmd_tick=0 estop_post_tick=0
+NODE_STATE RUN ctl_tick=4607 cause=0 output=1 last_cmd_tick=4607 estop_post_tick=0
+NODE_STATS ctl_tick=4999 missed=2 cmd_ok=41 cmd_bad=0 resync=0 telem_tx=285 hb_tx=285 estop_ok=0 estop_bad=0
+NODE_STATS ctl_tick=9999 missed=2 cmd_ok=541 cmd_bad=0 resync=0 telem_tx=785 hb_tx=785 estop_ok=0 estop_bad=0
+NODE_STATE SAFE_STOP ctl_tick=14569 cause=1 output=0 last_cmd_tick=14560 estop_post_tick=14568
+NODE_STATS ctl_tick=14999 missed=4 cmd_ok=1000 cmd_bad=0 resync=0 telem_tx=1285 hb_tx=1285 estop_ok=3 estop_bad=0
+NODE_STATS ctl_tick=19999 missed=5 cmd_ok=1000 cmd_bad=0 resync=0 telem_tx=1785 hb_tx=1785 estop_ok=3 estop_bad=0
+NODE_STATS ctl_tick=24999 missed=5 cmd_ok=1000 cmd_bad=0 resync=0 telem_tx=2285 hb_tx=2285 estop_ok=3 estop_bad=0
+=== C: motion_sup --autoenable --ticks 100000 --target 2048 --vel 1000 --square 400
+THREAD death      tid=2 policy=FIFO prio=40
+THREAD estop      tid=3 policy=FIFO prio=60
+THREAD hb_monitor tid=4 policy=FIFO prio=55
+THREAD frame_rx   tid=5 policy=FIFO prio=45
+THREAD frame_tx   tid=6 policy=FIFO prio=45
+THREAD control    tid=7 policy=FIFO prio=50
+THREAD resmgr     tid=8 policy=RR prio=20
+FSM READY cause=0 tick=1 node_state=1
+FSM RUN cause=0 tick=2 node_state=1
+--- node UART (NODE_STATE/NODE_STATS)
+M0 node boot: FreeRTOS V11.3.3, MPU port, FreeRTOS+TCP
+estop: UDP 5001
+comm: UDP 5000 (CMD in, TELEM/HB out)
+NODE_STATE READY ctl_tick=0 cause=0 output=0 last_cmd_tick=0 estop_post_tick=0
+NODE_STATE RUN ctl_tick=4590 cause=0 output=1 last_cmd_tick=4590 estop_post_tick=0
+NODE_STATS ctl_tick=4999 missed=1 cmd_ok=43 cmd_bad=0 resync=0 telem_tx=285 hb_tx=285 estop_ok=0 estop_bad=0
+NODE_STATS ctl_tick=9999 missed=4 cmd_ok=544 cmd_bad=0 resync=0 telem_tx=784 hb_tx=784 estop_ok=0 estop_bad=0
+NODE_STATS ctl_tick=14999 missed=4 cmd_ok=1044 cmd_bad=0 resync=0 telem_tx=1284 hb_tx=1284 estop_ok=0 estop_bad=0
+NODE_STATS ctl_tick=19999 missed=6 cmd_ok=1545 cmd_bad=0 resync=0 telem_tx=1784 hb_tx=1784 estop_ok=0 estop_bad=0
+NODE_STATE DEGRADED ctl_tick=24565 cause=0 output=1 last_cmd_tick=24540 estop_post_tick=0
+NODE_STATE SAFE_STOP ctl_tick=24590 cause=2 output=0 last_cmd_tick=24540 estop_post_tick=0
+NODE_STATS ctl_tick=24999 missed=6 cmd_ok=2000 cmd_bad=0 resync=0 telem_tx=2284 hb_tx=2284 estop_ok=0 estop_bad=0
+--- criteria (counts only)
+PASS A final_state RUN
+PASS A ticks == 3000
+PASS A e2e_err == 0
+PASS A QNX FSM never left RUN
+INFO A hb_miss (isolated single-tick misses, informational): 9
+PASS A estop_sent == 0
+PASS A node cmd_bad == 0
+PASS A round-trip samples 2982
+PASS B qnx final SAFE_STOP
+PASS B qnx cause ESTOP (1)
+PASS B estop_sent == 3
+PASS B node reached SAFE_STOP
+PASS B node cause ESTOP (1)
+PASS B node disable within 1 control tick of E-stop task (1 <= 1)
+PASS C node reached SAFE_STOP
+PASS C node cause CMD_TIMEOUT (2)
+PASS C node tick gap == 50 (own clock)
+PASS C output disabled

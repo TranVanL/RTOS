@@ -82,7 +82,7 @@ Nguồn: `docs/02_PROJECT_PLAN.md` (M1), `docs/01_ARCHITECTURE.md` §5.1–5.2, 
 **Kiến thức.** Cùng mã lõi + cùng seed + cùng tham số ⇒ đáp ứng trên node phải khớp host (sai khác chỉ do `float` mềm/biên dịch khác nhau); khớp chứng minh lõi không phụ thuộc môi trường.
 **Cách làm.** So CSV step response từ node (UART) với CSV host: sai lệch lớn nhất < ngưỡng chốt (vd 1e-3 rad). Tổng hợp tài liệu: `docs/m1_walkthrough.html` (giống M0), cập nhật `sil_environment.md`/README, đổi trạng thái M1.
 **Kết quả cần đạt (cổng M1).** Cả ba tiêu chí của plan: overshoot < 10 % (test tự động host *và* đo trên node); histogram jitter xuất được; unit test PID/plant (và encoder, giới hạn) pass trên host — kèm đối chiếu host ↔ node đạt.
-**Traceability.** `docs/traceability_matrix.md` đang được giữ nguyên theo yêu cầu trước; CLAUDE.md yêu cầu cập nhật khi code vào — sẽ hỏi lại ở Phần 8 trước khi sửa.
+**Traceability.** `docs/traceability_matrix.md` đang được giữ nguyên theo yêu cầu trước; cập nhật khi code vào — sẽ hỏi lại ở Phần 8 trước khi sửa.
 
 ## Phụ thuộc và ngoài phạm vi
 - Ngoài phạm vi M1: nhận lệnh từ QNX, E2E, frame (M2/M4); watchdog kick theo supervisor (M5); phát hiện encoder stuck thành SAFE_STOP (M5, chỉ để sẵn API ở Phần 3).

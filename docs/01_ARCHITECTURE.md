@@ -131,6 +131,8 @@ graph LR
 | Mọi trạng thái → SAFE_STOP | E-stop, vượt giới hạn vị trí/tốc độ, fault record từ node | Disable output, ghi fault |
 | SAFE_STOP → READY | `RESET_FAULT` + nguyên nhân đã hết | Chỉ bằng lệnh có quyền |
 
+**Hiện thực phía node (M4):** `common/safety/node_fsm.[ch]` (C thuần), gọi một lần mỗi tick điều khiển 1 ms. INIT→READY ở tick đầu; READY→RUN khi có CMD hợp lệ mode ≠ DISABLE; RUN/DEGRADED không có CMD ≥ 25 tick → DEGRADED (hạn 20 % tốc độ), ≥ **50 tick** → SAFE_STOP (output disable); E-stop từ mọi trạng thái → SAFE_STOP trong cùng tick mà control task nhận yêu cầu; SAFE_STOP → READY sau 5 CMD DISABLE liên tiếp. Chi tiết và lý do: [m4_plan.md](m4_plan.md) §2.
+
 FreeRTOS node chạy state machine tương ứng ở phía mình: mất command quá 50 ms → tự đưa output về disable (fail-safe cục bộ, không phụ thuộc QNX).
 
 **Hiện thực phía QNX (M3, WP1):** FSM nằm ở `common/safety/safety_fsm.[ch]` (C thuần, không đọc clock), gọi một lần mỗi tick 10 ms của supervisor; mọi thời hạn đếm bằng tick. Quy tắc đã chốt: 3 heartbeat mất *liên tiếp* → DEGRADED, 10 liên tiếp → SAFE_STOP (bộ đếm không reset khi vào DEGRADED); ≥ 3 lỗi E2E trong cửa sổ trượt 10 tick → DEGRADED; 10 heartbeat hợp lệ liên tiếp (và cửa sổ lỗi E2E dưới ngưỡng) → RUN. E-stop > vượt giới hạn > fault từ node theo thứ tự ưu tiên, từ INIT/READY/RUN/DEGRADED. `RESET_FAULT` chỉ có tác dụng trong SAFE_STOP và chỉ khi không còn E-stop/limit/fault và tick đó có heartbeat hợp lệ; ngược lại bị từ chối (`reset_rejected`). `send_estop` là xung một tick khi vào SAFE_STOP.
@@ -140,9 +142,9 @@ FreeRTOS node chạy state machine tương ứng ở phía mình: mất command 
 ### 5.1 Task
 | Task | Priority | Chu kỳ | Chế độ MPU | Nhiệm vụ |
 |---|---|---|---|---|
-| E-stop | Cao nhất | Event | Privileged | Nhận E-stop socket riêng, disable output ngay |
-| Control | Cao | 1 ms (`vTaskDelayUntil`) | Restricted | PID vị trí/tốc độ, plant model, kiểm tra giới hạn |
-| Comm | Trung bình | Event + 10 ms | Restricted | Nhận command, kiểm tra E2E, gửi telemetry + heartbeat |
+| E-stop | Cao nhất (`configMAX_PRIORITIES - 1` = 11, M4) | Event | Privileged | Nhận E-stop socket riêng, disable output ngay |
+| Control | Cao (10, M4) | 1 ms (`vTaskDelayUntil`) | Restricted | PID vị trí/tốc độ, plant model, kiểm tra giới hạn |
+| Comm | Trung bình (5, M4) | Poll 1 tick; TELEM + HB mỗi 10 tick | **Privileged** (M4, fallback đã ghi ở rủi ro; chỉ control task là Restricted) | Nhận command, kiểm tra E2E, gửi telemetry + heartbeat |
 | Supervisor | Thấp hơn Comm | 10 ms | Privileged | Kiểm tra "alive counter" của các task, kick watchdog chỉ khi tất cả task khỏe |
 | Idle hook | Thấp nhất | — | — | Đo CPU load |
 
@@ -192,7 +194,7 @@ Header 12 byte đặt ở đầu `data` (little-endian):
 | `data_id` | 4 B | Little-endian uint32; zero-extend CAN ID (vd `0x010` → `0x00000010`); chống nhầm message |
 | `crc32` | 4 B | Little-endian CRC-32P4; poly normal `0xF4ACFB13` (reflected implementation `0xC8DF352F`), init/xorout `0xFFFFFFFF`, RefIn/RefOut=true |
 
-CRC input byte sequence chính xác là `length_le[2] ‖ counter_le[2] ‖ data_id_le[4] ‖ app_payload`; trường `crc32` và padding không nằm trong CRC input. Known-answer cho cấu hình CRC là ASCII `"123456789"` → `0x1697D06A`. E2E length lần lượt là 14, 19, 21, 17 và 28 byte cho ESTOP, CMD, TELEM, HEARTBEAT và FAULT_RECORD.
+CRC input byte sequence chính xác là `length_le[2] ‖ counter_le[2] ‖ data_id_le[4] ‖ app_payload`; trường `crc32` và padding không nằm trong CRC input. Known-answer cho cấu hình CRC là ASCII `"123456789"` → `0x1697D06A`. E2E length lần lượt là 14, 19, 23, 17 và 28 byte cho ESTOP, CMD, TELEM, HEARTBEAT và FAULT_RECORD.
 
 Receiver xử lý theo thứ tự: kiểm tra kích thước/length/Data ID, sau đó CRC, rồi counter. Frame đầu tiên hợp lệ sau `e2e_rx_reset()` thiết lập baseline và trả `OK`; delta uint16 bằng 0 trả `REPEATED`; delta 1 hoặc 2 trả `OK`; delta lớn hơn 2 trả `WRONG_SEQ`. Phép trừ modular hỗ trợ wrap `65535 → 0`. Chỉ frame `OK` cập nhật accepted counter và thời điểm nhận hợp lệ; các status lỗi hoặc `REPEATED` không cập nhật state.
 
@@ -207,7 +209,7 @@ Phạm vi trung thực: hiện thực theo **cấu trúc** Profile 4 và wire co
 |---|---|---|---|---|---|
 | `0x010` | `0x0010` | QNX → FreeRTOS | Event (port 5001, gửi 3 lần) | E-stop (có E2E) | — |
 | `0x100` | `0x0100` | QNX → FreeRTOS | 10 ms | Mode, target position, velocity limit | 50 ms |
-| `0x180` | `0x0180` | FreeRTOS → QNX | 10 ms | Position, velocity, current (model), output state | 30 ms |
+| `0x180` | `0x0180` | FreeRTOS → QNX | 10 ms | Position, velocity, current (model), output state, `CmdEcho` (counter E2E của CMD hợp lệ gần nhất, M4) | 30 ms |
 | `0x1F0` | `0x01F0` | FreeRTOS → QNX | 10 ms | Heartbeat: node state, alive counter, CPU load, fault code | 30 ms |
 | `0x1F1` | `0x01F1` | FreeRTOS → QNX | Event (UDP 5000) | Fault record sau reboot | — |
 

@@ -24,6 +24,7 @@
 #include "plant.h"
 #include "encoder.h"
 #include "pid.h"
+#include "node_fsm.h"
 
 #define CONTROL_PERIOD_TICKS   1U
 #define CONTROL_STACK_WORDS    1024U                       /* 4 KB */
@@ -35,8 +36,10 @@
 #define TIMER0_VALUE           ( *( volatile uint32_t * ) ( TIMER0_BASE + 0x4 ) )
 #define TIMER0_RELOAD          ( *( volatile uint32_t * ) ( TIMER0_BASE + 0x8 ) )
 #define LOG_RING_LEN           256U                        /* power of 2 */
-#define CONTROL_PRIORITY       ( configMAX_PRIORITIES - 1 )
+#define CONTROL_PRIORITY       ( configMAX_PRIORITIES - 2 )
 #define TWO_PI_F               6.28318530718f
+#define RPM_TO_RAD_S           0.10471975512f             /* 2*pi/60 */
+#define COUNTS_PER_REV         4096U
 #define STEP_REF_RAD           1.0f
 #define STEP_HALF_PERIOD_TICKS 1000U                       /* ref toggles 0 <-> STEP_REF every 1 s */
 
@@ -59,6 +62,12 @@ typedef struct
     cascade_params_t xCascadeParams;
     cascade_state_t xCascade;
 
+    node_fsm_t xNode;           /* M4: node safety FSM, stepped once per control tick */
+    uint32_t ulLastCmdCount;    /* mailbox cmd count already consumed */
+    uint32_t ulLastEstopCount;
+    uint32_t ulCmdMode, ulCmdVelRpm;
+    int32_t lCmdTarget;
+    uint32_t ulMailboxBusy;     /* ticks where the mailbox was mid-write (not waited for) */
     uint32_t ulTick;            /* control ticks executed since boot (counts every period) */
     uint32_t ulMissedDeadlines; /* xTaskDelayUntil() reported "not delayed" */
     uint32_t ulWriteIdx;        /* ring: written by control task only */
@@ -97,10 +106,23 @@ typedef struct
     volatile uint32_t ulMissed;
     volatile uint32_t ulTickCheck;   /* == ulTick in every consistent snapshot */
     volatile uint32_t ulFaultExpected; /* CONTROL_TEST_VIOLATE: armed by control task, consumed by the fault handler */
+    volatile int32_t lCur_mA;
+    volatile uint32_t ulNodeInfo;    /* state | enable << 8 | cause << 16 (written by control) */
+    volatile uint32_t ulNodeTicks;   /* tick when ulNodeInfo last changed state (for traces) */
+    /* Command mailbox: written ONLY by the (privileged) comm / E-stop tasks, read by control.
+     * The control task never spins on it (it outranks the writers): odd/changed seq -> keep last cmd. */
+    volatile uint32_t ulCmdSeq;
+    volatile uint32_t ulCmdMode;
+    volatile int32_t lCmdTarget;
+    volatile uint32_t ulCmdVelRpm;
+    volatile uint32_t ulCmdCount;    /* number of accepted CMD frames */
+    volatile uint32_t ulEstopCount;  /* number of accepted E-stop requests */
+    volatile uint32_t ulEstopPostTick;  /* control tick current when the E-stop task posted (evidence) */
+    volatile uint32_t ulLastCmdTick;    /* control tick that consumed the last CMD (written by control) */
 } SharedState_t;
 
 static ControlBlock_t g_ctl __attribute__( ( aligned( CONTROL_DATA_SIZE ) ) );
-static SharedState_t g_shared __attribute__( ( aligned( 64 ) ) );
+static SharedState_t g_shared __attribute__( ( aligned( 128 ) ) );   /* 128 B region: fits the struct */
 static StackType_t g_stack[ CONTROL_STACK_WORDS ] __attribute__( ( aligned( CONTROL_STACK_WORDS * sizeof( StackType_t ) ) ) );
 static TaskHandle_t g_ctl_handle;
 
@@ -113,6 +135,48 @@ static volatile uint32_t ulForbidden __attribute__( ( aligned( 32 ) ) );
 #define VIOLATE_AT_TICK 5000U
 #endif
 
+/* ---- Interface to the privileged comm / E-stop tasks (app.h) ---- */
+void control_post_cmd( uint8_t ucMode, int32_t lTarget, uint16_t usVelRpm )
+{
+    g_shared.ulCmdSeq++;
+    __asm volatile ( "dmb" ::: "memory" );
+    g_shared.ulCmdMode = ucMode;
+    g_shared.lCmdTarget = lTarget;
+    g_shared.ulCmdVelRpm = usVelRpm;
+    g_shared.ulCmdCount++;
+    __asm volatile ( "dmb" ::: "memory" );
+    g_shared.ulCmdSeq++;
+}
+
+void control_post_estop( void )
+{
+    g_shared.ulEstopPostTick = g_shared.ulTick;
+    g_shared.ulEstopCount++;
+    __asm volatile ( "dmb" ::: "memory" );
+}
+
+void control_get_snapshot( control_snapshot_t * pxOut )
+{
+    uint32_t ulS0, ulS1;
+
+    do
+    {
+        ulS0 = g_shared.ulSeq;
+        __asm volatile ( "dmb" ::: "memory" );
+        pxOut->ulTick = g_shared.ulTick;
+        pxOut->lCount = g_shared.lCount;
+        pxOut->lVel_mrads = g_shared.lVel_mrads;
+        pxOut->lCur_mA = g_shared.lCur_mA;
+        pxOut->ulNodeInfo = g_shared.ulNodeInfo;
+        pxOut->ulMissed = g_shared.ulMissed;
+        pxOut->ulEstopPostTick = g_shared.ulEstopPostTick;
+        pxOut->ulLastCmdTick = g_shared.ulLastCmdTick;
+        pxOut->ulNodeTick = g_shared.ulNodeTicks;
+        __asm volatile ( "dmb" ::: "memory" );
+        ulS1 = g_shared.ulSeq;
+    } while( ( ulS0 & 1U ) || ( ulS0 != ulS1 ) );   /* writer outranks us and finishes quickly */
+}
+
 static inline int32_t lScale( float f, float k )
 {
     float x = f * k;
@@ -124,6 +188,8 @@ static void prvControlTask( void * pv )
     ControlData_t * c = &g_ctl.xData;
     TickType_t xLast;
     float fRef = 0.0f, fVolt = 0.0f;
+    float fVelMaxDefault;
+    bool bPrevEnable = false;
 
     ( void ) pv;
     plant_default_params( &c->xPlantParams );
@@ -133,21 +199,80 @@ static void prvControlTask( void * pv )
     speed_estimator_reset( &c->xSpeed, 0.5f );       /* alpha as tuned in Part 5 */
     cascade_default_params( &c->xCascadeParams );
     cascade_reset( &c->xCascade );
+    fVelMaxDefault = c->xCascadeParams.pos.out_max;
+    node_fsm_init( &c->xNode );
 
     xLast = xTaskGetTickCount();
     for( ; ; )
     {
-        /* Test profile: fixed square reference (Comm + commands from QNX come in M4). */
+        /* ---- M4: consume the command mailbox, step the node FSM (1 step = 1 control tick) ---- */
+        node_inputs_t xIn = { .self_test_ok = true };
+        node_outputs_t xOut;
+        {
+            const uint32_t ulS0 = g_shared.ulCmdSeq;
+            __asm volatile ( "dmb" ::: "memory" );
+            const uint32_t ulMode = g_shared.ulCmdMode, ulVel = g_shared.ulCmdVelRpm, ulCnt = g_shared.ulCmdCount;
+            const int32_t lTgt = g_shared.lCmdTarget;
+            __asm volatile ( "dmb" ::: "memory" );
+            if( ( ulS0 & 1U ) || ( ulS0 != g_shared.ulCmdSeq ) )
+            {
+                c->ulMailboxBusy++;                      /* writer mid-update: use it next tick */
+            }
+            else if( ulCnt != c->ulLastCmdCount )
+            {
+                c->ulLastCmdCount = ulCnt;
+                c->ulCmdMode = ulMode; c->ulCmdVelRpm = ulVel; c->lCmdTarget = lTgt;
+                xIn.cmd_valid = true;
+                g_shared.ulLastCmdTick = c->ulTick;
+                xIn.cmd_mode = ( uint8_t ) ulMode;
+            }
+            if( g_shared.ulEstopCount != c->ulLastEstopCount )
+            {
+                c->ulLastEstopCount = g_shared.ulEstopCount;
+                xIn.estop = true;
+            }
+        }
+        {
+            const node_state_t xPrev = c->xNode.state;
+            ( void ) node_fsm_step( &c->xNode, &xIn, &xOut );
+            if( xPrev != xOut.state ) { g_shared.ulNodeTicks = c->ulTick; }
+        }
 #ifdef CONTROL_TEST_STEP
+        /* Test profile: fixed square reference, FSM ignored (M1 evidence builds). */
         fRef = ( ( c->ulTick / STEP_HALF_PERIOD_TICKS ) & 1U ) ? 0.0f : STEP_REF_RAD;
+        const bool bEnable = true;
 #else
-        fRef = 0.0f;
+        const bool bEnable = xOut.output_enable;
+        if( bEnable )
+        {
+            if( xOut.mode == NODE_MODE_POSITION )
+            {
+                const int32_t lT = ( c->lCmdTarget > 1000000 ) ? 1000000 : ( ( c->lCmdTarget < -1000000 ) ? -1000000 : c->lCmdTarget );
+                fRef = ( float ) lT * TWO_PI_F / ( float ) COUNTS_PER_REV;
+            }   /* HOLD: keep the last reference */
+            float fLim = ( float ) c->ulCmdVelRpm * RPM_TO_RAD_S;
+            const float fCap = fVelMaxDefault * ( float ) xOut.vel_limit_pct / 100.0f;
+            if( fLim > fCap ) { fLim = fCap; }
+            c->xCascadeParams.pos.out_max = fLim;
+            c->xCascadeParams.pos.out_min = -fLim;
+        }
 #endif
         const uint32_t ulT0 = TIMER0_VALUE;             /* down counter */
         const int32_t lCount = encoder_step( &c->xEnc, &c->xEncParams, c->xPlant.position_rad );
         const float fVel = speed_estimator_step( &c->xSpeed, lCount, 0.001f, c->xEncParams.counts_per_rev );
         const float fPos = ( float ) lCount * TWO_PI_F / ( float ) c->xEncParams.counts_per_rev;
-        fVolt = cascade_step( &c->xCascade, &c->xCascadeParams, fRef, fPos, fVel );
+        if( bEnable )
+        {
+            if( !bPrevEnable ) { cascade_reset( &c->xCascade ); }   /* no stale integrator on (re-)enable */
+            fVolt = cascade_step( &c->xCascade, &c->xCascadeParams, fRef, fPos, fVel );
+        }
+        else
+        {
+            cascade_reset( &c->xCascade );
+            fVolt = 0.0f;                                           /* output disabled: coast */
+            fRef = fPos;                                            /* HOLD starts from where we are */
+        }
+        bPrevEnable = bEnable;
         const uint32_t ulT1 = TIMER0_VALUE;
         ( void ) plant_step( &c->xPlant, &c->xPlantParams, fVolt, 0.001f );
         const uint32_t ulT2 = TIMER0_VALUE;
@@ -194,6 +319,8 @@ static void prvControlTask( void * pv )
         g_shared.lVel_mrads = lScale( c->xPlant.velocity_rad_s, 1.0e3f );
         g_shared.lVolt_mV = lScale( fVolt, 1.0e3f );
         g_shared.ulMissed = c->ulMissedDeadlines;
+        g_shared.lCur_mA = lScale( c->xPlant.current_a, 1.0e3f );
+        g_shared.ulNodeInfo = ( uint32_t ) xOut.state | ( xOut.output_enable ? 0x100UL : 0UL ) | ( ( uint32_t ) xOut.cause << 16 );
         g_shared.ulTickCheck = c->ulTick;
         __asm volatile ( "dmb" ::: "memory" );
         g_shared.ulSeq++;                               /* even: consistent */

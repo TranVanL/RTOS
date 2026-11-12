@@ -10,3 +10,7 @@ __pycache__/
 *.pcap
 docs/results/*.log
 .vscode/
+
+# local assistant notes
+CLAUDE.md
+.claude/

@@ -15,6 +15,7 @@ find_package(Threads REQUIRED)
 
 add_library(m3_safety STATIC
     ${COMMON_SAFETY_DIR}/safety_fsm.c
+    ${COMMON_SAFETY_DIR}/node_fsm.c
     ${REPO_ROOT}/common/shm/motion_shm.c
     ${REPO_ROOT}/common/ipc/motion_ipc.c
     ${REPO_ROOT}/common/proto/proto_link.c
@@ -29,7 +30,7 @@ target_include_directories(m3_safety PUBLIC
     ${REPO_ROOT}/common/proto ${REPO_ROOT}/common/frame ${REPO_ROOT}/common/e2e
     ${REPO_ROOT}/common/generated)
 
-foreach(t test_safety_fsm test_motion_shm test_motion_ipc test_proto_link)
+foreach(t test_safety_fsm test_node_fsm test_motion_shm test_motion_ipc test_proto_link)
     add_executable(${t} ${t}.c)
     target_link_libraries(${t} PRIVATE m3_safety Threads::Threads)
     if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
@@ -42,6 +43,7 @@ if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
 endif()
 
 add_test(NAME m3_safety_fsm COMMAND test_safety_fsm)
+add_test(NAME m4_node_fsm COMMAND test_node_fsm)
 add_test(NAME m3_motion_shm COMMAND test_motion_shm)
 add_test(NAME m3_motion_ipc COMMAND test_motion_ipc)
 add_test(NAME m3_proto_link COMMAND test_proto_link)

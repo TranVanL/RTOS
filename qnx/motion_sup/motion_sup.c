@@ -54,6 +54,8 @@ typedef struct {
     unsigned estop_at;       /* test only: request E-stop at this tick (0 = never) */
     int32_t target_pos;      /* initial values; live copies are atomics below */
     uint32_t vel_rpm;
+    unsigned square_ticks;   /* M4 test: toggle target between 0 and target_pos every N ticks (0 = fixed) */
+    const char *rtt_log;     /* M4: write command->telemetry-echo round trips (QNX clock, us) here at exit */
     const char *spawn[MAX_CHILDREN];   /* --spawn "prog args" (logger/mgmt children) */
     int nspawn;
 } cfg_t;
@@ -79,12 +81,24 @@ typedef struct { char name[32]; pid_t pid; bool alive; } child_t;
 static child_t children[MAX_CHILDREN];
 static int nchildren;
 static _Atomic uint32_t child_deaths;
+/* M4 round trip: CMD E2E counter n sent at t0 -> telemetry whose CmdEcho == n received at t1, both on CLOCK_MONOTONIC
+ * of this VM (one clock; node time is never mixed in). */
+#define RTT_MAX 400000u
+static uint64_t cmd_sent_ns[65536];
+static uint32_t *rtt_us;
+static _Atomic uint32_t rtt_n;
 static _Atomic int32_t g_target_pos;
 static _Atomic uint32_t g_vel_rpm;
 /* one-shot requests from /dev/motion, consumed by the control thread */
 static _Atomic int req_enable, req_disable, req_reset;
 static _Atomic uint32_t status_tick, status_hb_miss, status_e2e;
 static _Atomic int32_t status_position;
+
+static uint64_t now_ns(void)
+{
+    struct timespec t; clock_gettime(CLOCK_MONOTONIC, &t);
+    return (uint64_t)t.tv_sec * 1000000000ull + (uint64_t)t.tv_nsec;
+}
 
 static uint32_t now_ms(void)
 {
@@ -206,7 +220,15 @@ static void *rx_thread(void *arg)
             }
         } else if (id == 0x180) {
             struct can_matrix_telem_t m;
-            if (can_matrix_telem_unpack(&m, pl, plen) == 0) { sh.position = m.position; sh.velocity = m.velocity; }
+            if (can_matrix_telem_unpack(&m, pl, plen) == 0) {
+                sh.position = m.position; sh.velocity = m.velocity;
+                uint64_t t0 = cmd_sent_ns[m.cmd_echo];
+                if (t0 != 0 && rtt_us != NULL) {            /* first echo of this CMD counter only */
+                    uint32_t k = atomic_load(&rtt_n);
+                    if (k < RTT_MAX) { rtt_us[k] = (uint32_t)((now_ns() - t0) / 1000u); atomic_store(&rtt_n, k + 1); }
+                    cmd_sent_ns[m.cmd_echo] = 0;
+                }
+            }
         } else if (id == 0x1F1) {
             sh.fault_record_seen = true;
         }
@@ -233,7 +255,9 @@ static void *tx_thread(void *arg)
                                       .target_pos = atomic_load(&g_target_pos) };
         uint8_t raw[16], dg[PROTO_DATAGRAM_MAX]; size_t n = 0;
         can_matrix_cmd_pack(raw, &m, sizeof raw);
-        if (proto_encode(0x100, raw, 7, counter++, dg, sizeof dg, &n) == PROTO_OK) {
+        if (proto_encode(0x100, raw, 7, counter, dg, sizeof dg, &n) == PROTO_OK) {
+            cmd_sent_ns[counter] = now_ns();
+            counter++;
             sendto(sock, dg, n, 0, (struct sockaddr *)&dst, sizeof dst);
             atomic_fetch_add(&tx_cmd, 1);
         }
@@ -262,7 +286,10 @@ static void *control_thread(void *arg)
         pthread_mutex_lock(&sh.lock);
         in.hb_valid = sh.hb_count > 0;
         in.e2e_errors = (uint8_t)(sh.e2e_err_count > 255 ? 255 : sh.e2e_err_count);
-        in.node_fault = sh.fault_record_seen || sh.fault_code != 0;
+        /* a node that stopped itself (E-stop copy, command timeout) while we still believe RUN/DEGRADED is a node fault;
+         * outside RUN/DEGRADED it is not, otherwise RESET_FAULT could never succeed (node recovers via DISABLE CMDs) */
+        in.node_fault = sh.fault_record_seen || sh.fault_code != 0 ||
+                        (sh.node_state == 4u && (fsm.state == SAFETY_RUN || fsm.state == SAFETY_DEGRADED));
         if (!in.hb_valid && fsm.state >= SAFETY_RUN && fsm.state <= SAFETY_DEGRADED) { sh.hb_miss_total++; }
         sh.hb_count = 0; sh.e2e_err_count = 0;
         ms.node_state = sh.node_state; ms.fault_code = sh.fault_code;
@@ -273,13 +300,18 @@ static void *control_thread(void *arg)
         in.limit_violation = atomic_load(&limit_violation) != 0;
         in.estop = atomic_exchange(&estop_request, 0) != 0 || (cfg.estop_at && tick == cfg.estop_at);
         in.cmd_enable = atomic_exchange(&req_enable, 0) != 0 ||
-                        (cfg.autoenable && fsm.state == SAFETY_READY && in.hb_valid);
+                        (cfg.autoenable && fsm.state == SAFETY_READY && in.hb_valid && ms.node_state == 1u /* node READY */);
         in.cmd_disable = atomic_exchange(&req_disable, 0) != 0;
         in.cmd_reset_fault = atomic_exchange(&req_reset, 0) != 0;
 
         safety_outputs_t out;
         safety_fsm_step(&fsm, &in, &out);
 
+        if ((int)out.state != atomic_load(&last_state) || tick == 1) {
+            printf("FSM %s cause=%d tick=%u node_state=%u\n", safety_state_name(out.state), (int)out.cause, tick, ms.node_state);
+            fflush(stdout);
+        }
+        if (cfg.square_ticks) { atomic_store(&g_target_pos, ((tick / cfg.square_ticks) & 1u) ? 0 : cfg.target_pos); }
         ms.fsm_state = (uint32_t)out.state; ms.fsm_cause = (uint32_t)out.cause;
         ms.tick = tick; ms.target_pos = atomic_load(&g_target_pos); ms.cmd_counter = atomic_load(&tx_cmd);
         motion_shm_write(shm, &ms);
@@ -474,8 +506,12 @@ int main(int argc, char **argv)
         else if (i + 1 < argc && !strcmp(argv[i], "--local-port")) { cfg.local_port = atoi(argv[++i]); }
         else if (i + 1 < argc && !strcmp(argv[i], "--ticks")) { cfg.ticks = (unsigned)atoi(argv[++i]); }
         else if (i + 1 < argc && !strcmp(argv[i], "--spawn") && cfg.nspawn < MAX_CHILDREN) { cfg.spawn[cfg.nspawn++] = argv[++i]; }
+        else if (i + 1 < argc && !strcmp(argv[i], "--target")) { cfg.target_pos = atoi(argv[++i]); }
+        else if (i + 1 < argc && !strcmp(argv[i], "--vel")) { cfg.vel_rpm = (uint32_t)atoi(argv[++i]); }
+        else if (i + 1 < argc && !strcmp(argv[i], "--square")) { cfg.square_ticks = (unsigned)atoi(argv[++i]); }
+        else if (i + 1 < argc && !strcmp(argv[i], "--rtt-log")) { cfg.rtt_log = argv[++i]; }
         else if (i + 1 < argc && !strcmp(argv[i], "--estop-at")) { cfg.estop_at = (unsigned)atoi(argv[++i]); }
-        else { fprintf(stderr, "usage: motion_sup [--autoenable] [--peer-ip IP] [--peer-port P] [--estop-port P] [--local-port P] [--ticks N] [--estop-at N]\n"); return 2; }
+        else { fprintf(stderr, "usage: motion_sup [--autoenable] [--peer-ip IP] [--peer-port P] [--estop-port P] [--local-port P] [--ticks N] [--estop-at N] [--target N] [--vel RPM] [--square TICKS] [--rtt-log FILE]\n"); return 2; }
     }
 
     pthread_mutexattr_t ma;
@@ -489,6 +525,7 @@ int main(int argc, char **argv)
     if (shm == MAP_FAILED) { perror("mmap"); return 2; }
     motion_shm_init(shm);
 
+    if (cfg.rtt_log) { rtt_us = calloc(RTT_MAX, sizeof *rtt_us); }
     int rx_sock = udp_socket(cfg.local_port);
     chid_estop = ChannelCreate(0);
     chid_tx = ChannelCreate(0);
@@ -528,6 +565,15 @@ int main(int argc, char **argv)
            sh.hb_miss_total, sh.e2e_err_total, atomic_load(&tx_cmd), atomic_load(&estop_sent), atomic_load(&child_deaths),
            safety_state_name((safety_state_t)atomic_load(&last_state)), atomic_load(&last_cause));
     pthread_mutex_unlock(&sh.lock);
+    if (cfg.rtt_log && rtt_us) {
+        FILE *f = fopen(cfg.rtt_log, "w");
+        if (f) {
+            fprintf(f, "# command->telemetry-echo round trip, microseconds, QNX CLOCK_MONOTONIC (SIL, QNX VM + QEMU node)\n");
+            for (uint32_t i = 0; i < atomic_load(&rtt_n); ++i) { fprintf(f, "%u\n", rtt_us[i]); }
+            fclose(f);
+        }
+        printf("RTT samples=%u file=%s\n", atomic_load(&rtt_n), cfg.rtt_log);
+    }
     shm_unlink(SHM_NAME);
     return 0;
 }

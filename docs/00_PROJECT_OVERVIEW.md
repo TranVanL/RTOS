@@ -2,6 +2,8 @@
 
 > Trạng thái: **FINAL v1.0** (chốt 2026-11-04). Thay đổi sau này ghi vào mục "Lịch sử thay đổi" cuối file.
 
+> **Phạm vi phát hành v1.0: M0–M4** (xem [m4_plan.md](m4_plan.md)). Các mục nói về ≥ 12 kịch bản fault injection tự động (M5) và CI chạy firmware trong QEMU đầy đủ (M6) là kế hoạch mở rộng, chưa nằm trong v1.0.
+
 ## 1. Tên project (chính thức)
 **QNX–FreeRTOS Safety-Supervised Motion Control Platform (Software-in-the-Loop)**
 

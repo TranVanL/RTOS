@@ -2,7 +2,20 @@
   "version": 3,
   "configurePresets": [
     { "name": "node", "binaryDir": "${sourceDir}/../build/freertos",
-      "toolchainFile": "${sourceDir}/cmake/arm-none-eabi.cmake", "generator": "Unix Makefiles" }
+      "toolchainFile": "${sourceDir}/cmake/arm-none-eabi.cmake", "generator": "Unix Makefiles" },
+    { "name": "node_m4_host", "binaryDir": "${sourceDir}/../build/freertos_m4_host",
+      "toolchainFile": "${sourceDir}/cmake/arm-none-eabi.cmake", "generator": "Unix Makefiles",
+      "description": "M4 node, QEMU user networking (SLIRP 10.0.2.15, peer = host 10.0.2.2) for the Python supervisor",
+      "cacheVariables": { "NODE_M4": "ON", "CONTROL_TEST_STEP": "OFF", "CONTROL_LOG_CSV": "OFF", "NODE_PROBE_ENABLE": "OFF" } },
+    { "name": "node_m4_qnx", "binaryDir": "${sourceDir}/../build/freertos_m4_qnx",
+      "toolchainFile": "${sourceDir}/cmake/arm-none-eabi.cmake", "generator": "Unix Makefiles",
+      "description": "M4 node on the QNX VM link (node 192.168.50.2, peer = QNX 192.168.50.1)",
+      "cacheVariables": { "NODE_M4": "ON", "CONTROL_TEST_STEP": "OFF", "CONTROL_LOG_CSV": "OFF", "NODE_PROBE_ENABLE": "OFF",
+                          "NODE_IP": "192,168,50,2", "NODE_GATEWAY": "192,168,50,1" } }
   ],
-  "buildPresets": [ { "name": "node", "configurePreset": "node" } ]
+  "buildPresets": [
+    { "name": "node", "configurePreset": "node" },
+    { "name": "node_m4_host", "configurePreset": "node_m4_host" },
+    { "name": "node_m4_qnx", "configurePreset": "node_m4_qnx" }
+  ]
 }
