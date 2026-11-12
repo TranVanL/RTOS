@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>M3 — QNX Supervisor: Kiến thức nền tảng chuyên sâu</title>
+<style>
+:root{
+  --bg:#0f1420;--panel:#171e2e;--panel2:#1d2639;--line:#2b3650;--tx:#dde4f2;--mut:#93a0bd;
+  --acc:#5ab0ff;--ok:#3ecf8e;--warn:#f5b73d;--bad:#ff6b6b;--vio:#b28cff;--cy:#4fd8d0;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.7 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+a{color:var(--acc)}
+nav{position:fixed;top:0;left:0;bottom:0;width:280px;background:#0b101a;border-right:1px solid var(--line);padding:22px 16px;overflow:auto}
+nav h1{font-size:15px;margin:0 0 4px;color:var(--acc);letter-spacing:.5px}
+nav small{color:var(--mut);display:block;margin-bottom:14px}
+nav a{display:block;color:var(--mut);text-decoration:none;padding:5px 10px;border-radius:6px;font-size:13.5px}
+nav a:hover{background:var(--panel);color:var(--tx)}
+main{margin-left:280px;max-width:1100px;padding:34px 46px 140px}
+h2{font-size:26px;margin:68px 0 10px;padding-top:12px;border-top:1px solid var(--line)}
+h2 .n{display:inline-block;background:var(--acc);color:#04101f;border-radius:8px;padding:0 10px;margin-right:10px;font-size:20px}
+h3{font-size:19px;margin:32px 0 8px;color:var(--cy)}
+p{margin:10px 0}
+code{font-family:var(--mono);font-size:.9em;background:#0b101a;border:1px solid var(--line);padding:1px 6px;border-radius:5px;color:#ffd58a}
+pre{background:#0b101a;border:1px solid var(--line);border-radius:10px;padding:14px 16px;overflow:auto;font:13.5px/1.55 var(--mono);color:#cfe0ff}
+pre code{background:none;border:0;padding:0;color:inherit}
+table{border-collapse:collapse;width:100%;margin:14px 0;font-size:14.5px}
+th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+th{background:var(--panel2);color:var(--acc)}
+tr:nth-child(even) td{background:#131a29}
+.hero{background:linear-gradient(135deg,#17315a,#1b1f4a 60%,#2a1a4f);border:1px solid var(--line);border-radius:16px;padding:32px 34px}
+.hero h1{margin:0 0 6px;font-size:32px}
+.hero p{color:#c3cde4;margin:4px 0}
+.badge{display:inline-block;padding:2px 10px;border-radius:999px;font-size:12.5px;font-weight:600;margin-right:6px}
+.b-ok{background:#12372a;color:var(--ok)}.b-warn{background:#3f3010;color:var(--warn)}.b-bad{background:#431d1d;color:var(--bad)}.b-info{background:#123049;color:var(--acc)}
+.box{border-left:4px solid var(--acc);background:var(--panel);padding:12px 16px;border-radius:0 10px 10px 0;margin:16px 0}
+.box.ok{border-color:var(--ok)}.box.warn{border-color:var(--warn)}.box.bad{border-color:var(--bad)}.box.vio{border-color:var(--vio)}
+.box b.t{display:block;margin-bottom:2px}
+.grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));margin:16px 0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.card h4{margin:0 0 6px;font-size:15px;color:var(--acc)}
+.verdict{border:2px solid var(--ok);background:#0f2a21;border-radius:14px;padding:18px 22px;margin:22px 0}
+.verdict h3{margin:0 0 6px;color:var(--ok)}
+.mut{color:var(--mut)}
+details{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin:10px 0}
+summary{cursor:pointer;font-weight:600;color:var(--acc)}
+ul,ol{padding-left:22px}li{margin:4px 0}
+svg text{font-family:system-ui,sans-serif}
+.verify{font-size:12.5px;color:var(--warn)}
+@media(max-width:900px){nav{display:none}main{margin:0;padding:20px}}
+</style>
+</head>
+<body>
+<nav>
+  <h1>M3 KNOWLEDGE GUIDE</h1><small>QNX Neutrino · IPC · resmgr · SHM</small>
+  <a href="#status">0. Check M2 & sẵn sàng M3</a>
+  <a href="#scope">1. M3 làm gì, vì sao</a>
+  <a href="#micro">2. Microkernel & tiến trình</a>
+  <a href="#ipc">3. Message passing</a>
+  <a href="#pulse">4. Pulse & timer</a>
+  <a href="#sched">5. Scheduling & priority</a>
+  <a href="#inv">6. Priority inversion & inheritance</a>
+  <a href="#resmgr">7. Resource manager</a>
+  <a href="#sec">8. Quyền, ConnectClientInfo, validate</a>
+  <a href="#shm">9. Shared memory phân quyền</a>
+  <a href="#seq">10. Seqlock</a>
+  <a href="#death">11. Phát hiện process chết</a>
+  <a href="#prof">12. System Profiler</a>
+  <a href="#design">13. Thiết kế motion_sup</a>
+  <a href="#plan">14. Kế hoạch & test</a>
+  <a href="#pit">15. Bẫy thường gặp</a>
+  <a href="#qa">16. Tự kiểm tra</a>
+</nav>
+<main>
+
+<div class="hero">
+  <h1>M3 — QNX Supervisor</h1>
+  <p>Process <code>motion_sup</code> / <code>logger</code> / <code>mgmt</code>, SHM phân quyền + seqlock, thread theo priority, timer pulse, resmgr <code>/dev/motion</code>, priority inheritance.</p>
+  <p><span class="badge b-info">Kiến thức nền</span><span class="badge b-warn">Chỗ ghi "xác minh" = kiểm tra lại trong docs SDP 8.0 trước khi code</span></p>
+</div>
+
+<!-- ============ 0 ============ -->
+<h2 id="status"><span class="n">0</span>Check M2 & có bắt đầu M3 được chưa</h2>
+<div class="verdict">
+  <h3>Có thể bắt đầu M3 — nhưng M2 vẫn chưa "đóng" chính thức</h3>
+  <p>M3 chỉ dùng QNX; nó <b>không phụ thuộc</b> vào phần còn mở của M2 (ARM build, CI remote). M2 chỉ cần cho M4 (nối UDP + E2E). Vì vậy: bắt đầu M3 song song, nhưng vẫn khép nốt M2 evidence (xem bảng).</p>
+</div>
+
+<table>
+<tr><th>Hạng mục</th><th>Hiện trạng (kiểm tra hôm nay)</th><th></th></tr>
+<tr><td>Code M2</td><td>Đã commit <code>062d804</code> và <code>main == origin/main</code> (đã push), working tree sạch</td><td><span class="badge b-ok">OK</span></td></tr>
+<tr><td>Host tests M2</td><td>gen-check, pytest 19/19, CTest 3/3 đã pass ở lần kiểm tra trước</td><td><span class="badge b-ok">OK</span></td></tr>
+<tr><td>CI remote cho <code>062d804</code></td><td>Trang Actions tôi đọc được chỉ liệt kê 10 run cũ (đến commit M1); API trả 403 → <b>chưa xác nhận</b> run của M2. Bạn mở tab Actions để xem trực tiếp.</td><td><span class="badge b-warn">Cần bạn xem</span></td></tr>
+<tr><td>ARM cross-build</td><td>Máy hiện tại không có <code>arm-none-eabi-gcc</code> (dù <code>sil_environment.md</code> ghi 13.2.1 từng dùng) → chưa có log M2</td><td><span class="badge b-warn">Còn mở</span></td></tr>
+<tr><td>Trạng thái trong docs</td><td>README, CLAUDE.md, plan vẫn ghi "M2 in progress"; README link tới <code>docs/m2_guide.html</code> <b>không tồn tại</b> (file thật là <code>docs/m2_protocol_guide.html</code>)</td><td><span class="badge b-warn">Sửa</span></td></tr>
+<tr><td><b>Môi trường QNX trên máy này</b></td><td>Không thấy <code>~/qnx800</code>, <code>~/qnxvm/output</code>, lệnh <code>qcc</code>; <b>không có <code>/dev/kvm</code></b>; chỉ có <code>qnxsoftwarecenter</code> và file cài <code>qnx-setup-…run</code></td><td><span class="badge b-bad">Chặn cho phần chạy trên QNX</span></td></tr>
+</table>
+
+<div class="box bad"><b class="t">Điều kiện tiên quyết thật sự của M3</b>
+Cần SDP 8.0 + VM QNX chạy được (M0 từng làm ở <code>~/qnx800</code>, <code>~/qnxvm</code> theo <code>sil_environment.md</code>, nhưng hiện không thấy trên host này). Nếu máy này không có KVM, QEMU x86_64 chạy bằng TCG (mô phỏng) → <b>chậm và jitter lớn</b>. Đây ảnh hưởng đến các phép đo thời gian (timer 5–10 ms, test priority inversion). Quy tắc dự án đã đúng: <b>tiêu chí pass/fail dùng đếm (iteration, cycle), không dùng ms</b>.</div>
+
+<div class="box"><b class="t">Việc nên làm ngay (không cần QNX)</b>
+<ul>
+<li>Tách phần logic thuần (seqlock, struct SHM, validate range, FSM) thành C portable; test trên Linux host bằng pthread + sanitizer. Khi QNX sẵn sàng chỉ việc biên dịch lại bằng <code>qcc</code>.</li>
+<li>Sửa link README và cập nhật trạng thái M2 khi CI xanh.</li>
+<li>Dựng lại QNX SDP/VM nếu cần (đây là thời gian lớn nhất của M3).</li>
+</ul></div>
+
+<!-- ============ 1 ============ -->
+<h2 id="scope"><span class="n">1</span>M3 làm gì và vì sao</h2>
+<p>M3 dựng <b>nửa QNX</b> của hệ thống: một supervisor có kiến trúc đúng kiểu hệ thống an toàn — tách process để lỗi không lan, kênh IPC có kiểm soát quyền, dữ liệu chia sẻ read-only cho bên quan sát, và chứng minh được đặc tính real-time (priority inheritance).</p>
+<table>
+<tr><th>Mục M3 (02_PROJECT_PLAN)</th><th>Kiến thức cần</th><th>Mục</th></tr>
+<tr><td>Process <code>motion_sup</code>, <code>logger</code>, <code>mgmt</code></td><td>process/thread, spawn, cách ly địa chỉ</td><td>2, 11</td></tr>
+<tr><td>SHM phân quyền + seqlock</td><td><code>shm_open</code>/<code>mmap</code>, quyền O_RDONLY, memory ordering</td><td>9, 10</td></tr>
+<tr><td>Thread theo priority/policy, timer pulse</td><td>SCHED_FIFO/RR, <code>timer_create</code> + pulse</td><td>4, 5</td></tr>
+<tr><td>Resmgr <code>/dev/motion</code>, <code>motionctl</code></td><td>resmgr framework, devctl, ConnectClientInfo</td><td>7, 8</td></tr>
+<tr><td>Test priority inversion</td><td>mutex protocol, thiết kế thí nghiệm tất định</td><td>6</td></tr>
+<tr><td>Bằng chứng System Profiler</td><td>tracelogger, đọc trace</td><td>12</td></tr>
+</table>
+<p><b>Acceptance:</b> (1) <code>devctl</code> sai quyền → <code>EPERM</code>, sai tham số → <code>EINVAL</code>; (2) <code>mgmt</code> ghi SHM chỉ đọc → <code>SIGSEGV</code> mà hệ thống vẫn chạy; (3) trace chứng minh priority inheritance. Yêu cầu liên quan: REQ-SEC-001..004, REQ-PERF-003.</p>
+
+<!-- ============ 2 ============ -->
+<h2 id="micro"><span class="n">2</span>QNX Neutrino: microkernel và tiến trình</h2>
+<p>Kernel của QNX (<code>procnto</code>) chỉ làm: scheduling, thread, IPC (message passing), timer/clock, và quản lý process/memory ở mức cơ bản. <b>Mọi thứ khác</b> — filesystem, mạng, driver, serial — là <i>process người dùng</i> (resource manager). Hệ quả cho an toàn:</p>
+<ul>
+<li>Driver hoặc service chết → chỉ process đó chết; kernel và process khác vẫn sống, và có thể khởi động lại service.</li>
+<li>Mỗi process có không gian địa chỉ riêng (MMU). Muốn chia sẻ phải xin tường minh (SHM) — đúng cơ chế M3 dùng để tách <code>motion_sup</code>/<code>logger</code>/<code>mgmt</code>.</li>
+</ul>
+<svg viewBox="0 0 900 250" width="100%">
+  <g font-size="14" text-anchor="middle" fill="#dde4f2">
+    <rect x="20" y="20" width="860" height="170" rx="12" fill="#12192a" stroke="#2b3650"/>
+    <text x="450" y="42" fill="#93a0bd">User space (mỗi hộp = 1 process, address space riêng)</text>
+    <rect x="40" y="60" width="180" height="110" rx="10" fill="#12304a" stroke="#2b3650"/><text x="130" y="86" font-weight="700" fill="#8fc4ff">motion_sup</text><text x="130" y="108" font-size="12">control · RX · TX · E-stop</text><text x="130" y="126" font-size="12">heartbeat · resmgr pool</text><text x="130" y="146" font-size="12" fill="#ffd58a">GHI SHM</text>
+    <rect x="250" y="60" width="150" height="110" rx="10" fill="#12372a" stroke="#2b3650"/><text x="325" y="86" font-weight="700" fill="#8be0a8">logger</text><text x="325" y="110" font-size="12">file log, rotate</text><text x="325" y="146" font-size="12" fill="#8be0a8">ĐỌC SHM</text>
+    <rect x="430" y="60" width="150" height="110" rx="10" fill="#12372a" stroke="#2b3650"/><text x="505" y="86" font-weight="700" fill="#8be0a8">mgmt</text><text x="505" y="110" font-size="12">UDP :6000</text><text x="505" y="146" font-size="12" fill="#8be0a8">ĐỌC SHM</text>
+    <rect x="610" y="60" width="130" height="110" rx="10" fill="#2f1f4f" stroke="#2b3650"/><text x="675" y="86" font-weight="700" fill="#c6a8ff">motionctl</text><text x="675" y="110" font-size="12">client CLI</text>
+    <rect x="760" y="60" width="100" height="110" rx="10" fill="#2a2f12" stroke="#2b3650"/><text x="810" y="86" font-weight="700" fill="#ffd58a">io-sock…</text><text x="810" y="110" font-size="12">mạng</text>
+    <rect x="20" y="200" width="860" height="40" rx="10" fill="#3f1d2b" stroke="#2b3650"/><text x="450" y="226" font-weight="700" fill="#ff9d9d">procnto (microkernel): sched · MsgSend/Receive/Reply · pulse · timer · thread · MMU</text>
+  </g>
+</svg>
+
+<h3>Khái niệm cần nhớ</h3>
+<table>
+<tr><th>Khái niệm</th><th>Ý nghĩa</th></tr>
+<tr><td>PID / TID</td><td>Process id / thread id trong process. Scheduling theo <b>thread</b>, không theo process.</td></tr>
+<tr><td>Channel (chid)</td><td>"Hộp thư" mà server tạo bằng <code>ChannelCreate()</code> để nhận message.</td></tr>
+<tr><td>Connection (coid)</td><td>Client nối tới channel của server bằng <code>ConnectAttach()</code> (hoặc <code>open()</code> khi server là resmgr — thư viện C làm giúp).</td></tr>
+<tr><td>Path-space</td><td>Resmgr đăng ký tên (như <code>/dev/motion</code>) vào cây tên của <code>procnto</code>; <code>open()</code> tên đó → connection đến resmgr.</td></tr>
+<tr><td>Privilege</td><td>Root hoặc "ability" riêng (vd đặt priority &gt; 63, <code>mmap</code> phys, <code>ThreadCtl(_NTO_TCTL_IO)</code>). Nên chạy <code>motion_sup</code> với quyền tối thiểu.</td></tr>
+</table>
+
+<!-- ============ 3 ============ -->
+<h2 id="ipc"><span class="n">3</span>Message passing đồng bộ</h2>
+<p>IPC gốc của QNX là <b>message passing đồng bộ</b>: client gọi <code>MsgSend()</code> và <b>bị block</b> cho đến khi server <code>MsgReply()</code>. Kernel copy trực tiếp dữ liệu từ không gian client sang server (không qua buffer trung gian) và <b>chuyển CPU</b> thẳng sang server — rất nhanh và tất định.</p>
+<svg viewBox="0 0 900 270" width="100%">
+  <defs><marker id="a" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8z" fill="#5ab0ff"/></marker></defs>
+  <g font-size="14" fill="#dde4f2" text-anchor="middle">
+    <text x="170" y="24" font-weight="700" fill="#8fc4ff">Client thread</text><text x="730" y="24" font-weight="700" fill="#8be0a8">Server thread</text>
+    <line x1="170" y1="34" x2="170" y2="250" stroke="#2b3650" stroke-width="2"/><line x1="730" y1="34" x2="730" y2="250" stroke="#2b3650" stroke-width="2"/>
+    <rect x="90" y="60" width="160" height="30" rx="6" fill="#12304a"/><text x="170" y="80" font-size="13">MsgSend(coid,…)</text>
+    <rect x="650" y="46" width="160" height="30" rx="6" fill="#12372a"/><text x="730" y="66" font-size="13">MsgReceive(chid)</text>
+    <text x="170" y="112" font-size="12" fill="#ffd58a">SEND-blocked</text><text x="730" y="102" font-size="12" fill="#ffd58a">RECEIVE-blocked</text>
+    <line x1="252" y1="75" x2="648" y2="75" stroke="#5ab0ff" stroke-width="2" marker-end="url(#a)"/><text x="450" y="68" font-size="12" fill="#93a0bd">dữ liệu request được copy</text>
+    <rect x="650" y="130" width="160" height="30" rx="6" fill="#12372a"/><text x="730" y="150" font-size="13">xử lý request</text>
+    <text x="170" y="150" font-size="12" fill="#ffd58a">REPLY-blocked</text>
+    <rect x="650" y="190" width="160" height="30" rx="6" fill="#12372a"/><text x="730" y="210" font-size="13">MsgReply(rcvid,…)</text>
+    <line x1="648" y1="205" x2="252" y2="205" stroke="#5ab0ff" stroke-width="2" marker-end="url(#a)"/><text x="450" y="198" font-size="12" fill="#93a0bd">dữ liệu reply + client READY</text>
+    <rect x="90" y="220" width="160" height="30" rx="6" fill="#12304a"/><text x="170" y="240" font-size="13">tiếp tục chạy</text>
+  </g>
+</svg>
+<table>
+<tr><th>Trạng thái thread</th><th>Khi nào</th></tr>
+<tr><td>SEND-blocked</td><td>Client đã <code>MsgSend</code>, server chưa <code>MsgReceive</code></td></tr>
+<tr><td>RECEIVE-blocked</td><td>Server đang chờ message trong <code>MsgReceive</code></td></tr>
+<tr><td>REPLY-blocked</td><td>Server đã nhận, chưa <code>MsgReply</code></td></tr>
+<tr><td>MUTEX / CONDVAR / READY / RUNNING…</td><td>Các trạng thái thông thường; hiện trong <code>pidin</code> và trace</td></tr>
+</table>
+<div class="box vio"><b class="t">Điểm then chốt: priority theo client</b>
+Khi server nhận message, thread server tạm thời <b>chạy ở priority của client</b> (priority inheritance qua IPC). Nhờ vậy một client priority cao gọi một service priority thấp không bị chặn bởi thread trung bình — đây là lý do resmgr pool ở priority 20 vẫn phục vụ client ưu tiên cao kịp thời. (Vẫn nên kiểm chứng trên trace, mục 12.)</div>
+<ul>
+<li><b>Server phải trả lời mọi message:</b> quên <code>MsgReply</code> → client treo mãi ở REPLY-blocked. Nếu client bị kill khi đang REPLY-blocked, kernel tự giải phóng.</li>
+<li><b>Không dùng pointer trong message</b> (khác không gian địa chỉ) — dữ liệu phải nằm trong chính message, hoặc dùng <code>MsgRead/MsgWrite</code> để server đọc/ghi buffer của client theo offset.</li>
+<li><code>mgmt → motion_sup</code> dùng <code>MsgSend</code> (theo kiến trúc): mgmt block đến khi motion_sup xử lý xong → cân nhắc timeout (<code>TimerTimeout()</code>) để mgmt không treo khi motion_sup lỗi.</li>
+</ul>
+
+<!-- ============ 4 ============ -->
+<h2 id="pulse"><span class="n">4</span>Pulse và timer</h2>
+<p><b>Pulse</b> là message nhỏ, bất đồng bộ, cố định (code 8 bit + value 32/64 bit). Người gửi <b>không bị block</b>. Dùng để báo sự kiện (timer, process chết, interrupt) vào cùng channel mà thread đang <code>MsgReceive</code>.</p>
+<pre><code>// Thread supervisor: một vòng event-loop duy nhất
+int chid = ChannelCreate(0);
+int coid = ConnectAttach(0, 0, chid, _NTO_SIDE_CHANNEL, 0);
+
+struct sigevent ev;
+SIGEV_PULSE_INIT(&amp;ev, coid, SIGEV_PULSE_PRIO_INHERIT, PULSE_CODE_TICK, 0);
+
+timer_t tid;
+timer_create(CLOCK_MONOTONIC, &amp;ev, &amp;tid);
+struct itimerspec its = { .it_value = {0, 10*1000*1000}, .it_interval = {0, 10*1000*1000} };
+timer_settime(tid, 0, &amp;its, NULL);          // 10 ms chu kỳ
+
+for (;;) {
+    struct _pulse p;
+    int rcvid = MsgReceive(chid, &amp;p, sizeof p, NULL);
+    if (rcvid == 0 &amp;&amp; p.code == PULSE_CODE_TICK) { control_cycle(); }
+}</code></pre>
+<ul>
+<li>Pulse không có rcvid (<code>rcvid == 0</code>) → không cần reply.</li>
+<li>Thread nhận pulse chạy ở priority của thread (hoặc kế thừa theo tham số <code>SIGEV_PULSE_PRIO_INHERIT</code>); chọn có chủ đích.</li>
+<li><b>Timer overrun:</b> nếu thread xử lý chậm, các pulse chồng lên nhau; dùng <code>timer_getoverrun()</code> hoặc so sánh <code>ClockCycles()</code>/<code>clock_gettime</code> để đếm chu kỳ bị lỡ — đây là cơ sở cho số đo jitter phía QNX.</li>
+<li><b>Độ phân giải clock:</b> mặc định tick ~1 ms (có thể đổi bằng <code>ClockPeriod()</code>); timer 5 ms/10 ms phù hợp, sub-ms không nên mong đợi trên VM.</li>
+<li>Dùng <code>CLOCK_MONOTONIC</code> cho mọi tính toán thời gian; <code>CLOCK_REALTIME</code> có thể nhảy.</li>
+</ul>
+<div class="box warn"><b class="t">Trên VM không KVM</b>Mỗi lần chạy sẽ khác nhau; pass/fail phải là "bao nhiêu chu kỳ/lần lặp" chứ không phải "bao nhiêu ms". Đo jitter chỉ để <i>ghi nhãn tham khảo</i> ("SIL, VM").</div>
+
+<!-- ============ 5 ============ -->
+<h2 id="sched"><span class="n">5</span>Scheduling và priority</h2>
+<ul>
+<li>Priority 1–255 (số lớn = ưu tiên cao). Process <b>không đặc quyền thường chỉ đặt được đến 63</b> (xác minh theo cấu hình SDP/abilities); các giá trị kiến trúc (60/55/50/45/20) nằm dưới ngưỡng này nên có thể chạy không root. <span class="verify">[xác minh]</span></li>
+<li><b>SCHED_FIFO:</b> chạy đến khi block hoặc bị thread priority cao hơn preempt; cùng priority theo thứ tự FIFO. Phù hợp thread điều khiển, E-stop, heartbeat.</li>
+<li><b>SCHED_RR:</b> như FIFO nhưng cùng priority luân phiên theo timeslice (mặc định ~4 ms). Phù hợp resmgr thread pool.</li>
+<li>Scheduler của QNX là <b>preemptive, priority-based</b>; thread cao nhất đang READY luôn chạy.</li>
+</ul>
+<table>
+<tr><th>Thread</th><th>Policy / prio</th><th>Lý do chọn</th></tr>
+<tr><td>E-stop</td><td>FIFO 60</td><td>Cao nhất: không được chờ thứ gì. Event-driven, gửi 3 lần cách 1 ms</td></tr>
+<tr><td>Heartbeat monitor</td><td>FIFO 55</td><td>Phát hiện mất liên lạc phải đến trước control logic. 5 ms</td></tr>
+<tr><td>Supervisor control</td><td>FIFO 50</td><td>Chu kỳ 10 ms: setpoint, command, giới hạn</td></tr>
+<tr><td>Frame RX / TX</td><td>FIFO 45</td><td>I/O; thấp hơn control để control không bị I/O trễ chặn</td></tr>
+<tr><td>resmgr pool</td><td>RR 20</td><td>Phục vụ client ngoài; không được gây nhiễu control</td></tr>
+</table>
+<div class="box warn"><b class="t">Rủi ro starvation</b>Thread FIFO cao mà vòng lặp không bao giờ block (bug) sẽ <b>bỏ đói</b> mọi thứ thấp hơn, kể cả resmgr. Mọi thread FIFO phải chờ trên <code>MsgReceive</code>/timer/<code>poll</code> — không busy-wait. Có thể thêm một thread "watchdog nội bộ" ở priority cao hơn để phát hiện (tuỳ chọn).</div>
+
+<!-- ============ 6 ============ -->
+<h2 id="inv"><span class="n">6</span>Priority inversion và priority inheritance</h2>
+<p><b>Inversion:</b> thread ưu tiên cao H phải chờ mutex do thread thấp L giữ; trong lúc đó thread trung bình M (không liên quan mutex) chiếm CPU và chặn L → H bị chặn một cách gián tiếp bởi M, trong thời gian không giới hạn. (Sự cố Mars Pathfinder 1997 là ví dụ kinh điển.)</p>
+<svg viewBox="0 0 900 330" width="100%">
+  <g font-size="13" fill="#dde4f2">
+    <text x="10" y="40">KHÔNG có PI</text>
+    <text x="10" y="76" fill="#8fc4ff">H (cao)</text><text x="10" y="108" fill="#ffd58a">M (vừa)</text><text x="10" y="140" fill="#8be0a8">L (thấp)</text>
+    <rect x="90" y="132" width="90" height="16" fill="#8be0a8"/><text x="95" y="145" font-size="11" fill="#04101f">L giữ mutex</text>
+    <rect x="180" y="68" width="30" height="16" fill="#8fc4ff" opacity=".35"/><text x="182" y="80" font-size="10" fill="#04101f">H lên</text>
+    <rect x="210" y="68" width="360" height="16" fill="none" stroke="#ff6b6b" stroke-dasharray="4"/><text x="270" y="80" font-size="11" fill="#ff9d9d">H BỊ CHẶN (chờ mutex)</text>
+    <rect x="210" y="100" width="360" height="16" fill="#ffd58a"/><text x="300" y="113" font-size="11" fill="#04101f">M chiếm CPU — L không được chạy</text>
+    <rect x="570" y="132" width="50" height="16" fill="#8be0a8"/><text x="572" y="145" font-size="10" fill="#04101f">L nhả</text>
+    <rect x="620" y="68" width="70" height="16" fill="#8fc4ff"/><text x="625" y="80" font-size="10" fill="#04101f">H chạy</text>
+    <line x1="90" y1="160" x2="800" y2="160" stroke="#2b3650"/><text x="800" y="175" font-size="11" fill="#93a0bd">thời gian →</text>
+
+    <text x="10" y="215">CÓ PI</text>
+    <text x="10" y="248" fill="#8fc4ff">H</text><text x="10" y="276" fill="#ffd58a">M</text><text x="10" y="304" fill="#8be0a8">L</text>
+    <rect x="90" y="296" width="90" height="16" fill="#8be0a8"/>
+    <rect x="180" y="240" width="30" height="16" fill="#8fc4ff" opacity=".35"/>
+    <rect x="210" y="296" width="90" height="16" fill="#b6f0cb"/><text x="212" y="309" font-size="10" fill="#04101f">L nâng lên prio H</text>
+    <rect x="300" y="240" width="70" height="16" fill="#8fc4ff"/><text x="305" y="252" font-size="10" fill="#04101f">H chạy</text>
+    <rect x="370" y="268" width="140" height="16" fill="#ffd58a"/><text x="380" y="281" font-size="11" fill="#04101f">M chạy sau</text>
+  </g>
+</svg>
+<h3>Giải pháp</h3>
+<ul>
+<li><b>Priority inheritance (PI):</b> L giữ mutex mà H đang chờ → L tạm thời được nâng lên priority của H, chạy xong đoạn găng, nhả mutex, về priority cũ. M không chen vào được.</li>
+<li>POSIX: <code>pthread_mutexattr_setprotocol(&amp;a, PTHREAD_PRIO_INHERIT)</code> vs <code>PTHREAD_PRIO_NONE</code>. Kiến trúc ghi "mặc định của QNX" là PI; <b>trong test phải đặt tường minh cả hai chế độ</b> để so sánh. <span class="verify">[xác minh default trên SDP 8.0]</span></li>
+<li>PI qua message passing là tự động (mục 3); PI cho mutex phải bật đúng thuộc tính.</li>
+</ul>
+<h3>Thiết kế thí nghiệm tất định (đúng triết lý dự án)</h3>
+<pre><code>Thread L (prio 10): lock(m); busy_loop(K lần); unlock(m)
+Thread H (prio 50): sleep nhỏ để L giữ mutex trước; lock(m)  -> ghi "t_H_got_lock"
+Thread M (prio 30): busy_loop(N lần, N lớn) khi H đang chờ; ghi "M_done"
+Tiêu chí PASS (không dùng ms):
+  PI bật  : H lấy được mutex TRƯỚC khi M hoàn thành N vòng   (thứ tự sự kiện)
+  PI tắt  : H lấy được mutex SAU khi M hoàn thành N vòng
+Đo thêm: số vòng M chạy được trong lúc H chờ (đếm) - tham khảo.</code></pre>
+<ul>
+<li>Cố định CPU: dùng 1 CPU (<code>-smp 1</code> hoặc <code>RUNMASK</code>) vì trên đa nhân M có thể chạy song song với L → không còn inversion → thí nghiệm vô nghĩa.</li>
+<li>Thứ tự sự kiện đọc từ biến đếm atomic/global event-index, không dựa vào timestamp.</li>
+<li>Bằng chứng thứ hai: trace System Profiler cho thấy priority của L tăng khi H chờ (mục 12).</li>
+</ul>
+
+<!-- ============ 7 ============ -->
+<h2 id="resmgr"><span class="n">7</span>Resource manager <code>/dev/motion</code></h2>
+<p>Resmgr là process đăng ký một tên trong path-space; <code>open/read/write/devctl/close</code> trên tên đó được biến thành message tới process bạn. Bạn viết <b>handler</b> cho từng loại message; thư viện (<code>dispatch</code>, <code>iofunc</code>) lo phần còn lại.</p>
+<svg viewBox="0 0 900 200" width="100%">
+  <defs><marker id="b" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8z" fill="#5ab0ff"/></marker></defs>
+  <g font-size="13" text-anchor="middle" fill="#dde4f2">
+    <rect x="10" y="70" width="140" height="60" rx="10" fill="#2f1f4f" stroke="#2b3650"/><text x="80" y="96">motionctl</text><text x="80" y="114" font-size="11" fill="#93a0bd">devctl(fd,CMD,…)</text>
+    <rect x="200" y="70" width="140" height="60" rx="10" fill="#3f1d2b" stroke="#2b3650"/><text x="270" y="96">libc → MsgSend</text><text x="270" y="114" font-size="11" fill="#93a0bd">_IO_DEVCTL</text>
+    <rect x="390" y="70" width="140" height="60" rx="10" fill="#12304a" stroke="#2b3650"/><text x="460" y="96">dispatch / thread</text><text x="460" y="114" font-size="11" fill="#93a0bd">pool (RR 20)</text>
+    <rect x="580" y="70" width="140" height="60" rx="10" fill="#12372a" stroke="#2b3650"/><text x="650" y="96">io_devctl()</text><text x="650" y="114" font-size="11" fill="#93a0bd">check quyền + validate</text>
+    <rect x="760" y="70" width="130" height="60" rx="10" fill="#2a2f12" stroke="#2b3650"/><text x="825" y="96">motion_sup core</text><text x="825" y="114" font-size="11" fill="#93a0bd">FSM / SHM</text>
+  </g>
+  <g stroke="#5ab0ff" stroke-width="2" marker-end="url(#b)"><line x1="150" y1="100" x2="198" y2="100"/><line x1="340" y1="100" x2="388" y2="100"/><line x1="530" y1="100" x2="578" y2="100"/><line x1="720" y1="100" x2="758" y2="100"/></g>
+  <text x="450" y="170" fill="#93a0bd" font-size="13" text-anchor="middle">Reply trở lại cùng đường: EOK hoặc errno (EPERM / EINVAL / EBUSY…)</text>
+</svg>
+
+<h3>Khung chương trình</h3>
+<pre><code>dispatch_t *dpp = dispatch_create();
+resmgr_connect_funcs_t  cfuncs;
+resmgr_io_funcs_t       ifuncs;
+iofunc_func_init(_RESMGR_CONNECT_NFUNCS, &amp;cfuncs, _RESMGR_IO_NFUNCS, &amp;ifuncs);
+ifuncs.devctl = io_devctl;                       // handler của ta
+
+iofunc_attr_t attr;
+iofunc_attr_init(&amp;attr, S_IFCHR | 0660, NULL, NULL);   // mode 0660
+attr.gid = MOTION_GID;                                  // nhóm 'motion'
+resmgr_attach(dpp, NULL, "/dev/motion", _FTYPE_ANY, 0, &amp;cfuncs, &amp;ifuncs, &amp;attr);
+
+thread_pool_attr_t pa = { .handle = dpp, .block_func = dispatch_block,
+    .context_alloc = dispatch_context_alloc, .handler_func = dispatch_handler,
+    .context_free = dispatch_context_free, .lo_water = 2, .hi_water = 4,
+    .increment = 1, .maximum = 8 };
+thread_pool_start(thread_pool_create(&amp;pa, 0));</code></pre>
+
+<h3>devctl: định nghĩa lệnh</h3>
+<pre><code>// Dùng macro để mã hoá hướng + kích thước vào dcmd → kernel/libc biết chiều dữ liệu
+#define DCMD_MOTION_GET_STATUS   __DIOF(_DCMD_MISC, 0x01, struct motion_status)  // server → client
+#define DCMD_MOTION_SET_TARGET   __DIOT(_DCMD_MISC, 0x02, struct motion_target)  // client → server
+#define DCMD_MOTION_ENABLE       __DION(_DCMD_MISC, 0x03)                        // không dữ liệu
+#define DCMD_MOTION_DISABLE      __DION(_DCMD_MISC, 0x04)
+#define DCMD_MOTION_ESTOP        __DION(_DCMD_MISC, 0x05)
+#define DCMD_MOTION_RESET_FAULT  __DION(_DCMD_MISC, 0x06)</code></pre>
+<p class="verify">[xác minh tên macro/class code chính xác trong &lt;devctl.h&gt; của SDP 8.0 — chọn class code không đụng với thiết bị chuẩn]</p>
+
+<h3>Handler: thứ tự chuẩn</h3>
+<pre><code>static int io_devctl(resmgr_context_t *ctp, io_devctl_t *msg, iofunc_ocb_t *ocb)
+{
+    int sts = iofunc_devctl_default(ctp, msg, ocb);       // xử lý lệnh chuẩn (nếu có)
+    if (sts != _RESMGR_DEFAULT) return sts;
+
+    void *data = _DEVCTL_DATA(msg->i);                    // payload nằm trong msg
+    int   nbytes = 0;
+    switch (msg->i.dcmd) {
+    case DCMD_MOTION_SET_TARGET: {
+        if (!client_in_group(ctp, MOTION_GID)) return EPERM;              // 1) quyền
+        if (msg->i.nbytes != sizeof(struct motion_target)) return EINVAL; // 2) kích thước
+        struct motion_target t = *(struct motion_target *)data;           // 3) copy 1 lần
+        if (t.pos &lt; POS_MIN || t.pos &gt; POS_MAX) return EINVAL;            // 4) biên
+        return motion_set_target(&amp;t) == 0 ? _RESMGR_ERRNO(EOK) : EBUSY;
+    }
+    case DCMD_MOTION_GET_STATUS: {
+        struct motion_status s; shm_snapshot(&amp;s);                          // đọc seqlock
+        memcpy(data, &amp;s, sizeof s); nbytes = sizeof s; break;
+    }
+    default: return ENOSYS;
+    }
+    memset(&amp;msg->o, 0, sizeof msg->o);
+    msg->o.ret_val = 0; msg->o.nbytes = nbytes;
+    return _RESMGR_PTR(ctp, &amp;msg->o, sizeof msg->o + nbytes);
+}</code></pre>
+<ul>
+<li><b>Resmgr đa luồng:</b> nhiều client → nhiều thread pool chạy handler đồng thời → mọi trạng thái chia sẻ trong <code>motion_sup</code> cần khoá hoặc đẩy lệnh vào hàng đợi cho control thread (<b>khuyến nghị:</b> handler chỉ validate + gửi message/pulse cho control thread; control thread là chủ duy nhất của FSM → tránh khoá, giữ single-writer SHM).</li>
+<li>Giá trị trả về <code>errno</code> → client thấy <code>-1</code> + <code>errno</code>; <code>devctl()</code> trả trực tiếp mã lỗi.</li>
+<li>Quyền <code>open()</code> mặc định do <code>iofunc_open_default</code> kiểm theo mode/uid/gid của attr (0660 + gid motion). Nhưng kiến trúc muốn <b>phân quyền theo lệnh</b> (GET_STATUS cho mọi client, SET_TARGET cho nhóm motion) → mode phải cho phép mở rộng hơn (vd 0666) và tự kiểm quyền theo lệnh bằng ConnectClientInfo. <b>Chọn một mô hình rõ ràng, ghi vào tài liệu</b>.</li>
+</ul>
+
+<!-- ============ 8 ============ -->
+<h2 id="sec"><span class="n">8</span>Quyền, <code>ConnectClientInfo</code> và validate</h2>
+<p>Resmgr là ranh giới tin cậy: mọi thứ client gửi đều <b>không đáng tin</b>. <code>ConnectClientInfo(ctp->info.scoid, &amp;info, 0)</code> cho biết kernel xác thực client là ai (uid/gid/ngroups) — client không thể giả mạo.</p>
+<pre><code>static bool client_in_group(resmgr_context_t *ctp, gid_t want)
+{
+    struct _client_info ci;
+    if (ConnectClientInfo(ctp-&gt;info.scoid, &amp;ci, NGROUPS_MAX) == -1) return false;
+    if (ci.cred.euid == 0) return true;                       // root (tuỳ chính sách)
+    if (ci.cred.egid == want) return true;
+    for (int i = 0; i &lt; ci.cred.ngroups; i++)
+        if (ci.cred.grouplist[i] == want) return true;
+    return false;
+}</code></pre>
+<table>
+<tr><th>Lỗi</th><th>Mã trả</th><th>Test M3</th></tr>
+<tr><td>Client không thuộc nhóm <code>motion</code> gọi SET_TARGET/ENABLE/RESET_FAULT</td><td><code>EPERM</code></td><td>chạy <code>motionctl</code> bằng user không thuộc nhóm (<code>on -u uid</code>)</td></tr>
+<tr><td>nbytes sai, target ngoài biên, enum ngoài tập</td><td><code>EINVAL</code></td><td>bảng test biên: min-1, min, max, max+1, kích thước sai</td></tr>
+<tr><td>RESET_FAULT khi không ở SAFE_STOP / nguyên nhân chưa hết</td><td><code>EBUSY</code>/<code>EPERM</code> (chọn và ghi rõ)</td><td>REQ-SAF-010</td></tr>
+<tr><td>ESTOP</td><td>cho mọi client</td><td>an toàn: ai cũng được dừng khẩn</td></tr>
+</table>
+<div class="box"><b class="t">Nguyên tắc validate (secure IPC)</b>
+<ol>
+<li>Kiểm kích thước <b>trước</b> khi đọc nội dung.</li>
+<li>Copy dữ liệu ra biến cục bộ <b>một lần</b>, validate bản copy (tránh TOCTOU nếu dùng MsgRead).</li>
+<li>Kiểm biên bằng số học an toàn (không tràn int khi cộng/trừ).</li>
+<li>Mặc định từ chối (default-deny); lệnh lạ → <code>ENOSYS</code>/<code>EINVAL</code>.</li>
+<li>Không phản hồi chi tiết nội bộ cho client không có quyền.</li>
+</ol></div>
+<div class="box warn"><b class="t">Chạy không root</b>Nếu <code>motion_sup</code> chạy root thì cả kiểm quyền lẫn việc chứng minh "least privilege" yếu đi. Nên chạy bằng user riêng và chỉ cấp ability cần thiết (vd nâng priority &gt; thang mặc định nếu cần). <span class="verify">[xác minh <code>procmgr_ability</code> trong SDP 8.0]</span></div>
+
+<!-- ============ 9 ============ -->
+<h2 id="shm"><span class="n">9</span>Shared memory phân quyền</h2>
+<p>SHM dùng để <i>quan sát</i> trạng thái mà không phải gửi message: <code>motion_sup</code> là <b>writer duy nhất</b>; <code>logger</code>/<code>mgmt</code> chỉ đọc.</p>
+<pre><code>// motion_sup (writer)
+int fd = shm_open("/motion_state", O_RDWR | O_CREAT, 0644);
+ftruncate(fd, sizeof(struct shm_state));
+struct shm_state *w = mmap(NULL, sizeof *w, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+
+// logger / mgmt (reader)
+int fd = shm_open("/motion_state", O_RDONLY, 0);          // KHÔNG cần quyền ghi
+const struct shm_state *r = mmap(NULL, sizeof *r, PROT_READ, MAP_SHARED, fd, 0);
+// ghi vào r → MMU fault → SIGSEGV chỉ giết process này</code></pre>
+<table>
+<tr><th>Lớp bảo vệ</th><th>Cơ chế</th></tr>
+<tr><td>Quyền đối tượng</td><td>mode/uid/gid của object <code>shm_open</code> (nằm dưới <code>/dev/shmem</code>); chỉ writer có quyền ghi</td></tr>
+<tr><td>Quyền mở</td><td><code>O_RDONLY</code> – thất bại nếu không có quyền đọc</td></tr>
+<tr><td>Quyền ánh xạ</td><td><code>PROT_READ</code> – MMU bắt mọi lệnh ghi</td></tr>
+</table>
+<ul>
+<li><b>Layout:</b> struct có kích thước và alignment cố định, dùng kiểu có độ rộng cố định (<code>uint32_t</code>), không con trỏ (mỗi process map ở địa chỉ khác nhau), có <code>version</code>/<code>magic</code> ở đầu để reader kiểm tra.</li>
+<li>Chia hai vùng: <code>state</code> (nhỏ, cập nhật 10 ms) và <code>trace</code> (ring buffer sự kiện, cũng single-writer).</li>
+<li><b>F14:</b> lệnh debug trong <code>mgmt</code> cố tình ghi vùng RO → <code>SIGSEGV</code>. Acceptance: <code>mgmt</code> chết, <code>motion_sup</code>/<code>logger</code> sống, <code>motion_sup</code> phát hiện (mục 11).</li>
+<li>Dọn dẹp: <code>shm_unlink</code> khi khởi động lại để không dùng object cũ sai kích thước.</li>
+</ul>
+
+<!-- ============ 10 ============ -->
+<h2 id="seq"><span class="n">10</span>Seqlock: đọc không khoá, writer không bị chậm</h2>
+<p><b>Vấn đề:</b> reader chỉ có quyền đọc nên <b>không thể</b> lấy mutex đặt trong SHM (khoá cần ghi). Và writer (control thread 10 ms) không được phép bị reader làm chậm. Seqlock giải quyết cả hai với giả định <b>một writer</b>.</p>
+<svg viewBox="0 0 900 230" width="100%">
+  <g font-size="13" fill="#dde4f2">
+    <text x="10" y="44" fill="#ffd58a">Writer</text>
+    <rect x="90" y="30" width="130" height="24" fill="#12304a"/><text x="95" y="47">seq++ (lẻ = đang ghi)</text>
+    <rect x="220" y="30" width="230" height="24" fill="#3f1d2b"/><text x="228" y="47">ghi payload (nhiều byte)</text>
+    <rect x="450" y="30" width="130" height="24" fill="#12304a"/><text x="455" y="47">seq++ (chẵn = xong)</text>
+    <text x="10" y="120" fill="#8be0a8">Reader</text>
+    <rect x="90" y="106" width="110" height="24" fill="#12372a"/><text x="95" y="123">s1 = seq</text>
+    <rect x="200" y="106" width="200" height="24" fill="#2a2f12"/><text x="208" y="123">copy payload</text>
+    <rect x="400" y="106" width="110" height="24" fill="#12372a"/><text x="405" y="123">s2 = seq</text>
+    <text x="520" y="123" fill="#93a0bd">s1 lẻ hoặc s1≠s2 → RETRY</text>
+    <text x="90" y="190" fill="#93a0bd">Nếu s1 chẵn và s1 == s2 thì bản copy nhất quán (không bị xé nửa cũ nửa mới).</text>
+  </g>
+</svg>
+<pre><code>// Writer (một thread duy nhất)
+void shm_write(struct shm_state *s, const struct payload *p) {
+    uint32_t q = atomic_load_explicit(&amp;s-&gt;seq, memory_order_relaxed);
+    atomic_store_explicit(&amp;s-&gt;seq, q + 1, memory_order_relaxed);   // lẻ
+    atomic_thread_fence(memory_order_release);
+    copy_words_relaxed(&amp;s-&gt;data, p);                                // ghi payload
+    atomic_store_explicit(&amp;s-&gt;seq, q + 2, memory_order_release);   // chẵn
+}
+// Reader (không ghi gì vào SHM)
+bool shm_read(const struct shm_state *s, struct payload *out, int max_retry) {
+    for (int i = 0; i &lt; max_retry; i++) {
+        uint32_t a = atomic_load_explicit(&amp;s-&gt;seq, memory_order_acquire);
+        if (a &amp; 1) continue;
+        copy_words_relaxed(out, &amp;s-&gt;data);
+        atomic_thread_fence(memory_order_acquire);
+        uint32_t b = atomic_load_explicit(&amp;s-&gt;seq, memory_order_relaxed);
+        if (a == b) return true;
+    }
+    return false;       // báo "không đọc được" thay vì treo
+}</code></pre>
+<ul>
+<li><b>Memory ordering là cốt lõi:</b> <code>volatile</code> không đủ. Cần fence/atomic để CPU và compiler không đảo thứ tự ghi seq và payload. x86 (TSO) "tha thứ" nhiều lỗi mà ARM sẽ lộ — viết đúng theo C11 ngay từ đầu.</li>
+<li>Payload nên đọc/ghi theo từ atomic relaxed (hoặc <code>memcpy</code> + fence) để tránh data race theo chuẩn C.</li>
+<li><b>Giới hạn retry</b> + đếm số lần retry (metric) để thấy reader bị writer "xé" thường xuyên không. Reader không bao giờ chặn writer.</li>
+<li>Seqlock không phù hợp nếu payload chứa con trỏ (reader có thể thấy con trỏ rác) — payload phải là dữ liệu thuần.</li>
+<li><b>Test trên host Linux:</b> 1 writer + N reader, kiểm tra mọi bản copy có các trường "liên đối" (vd cùng checksum, mọi field = cùng generation) → không bao giờ thấy xé. Chạy với ThreadSanitizer. Đây là test tất định về tính đúng, không phụ thuộc QNX.</li>
+</ul>
+
+<!-- ============ 11 ============ -->
+<h2 id="death"><span class="n">11</span>Phát hiện process chết</h2>
+<p>Yêu cầu: REQ-SEC-004 — crash <code>logger</code>/<code>mgmt</code> không ảnh hưởng control, <b>và phải được phát hiện</b>; <code>motion_sup</code> crash → node mất heartbeat/command và tự SAFE_STOP (phía FreeRTOS, M4/M5).</p>
+<table>
+<tr><th>Cách</th><th>Ý tưởng</th><th>Ghi chú</th></tr>
+<tr><td>Process manager event</td><td>Đăng ký nhận thông báo (pulse) khi một PID thoát: <code>procmgr_event_notify…</code></td><td>Theo kiến trúc. <span class="verify">[xác minh tên/hàm chính xác trong SDP 8.0]</span></td></tr>
+<tr><td>Cha–con</td><td><code>spawn()</code>/<code>posix_spawn()</code> rồi <code>waitpid()</code> hoặc SIGCHLD; đọc <code>WIFSIGNALED/WTERMSIG</code> để biết có phải SIGSEGV</td><td>Dễ nhất, cho phép supervisor khởi động lại child</td></tr>
+<tr><td>Death của connection</td><td>Client có connection tới server; server chết → connection báo lỗi/pulse <code>_PULSE_CODE_COIDDEATH</code> (cần <code>_NTO_CHF_COID_DISCONNECT</code>)</td><td>Dùng cho IPC logger/mgmt ↔ motion_sup</td></tr>
+<tr><td>Heartbeat ứng dụng</td><td>Mỗi process tăng một alive counter trong SHM; supervisor kiểm tra</td><td>Bắt được trường hợp <b>treo</b> (không chết nhưng không chạy)</td></tr>
+</table>
+<div class="box ok"><b class="t">Đề xuất kết hợp</b>spawn + waitpid (phát hiện chết, biết nguyên nhân) <b>+</b> alive counter (phát hiện treo). Kết quả ghi vào SHM/trace: "mgmt died by SIGSEGV, restarted". Test F13/F14: <code>slay mgmt</code> và lệnh ghi SHM RO.</div>
+
+<!-- ============ 12 ============ -->
+<h2 id="prof"><span class="n">12</span>System Profiler (tracelogger) làm bằng chứng</h2>
+<p>Kernel QNX có <b>instrumentation</b> ghi lại sự kiện: context switch, trạng thái thread, message, pulse, thay đổi priority, mutex… <code>tracelogger</code> thu vào file, rồi đọc bằng System Profiler (IDE) hoặc công cụ dòng lệnh <code>traceprinter</code>.</p>
+<ol>
+<li>Chạy <code>tracelogger -f /tmp/pi.kev -d1</code> (hoặc tùy chọn tương đương) trong lúc chạy test PI. <span class="verify">[xác minh cờ]</span></li>
+<li>Kết thúc, copy file về host, mở bằng System Profiler.</li>
+<li>Bằng chứng cần chụp: (a) H chuyển MUTEX-blocked; (b) L <b>được nâng priority</b> lên mức H; (c) M không chạy trong lúc đó; (d) L nhả mutex, priority về cũ, H chạy. Lặp lại với PI tắt để thấy M chiếm CPU.</li>
+<li>Lưu vào <code>docs/results/</code>: trace, ảnh chụp, lệnh, phiên bản SDP; nhãn "SIL, VM".</li>
+</ol>
+<div class="box"><b class="t">Vì sao cần cả test đếm lẫn trace?</b>Test đếm cho pass/fail tự động lặp lại được; trace cho <i>giải thích cơ chế</i> (thấy priority đổi). Hai bằng chứng độc lập củng cố nhau.</div>
+
+<!-- ============ 13 ============ -->
+<h2 id="design"><span class="n">13</span>Thiết kế motion_sup</h2>
+<h3>Phân vai và quyền</h3>
+<table>
+<tr><th>Process</th><th>SHM state</th><th>SHM trace</th><th>Nhận lệnh</th><th>Ghi chú</th></tr>
+<tr><td><code>motion_sup</code></td><td>RW (writer duy nhất)</td><td>RW</td><td>resmgr + <code>MsgSend</code> từ mgmt</td><td>Chạy user riêng, quyền tối thiểu</td></tr>
+<tr><td><code>logger</code></td><td>RO</td><td>RO</td><td>—</td><td>Ghi file, xoay vòng</td></tr>
+<tr><td><code>mgmt</code></td><td>RO</td><td>—</td><td>UDP :6000 → chuyển lệnh hợp lệ</td><td>Mục tiêu F14</td></tr>
+</table>
+<h3>Thread và luồng dữ liệu</h3>
+<ul>
+<li><b>Control thread</b> (10 ms, timer pulse) là chủ duy nhất của FSM và của việc ghi SHM → tránh mutex trên đường nóng.</li>
+<li>Resmgr handler, mgmt, E-stop <b>đẩy lệnh</b> vào control thread qua message/pulse; E-stop có đường riêng ưu tiên (FIFO 60).</li>
+<li>Heartbeat monitor 5 ms đọc "thời điểm nhận hợp lệ gần nhất" do RX thread cập nhật (biến nhỏ, atomic) — dùng kết quả của <code>e2e_rx_check_timeout()</code> (M2).</li>
+</ul>
+<h3>Liên hệ với M2 (chuẩn bị cho M4)</h3>
+<table>
+<tr><th>Từ M2</th><th>Dùng ở M3/M4</th></tr>
+<tr><td><code>e2e_rx_state_t</code> theo Data ID</td><td>RX thread sở hữu; <b>một owner duy nhất</b> → không cần khoá. Gọi <code>e2e_rx_reset(now)</code> khi khởi động</td></tr>
+<tr><td><code>e2e_rx_check_timeout()</code></td><td>Heartbeat monitor: TELEM/HEARTBEAT 30 ms; DEGRADED sau 3 lỡ, SAFE_STOP sau 10 (đếm theo chu kỳ, không phải ms)</td></tr>
+<tr><td>Counter riêng mỗi Data ID, E-stop 3 bản counter tăng</td><td>TX thread/E-stop thread giữ counter từng message</td></tr>
+<tr><td><code>common/</code> không phụ thuộc OS</td><td>QNX biên dịch lại bằng <code>qcc</code>; lấy "now" từ <code>CLOCK_MONOTONIC</code> đổi sang tick uint32</td></tr>
+</table>
+<div class="box"><b class="t">Phạm vi M3 nên giữ gọn</b>M3 chưa nối mạng với node (M4). Có thể dùng stub nguồn heartbeat/telemetry (timer giả) để thử FSM và SHM. Đừng kéo E2E/UDP vào sớm — làm nở scope và khó debug.</div>
+
+<h3>FSM (rút gọn, theo ARCH §4)</h3>
+<table>
+<tr><th>Từ → Đến</th><th>Điều kiện</th></tr>
+<tr><td>INIT → READY</td><td>self-test OK</td></tr>
+<tr><td>READY → RUN</td><td>lệnh <code>ENABLE</code> hợp lệ</td></tr>
+<tr><td>RUN → DEGRADED</td><td>mất 3 heartbeat (30 ms) hoặc ≥ 3 lỗi E2E / 100 ms</td></tr>
+<tr><td>DEGRADED → RUN</td><td>10 heartbeat hợp lệ liên tiếp</td></tr>
+<tr><td>DEGRADED → SAFE_STOP</td><td>mất 10 heartbeat</td></tr>
+<tr><td>* → SAFE_STOP</td><td>E-stop, vượt giới hạn, fault record từ node</td></tr>
+<tr><td>SAFE_STOP → READY</td><td><code>RESET_FAULT</code> có quyền + nguyên nhân đã hết</td></tr>
+</table>
+<p class="mut">FSM nên là hàm thuần <code>next_state(state, event)</code> không I/O → test bảng trên host; QNX chỉ gắn nguồn sự kiện.</p>
+
+<!-- ============ 14 ============ -->
+<h2 id="plan"><span class="n">14</span>Kế hoạch đề xuất & ma trận test</h2>
+<table>
+<tr><th>WP</th><th>Nội dung</th><th>Chạy ở</th><th>Done khi</th></tr>
+<tr><td>WP0</td><td>Dựng/kiểm tra SDP 8.0 + VM, build "hello" bằng <code>qcc</code>, đo clock/jitter cơ bản, ghi <code>sil_environment.md</code></td><td>QNX</td><td>chạy được binary, ghi version & KVM/TCG</td></tr>
+<tr><td>WP1</td><td>SHM struct + seqlock + test đa luồng</td><td>Host + QNX</td><td>không xé dữ liệu; TSan sạch</td></tr>
+<tr><td>WP2</td><td>FSM thuần + test bảng</td><td>Host</td><td>mọi transition ARCH §4</td></tr>
+<tr><td>WP3</td><td>Process <code>motion_sup</code>/<code>logger</code>/<code>mgmt</code>, spawn, SHM phân quyền, F14</td><td>QNX</td><td>mgmt SIGSEGV, hệ thống sống, phát hiện</td></tr>
+<tr><td>WP4</td><td>Thread + priority + timer pulse</td><td>QNX</td><td><code>pidin</code> hiển thị đúng policy/prio</td></tr>
+<tr><td>WP5</td><td>Resmgr <code>/dev/motion</code> + <code>motionctl</code></td><td>QNX</td><td>EPERM/EINVAL đủ bảng, ENABLE/ESTOP/RESET_FAULT</td></tr>
+<tr><td>WP6</td><td>Priority inversion test + trace</td><td>QNX (1 CPU)</td><td>thứ tự sự kiện PI on/off + ảnh trace</td></tr>
+<tr><td>WP7</td><td>Báo cáo, traceability REQ-SEC-001..004, REQ-PERF-003</td><td>—</td><td>kết quả lưu <code>docs/results/</code></td></tr>
+</table>
+<table>
+<tr><th>Yêu cầu</th><th>Bằng chứng</th></tr>
+<tr><td>REQ-SEC-001</td><td>log <code>motionctl</code> chạy với user ngoài nhóm → <code>EPERM</code></td></tr>
+<tr><td>REQ-SEC-002</td><td>bảng biên (min-1/max+1/size sai) → <code>EINVAL</code></td></tr>
+<tr><td>REQ-SEC-003</td><td>mgmt ghi SHM RO → SIGSEGV (exit status/signal ghi log)</td></tr>
+<tr><td>REQ-SEC-004</td><td><code>slay logger|mgmt</code>: control cycle counter vẫn tăng; sự kiện chết được ghi</td></tr>
+<tr><td>REQ-PERF-003</td><td>thứ tự sự kiện PI on/off + trace</td></tr>
+</table>
+<div class="box warn"><b class="t">QNX không chạy trên CI công cộng</b>Kết quả QNX lưu thủ công ở <code>docs/results/</code> kèm lệnh + phiên bản; phần portable (seqlock, FSM, validate) chạy trong CTest/CI như M2.</div>
+
+<!-- ============ 15 ============ -->
+<h2 id="pit"><span class="n">15</span>Bẫy thường gặp</h2>
+<details open><summary>1. Thí nghiệm priority inversion vô nghĩa trên đa nhân</summary>M chạy song song với L nên L không bị chặn. Phải ép 1 CPU (hoặc runmask) hoặc kiểm tra đúng cấu hình VM.</details>
+<details open><summary>2. Seqlock đúng trên x86 nhưng sai trên ARM</summary>Thiếu fence thì test x86 vẫn pass. Viết C11 atomics/fence chuẩn từ đầu; chạy TSan.</details>
+<details open><summary>3. Quên reply</summary>Handler return mà không reply/không trả mã → client treo. Mỗi nhánh handler phải kết thúc bằng một reply hợp lệ.</details>
+<details><summary>4. Thread FIFO không block</summary>Gây bỏ đói resmgr và các thread thấp hơn. Luôn chờ trên IPC/timer.</details>
+<details><summary>5. Kích thước devctl không khớp macro</summary><code>__DIOT</code>/<code>__DIOF</code> mã hoá size; client và server dùng khác phiên bản struct → lỗi khó hiểu. Dùng chung 1 header; thêm <code>_Static_assert(sizeof…)</code>.</details>
+<details><summary>6. Tin vào dữ liệu client</summary>Kiểm size trước, copy, validate, default-deny. Không dùng pointer từ client.</details>
+<details><summary>7. SHM có pointer / layout lệch</summary>Mỗi process map địa chỉ khác nhau; struct phải thuần dữ liệu, có version/magic, kích thước cố định.</details>
+<details><summary>8. Dùng thời gian (ms) làm tiêu chí pass</summary>Trên VM không KVM sẽ flake. Dùng đếm chu kỳ/vòng lặp/thứ tự sự kiện.</details>
+<details><summary>9. Chạy root cho tiện</summary>Làm yếu toàn bộ bài chứng minh quyền (EPERM không còn ý nghĩa vì root bỏ qua). Test bằng user thường.</details>
+<details><summary>10. SIGSEGV làm sập cả hệ</summary>Chỉ process vi phạm bị kill; nhưng nếu <code>mgmt</code> giữ tài nguyên dùng chung (vd mutex trong SHM RW) thì có thể kẹt người khác — tránh khoá liên-process; thiết kế lock-free single-writer.</details>
+
+<!-- ============ 16 ============ -->
+<h2 id="qa"><span class="n">16</span>Tự kiểm tra</h2>
+<details><summary>Q1. Vì sao reader không thể dùng mutex trong SHM?</summary>Khoá phải ghi vào bộ nhớ; reader map <code>PROT_READ</code> nên ghi gây SIGSEGV. Hơn nữa reader chậm/chết giữ khoá sẽ chặn writer. Seqlock cho phép reader chỉ đọc.</details>
+<details><summary>Q2. Seqlock: reader thấy seq = 7 → làm gì?</summary>Số lẻ = writer đang ghi → bỏ lượt, thử lại (có giới hạn retry).</details>
+<details><summary>Q3. Client priority 50 gọi resmgr thread priority 20. Thread server chạy ở priority nào khi xử lý?</summary>Kế thừa 50 qua message passing (xác nhận bằng trace). Nhờ vậy M (priority 30) không chen được.</details>
+<details><summary>Q4. Vì sao PI test phải đặt PTHREAD_PRIO_NONE tường minh?</summary>Cần nhánh đối chứng; nếu chỉ dựa vào mặc định thì không chứng minh được "có" khác "không".</details>
+<details><summary>Q5. Pulse khác message thường ở đâu?</summary>Bất đồng bộ, không block người gửi, kích thước cố định nhỏ, không cần reply (rcvid = 0).</details>
+<details><summary>Q6. Handler devctl nhận lệnh SET_TARGET với nbytes sai và client không thuộc nhóm. Trả mã nào?</summary>Thứ tự trong khung: kiểm quyền trước → <code>EPERM</code>. (Ghi chính sách này vào tài liệu để test thống nhất.)</details>
+<details><summary>Q7. Muốn phát hiện <code>mgmt</code> bị treo (không chết) thì làm gì?</summary>Alive counter trong SHM; supervisor kiểm tăng theo chu kỳ — waitpid chỉ bắt được chết.</details>
+<details><summary>Q8. Vì sao FSM nên là hàm thuần?</summary>Test bảng trên host, không cần QNX; QNX chỉ cung cấp nguồn sự kiện. Giảm rủi ro khi môi trường QNX bất tiện.</details>
+<details><summary>Q9. Vì sao không kéo E2E/UDP vào M3?</summary>Scope M3 là cấu trúc supervisor và IPC an toàn; tích hợp mạng là M4. Stub nguồn heartbeat đủ để thử FSM.</details>
+
+<p class="mut" style="margin-top:50px">Nguồn: docs/02_PROJECT_PLAN.md (M3), 01_ARCHITECTURE.md (§3–4, §7), requirements.md, sil_environment.md, m2 sources. Các hàm/macro QNX cụ thể đánh dấu [xác minh] cần đối chiếu với tài liệu SDP 8.0 trước khi code. Wording: SIL trên VM/QEMU, không phải hard real-time.</p>
+</main>
+</body>
+</html>
