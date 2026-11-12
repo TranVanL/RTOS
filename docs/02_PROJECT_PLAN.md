@@ -10,7 +10,7 @@ Mỗi milestone có **acceptance criteria đo được**; không chuyển milest
 |---|---|---|---|
 | M0 | 1–2 | Môi trường SIL + kết nối | — |
 | M1 | 3–4 | FreeRTOS control loop | — |
-| M2 | 5–8 | Frame, DBC, E2E | — |
+| M2 | 5–8 | Frame, DBC, E2E — **xong 2026-11-12** | — |
 | M3 | 9–11 | QNX supervisor | — |
 | M4 | 12–13 | Tích hợp end-to-end | **Mức tối thiểu để ghi CV** (kèm ≥ 4 kịch bản F) |
 | M5 | 14–15 | Fault injection đầy đủ + safety_concept | Bản đầy đủ |
@@ -37,6 +37,7 @@ Mỗi milestone có **acceptance criteria đo được**; không chuyển milest
 - **Acceptance:** unit test E2E phủ `OK/REPEATED/WRONG_SEQ/CRC_ERR/LEN_OR_ID_ERR/TIMEOUT`; CRC khớp vector tính độc lập bằng Python; frame do C sinh được Python giải mã đúng 100% (round-trip).
 
 ### M3 — QNX Supervisor: resmgr, process, IPC
+- Kế hoạch chi tiết: [m3_plan.md](m3_plan.md).
 - Process `motion_sup`, `logger`, `mgmt`; SHM phân quyền + seqlock.
 - Thread theo priority/policy kiến trúc, timer pulse.
 - Resmgr `/dev/motion` kiểm tra quyền + validate input; client `motionctl`.
@@ -121,9 +122,9 @@ Fault inject trên đường truyền dùng `tools/udp_proxy.py` đặt giữa Q
 
 ## 4. CI/CD
 - GitHub Actions (Ubuntu): cài `arm-none-eabi-gcc`, `qemu-system-arm`, Python.
-- Job M6: build firmware → unit test host → chạy firmware trong QEMU với Python giả lập supervisor (F1, F3, F4, F6, F9, F10) → upload báo cáo/đồ thị. Workflow được cấu hình chạy M1/M2 host tests, CTest wrappers và DBC generation check; remote run chưa được xác nhận. ARM/QEMU CI vẫn còn mở.
+- Job M6: build firmware → unit test host → chạy firmware trong QEMU với Python giả lập supervisor (F1, F3, F4, F6, F9, F10) → upload báo cáo/đồ thị. Workflow được cấu hình chạy M1/M2 host tests, CTest wrappers và DBC generation check; remote run xanh (2026-11-12). ARM/QEMU CI vẫn còn mở.
 - QNX không chạy được trên CI public (license): build/test local, lưu log vào `docs/results/`, ghi rõ trong README.
-- [.github/workflows/ci.yml](../.github/workflows/ci.yml) được cấu hình chạy DBC generation check và pytest cho `tools/` (bao gồm M1/M2 host CTest wrappers); remote run chưa được xác nhận. Thêm ARM firmware/QEMU job ở M6.
+- [.github/workflows/ci.yml](../.github/workflows/ci.yml) được cấu hình chạy DBC generation check và pytest cho `tools/` (bao gồm M1/M2 host CTest wrappers); remote run xanh (2026-11-12). Thêm ARM firmware/QEMU job ở M6.
 
 ## 5. Rủi ro và cách xử lý
 | Rủi ro | Mức | Xử lý |

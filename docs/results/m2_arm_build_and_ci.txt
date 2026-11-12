@@ -1,0 +1,27 @@
+# M2 evidence (SIL, host build) — 2026-11-12
+Commit: 6b62b535f28a5a0560e47207af514be41c9a14e5
+Toolchain: arm-none-eabi-gcc (15:13.2.rel1-2) 13.2.1 20231009; cmake version 3.28.3
+Command: cmake --preset node -S freertos -B <tmp> && cmake --build <tmp>
+
+-- Configuring done (0.2s)
+-- Generating done (0.0s)
+-- Build files have been written to: /tmp/claude-1000/-home-vanluu-RTOS-Project-RTOS/51975a0c-aefd-43d9-b525-8ed1ecd18e7e/scratchpad/arm
+[ 11%] Building C object CMakeFiles/freertos_third_party.dir/third_party/FreeRTOS-Kernel/portable/Common/mpu_wrappers.c.obj
+[ 13%] Building C object CMakeFiles/freertos_third_party.dir/third_party/FreeRTOS-Kernel/portable/Common/mpu_wrappers_v2.c.obj
+[ 73%] Built target freertos_third_party
+/tmp/ccPgZjdj.s:154: Warning: section does not have enough alignment to ensure safe PC-relative loads
+[ 88%] Building C object CMakeFiles/node.elf.dir/home/vanluu/RTOS_Project/RTOS/common/control/plant.c.obj
+[ 89%] Building C object CMakeFiles/node.elf.dir/home/vanluu/RTOS_Project/RTOS/common/control/encoder.c.obj
+[ 90%] Building C object CMakeFiles/node.elf.dir/home/vanluu/RTOS_Project/RTOS/common/control/limits.c.obj
+[ 92%] Building C object CMakeFiles/node.elf.dir/home/vanluu/RTOS_Project/RTOS/common/control/pid.c.obj
+[ 93%] Building C object CMakeFiles/node.elf.dir/home/vanluu/RTOS_Project/RTOS/common/frame/can_frame.c.obj
+[ 94%] Building C object CMakeFiles/node.elf.dir/home/vanluu/RTOS_Project/RTOS/common/e2e/crc32p4.c.obj
+[ 96%] Building C object CMakeFiles/node.elf.dir/home/vanluu/RTOS_Project/RTOS/common/e2e/e2e.c.obj
+[ 97%] Building C object CMakeFiles/node.elf.dir/home/vanluu/RTOS_Project/RTOS/common/generated/can_matrix.c.obj
+[ 98%] Building C object CMakeFiles/node.elf.dir/home/vanluu/RTOS_Project/RTOS/common/generated/can_matrix_meta.c.obj
+   text	   data	    bss	    dec	    hex	filename
+[100%] Built target node.elf
+Result: PASS
+
+Remote CI: workflow 'ci' run 43193661513 on this commit -> success (pytest + dbc_codegen --check + protocol CTest wrappers)
+Not done: comparison with official AUTOSAR E2E documents; wording stays 'Profile 4-based'.

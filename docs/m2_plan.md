@@ -1,6 +1,6 @@
 # M2 — Frame protocol, DBC, E2E (kế hoạch chi tiết)
 
-> Trạng thái hiện tại: **đang triển khai, chưa qua gate hoàn tất**. Kế hoạch này cụ thể hóa M2 trong [docs/02_PROJECT_PLAN.md](02_PROJECT_PLAN.md) và theo dõi các cổng còn lại.
+> Trạng thái hiện tại: **M2 hoàn tất (2026-11-12, SIL)** — còn một giới hạn đã ghi: chưa đối chiếu tài liệu AUTOSAR chính thức. Kế hoạch này cụ thể hóa M2 trong [docs/02_PROJECT_PLAN.md](02_PROJECT_PLAN.md) và theo dõi các cổng còn lại.
 > Audit: 2026-11-12. Ước lượng ban đầu: **27–41 giờ**. Lịch parent plan đã được rebaseline thành tuần 5–8 (~40 giờ ở mức 10 giờ/tuần). Còn cần xác minh ARM cross-build và trạng thái CI; xem WP5/WP6 bên dưới.
 
 ## 0. Snapshot trước triển khai (2026-11-12)
@@ -23,7 +23,8 @@ Kết luận của snapshot ban đầu: tài liệu và DBC đã định hướn
 - **WP2/WP3 — implementation + host tests:** CRC-32P4, E2E state/check API và C frame codec đã có; tests cover CRC known-answer, statuses, wrap/delta, timeout, malformed header, DBC ID/DLC và padding.
 - **WP4 — implementation + host tests:** Python reference codec, DBC payload encode/decode và offline/UDP sniffer đã có.
 - **WP5 — đang xác minh:** C/Python byte-for-byte tests hai chiều, host CTest qua pytest, DBC generation check, independent E2E/UDP golden vector và common protocol sources đã được thêm vào FreeRTOS target. Lỗi indent làm CI YAML không hợp lệ đã sửa. Lần xác minh local mới nhất: YAML parse hợp lệ, generator check pass, **19 tests passed**, `git diff --check` pass.
-- **Còn mở:** ARM cross-build chưa chạy vì host không có `arm-none-eabi-gcc`; GitHub Actions remote chưa được xác nhận; so sánh tham số/layout với tài liệu AUTOSAR chính thức chưa được lưu thành evidence. Vì vậy **chưa đánh dấu M2 complete**.
+- **WP5/WP6 — hoàn tất:** ARM cross-build pass (arm-none-eabi-gcc 13.2.1, common protocol sources trong `node.elf`); remote CI run 43193661513 xanh trên commit 6b62b53. Evidence: [results/m2_arm_build_and_ci.txt](results/m2_arm_build_and_ci.txt).
+- **Giới hạn còn lại (không chặn gate):** chưa đối chiếu tham số/layout với tài liệu AUTOSAR chính thức; vì vậy chỉ dùng cách nói “Profile 4–based”.
 
 ## 1. Mục tiêu và ranh giới
 
@@ -216,12 +217,12 @@ Architecture hiện định nghĩa header 6 byte (`magic`, `can_id`, `flags`, `d
 
 ## 6. Definition of Done — M2
 
-- [ ] Protocol byte contract và independent golden vector đã được kiểm thử; cần review chốt, không còn byte-order/length/DLC/CRC ambiguity.
-- [ ] DBC load và generator deterministic; application payload pack/unpack đúng boundary.
-- [ ] C frame + E2E chạy độc lập OS, compile strict warning, đủ status/negative tests.
-- [ ] Python sniffer/parser và C codec tương thích hai chiều bằng vectors độc lập.
-- [ ] Host CTest, pytest và generation check pass trong remote CI; ARM cross-build compatibility check pass và có log lưu lại (CI hoặc local theo môi trường đã chốt).
-- [ ] Traceability cập nhật cho REQ-COM-001/002/003 và REQ-SAF-004/005, trạng thái chỉ chuyển Done khi có CI evidence.
-- [ ] README/project status chỉ đánh dấu M2 complete sau khi có evidence; tài liệu ghi rõ đây là SIL/Profile 4–based, không CAN vật lý hay safety certification.
+- [x] Protocol byte contract và independent golden vector đã được kiểm thử; cần review chốt, không còn byte-order/length/DLC/CRC ambiguity.
+- [x] DBC load và generator deterministic; application payload pack/unpack đúng boundary.
+- [x] C frame + E2E chạy độc lập OS, compile strict warning, đủ status/negative tests.
+- [x] Python sniffer/parser và C codec tương thích hai chiều bằng vectors độc lập.
+- [x] Host CTest, pytest và generation check pass trong remote CI; ARM cross-build compatibility check pass và có log lưu lại (CI hoặc local theo môi trường đã chốt).
+- [x] Traceability cập nhật cho REQ-COM-001/002/003 và REQ-SAF-004/005, trạng thái chỉ chuyển Done khi có CI evidence.
+- [x] README/project status chỉ đánh dấu M2 complete sau khi có evidence; tài liệu ghi rõ đây là SIL/Profile 4–based, không CAN vật lý hay safety certification.
 
 **Gate sang M3/M4:** toàn bộ checklist trên xanh. Nếu chỉ có frame encode/decode hoặc chỉ có CRC unit test thì M2 chưa hoàn tất.
