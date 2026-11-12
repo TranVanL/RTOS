@@ -1,6 +1,6 @@
 # M3 — QNX Supervisor: resmgr, process, IPC (kế hoạch chi tiết)
 
-> Trạng thái: **đang triển khai (bắt đầu 2026-11-12).** Xong phần host: WP1 (safety FSM), WP2 (SHM seqlock), `common/ipc/motion_ipc` (validate `devctl`: quyền → `EPERM`, kích thước/biên → `EINVAL`), tất cả có CTest. Còn lại cần QNX VM: WP3–WP6 và xác nhận gid group `motion`. Giới hạn vị trí/tốc độ trong `motion_ipc.h` là **tạm thời** (±1 000 000 count, 3000 rpm), cần chốt theo plant/encoder.
+> Trạng thái: **đang triển khai (bắt đầu 2026-11-12).** Xong phần host: WP1 (safety FSM), WP2 (SHM seqlock), `common/ipc/motion_ipc` (validate `devctl`: quyền → `EPERM`, kích thước/biên → `EINVAL`), tất cả có CTest. Ba test host cũng đã build bằng `qcc` và pass trên QNX VM ([log](results/m3_host_tests_on_qnx.txt), SIL). Còn lại cần QNX VM: WP3–WP6 và xác nhận gid group `motion`. Giới hạn vị trí/tốc độ trong `motion_ipc.h` là **tạm thời** (±1 000 000 count, 3000 rpm), cần chốt theo plant/encoder.
 
 **Acceptance (từ plan):** `devctl` sai quyền → `EPERM`, sai tham số → `EINVAL`; `mgmt` ghi SHM chỉ đọc → `SIGSEGV` mà hệ thống vẫn chạy; trace System Profiler chứng minh priority inheritance.
 
