@@ -13,9 +13,9 @@ Yêu cầu (`requirements.md`) → thiết kế (`01_ARCHITECTURE.md`) → code 
 | REQ-SAF-007 | ARCH §5.3 | _chưa có_ | F10 | Todo |
 | REQ-SAF-008 | ARCH §5.3 | _chưa có_ | F11 | Todo |
 | REQ-SAF-009 | Plan F8 | _chưa có_ | F8 | Todo |
-| REQ-SAF-010 | ARCH §4 | [common/safety/safety_fsm.c](../common/safety/safety_fsm.c) | [tests/safety/test_safety_fsm.c](../tests/safety/test_safety_fsm.c) | In progress — FSM host pass; quyền `RESET_FAULT` thuộc WP4 |
-| REQ-SEC-001 | ARCH §3.3 | [common/ipc/motion_ipc.c](../common/ipc/motion_ipc.c) | [tests/safety/test_motion_ipc.c](../tests/safety/test_motion_ipc.c); qnx/tests devctl perm (WP4) | In progress — validate host pass; resmgr/`ConnectClientInfo` chưa có |
-| REQ-SEC-002 | ARCH §3.3 | [common/ipc/motion_ipc.c](../common/ipc/motion_ipc.c) | [tests/safety/test_motion_ipc.c](../tests/safety/test_motion_ipc.c); F7, qnx/tests (WP4) | In progress — validate host pass; resmgr chưa có |
+| REQ-SAF-010 | ARCH §4 | [common/safety/safety_fsm.c](../common/safety/safety_fsm.c) | [tests/safety/test_safety_fsm.c](../tests/safety/test_safety_fsm.c) | In progress — FSM host pass; `RESET_FAULT` chỉ nhận từ group `motion`, `EBUSY` ngoài SAFE_STOP, về READY ([log](results/m3_wp4_devctl.txt)); chờ CI |
+| REQ-SEC-001 | ARCH §3.3 | [common/ipc/motion_ipc.c](../common/ipc/motion_ipc.c) | [tests/safety/test_motion_ipc.c](../tests/safety/test_motion_ipc.c); [results/m3_wp4_devctl.txt](results/m3_wp4_devctl.txt) (`run_m3_wp4.sh`) | Done (M3, SIL VM) — `EPERM` đúng với user ngoài group 3000, OK với group |
+| REQ-SEC-002 | ARCH §3.3 | [common/ipc/motion_ipc.c](../common/ipc/motion_ipc.c) | [tests/safety/test_motion_ipc.c](../tests/safety/test_motion_ipc.c); [results/m3_wp4_devctl.txt](results/m3_wp4_devctl.txt); F7 (M5) | Done (M3, SIL VM) — `EINVAL` cho lệnh/kích thước/biên sai |
 | REQ-SEC-003 | ARCH §3.1 | [common/shm/motion_shm.c](../common/shm/motion_shm.c) | [tests/safety/test_motion_shm.c](../tests/safety/test_motion_shm.c) (seqlock, API chỉ đọc const); F14 (WP5) | In progress — seqlock host pass; SIGSEGV trên QNX chưa có |
 | REQ-SEC-004 | ARCH §3.1 | _chưa có_ | F13 | Todo |
 | REQ-COM-001 | ARCH §6.1 | [common/frame/can_frame.c](../common/frame/can_frame.c), [common/generated/can_matrix_meta.c](../common/generated/can_matrix_meta.c) | [tests/protocol/test_can_frame.c](../tests/protocol/test_can_frame.c), [tools/tests/test_m2_protocol.py](../tools/tests/test_m2_protocol.py) | Done (M2) — host + CI pass, 2026-11-12 |

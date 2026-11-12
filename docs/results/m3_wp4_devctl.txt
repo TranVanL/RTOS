@@ -1,0 +1,40 @@
+# M3 WP4 /dev/motion on QNX VM (SIL, QEMU/KVM) — 2026-11-12 commit 86ab3a7
+QNX noname 8.0.0 2026/06/05-16:26:03EDT x86pc x86_64
+crw-rw-rw-  1 root root 0,   1 2026-11-12 11:38 /dev/motion
+[noGrp_status] STATUS state=READY cause=0 tick=151 hb_missed=0 e2e_errors=0 position=0 motionctl status: rc=0 (No error) 
+[noGrp_target] motionctl target: rc=1 (Operation not permitted) 
+[noGrp_enable] motionctl enable: rc=1 (Operation not permitted) 
+[noGrp_disable] motionctl disable: rc=1 (Operation not permitted) 
+[noGrp_reset] motionctl reset: rc=1 (Operation not permitted) 
+[grp_badcmd] motionctl rawcmd: rc=22 (Invalid argument) 
+[grp_posRange] motionctl target: rc=22 (Invalid argument) 
+[grp_velRange] motionctl target: rc=22 (Invalid argument) 
+[grp_badSize] motionctl rawtarget: rc=22 (Invalid argument) 
+[grp_target] motionctl target: rc=0 (No error) 
+[grp_reset_ready] motionctl reset: rc=16 (Resource busy) 
+[grp_enable] motionctl enable: rc=0 (No error) 
+[status_run] STATUS state=RUN cause=0 tick=178 hb_missed=0 e2e_errors=0 position=0 motionctl status: rc=0 (No error) 
+[noGrp_estop] motionctl estop: rc=0 (No error) 
+[status_safe] STATUS state=SAFE_STOP cause=1 tick=200 hb_missed=0 e2e_errors=0 position=0 motionctl status: rc=0 (No error) 
+[noGrp_reset2] motionctl reset: rc=1 (Operation not permitted) 
+[grp_reset2] motionctl reset: rc=0 (No error) 
+[status_ready] STATUS state=READY cause=0 tick=222 hb_missed=0 e2e_errors=0 position=0 motionctl status: rc=0 (No error) 
+[sup] SUMMARY ticks=1500 monitor_ticks=3001 rx_frames=2901 hb_good=1451 hb_miss=0 e2e_err=0 tx_cmd=1479 estop_sent=3 final_state=READY cause=0
+PASS noGrp_status ~ rc=0 
+PASS noGrp_target ~ rc=1 
+PASS noGrp_enable ~ rc=1 
+PASS noGrp_disable ~ rc=1 
+PASS noGrp_reset ~ rc=1 
+PASS grp_badcmd ~ rc=22 
+PASS grp_posRange ~ rc=22 
+PASS grp_velRange ~ rc=22 
+PASS grp_badSize ~ rc=22 
+PASS grp_target ~ rc=0 
+PASS grp_reset_ready ~ rc=16 
+PASS grp_enable ~ rc=0 
+PASS status_run ~ state=RUN
+PASS noGrp_estop ~ rc=0 
+PASS status_safe ~ state=SAFE_STOP cause=1
+PASS noGrp_reset2 ~ rc=1 
+PASS grp_reset2 ~ rc=0 
+PASS status_ready ~ state=READY

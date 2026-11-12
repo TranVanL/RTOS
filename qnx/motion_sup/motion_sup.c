@@ -7,10 +7,12 @@
  *   Control     SCHED_FIFO 50  10 ms   steps the safety FSM, writes SHM, kicks TX
  *   Frame RX    SCHED_FIFO 45  event   UDP -> frame -> E2E -> shared counters
  *   Frame TX    SCHED_FIFO 45  event   sends CMD
+ *   resmgr      SCHED_RR   20  event   /dev/motion devctl (group-checked via ConnectClientInfo)
  *
  * Pass/fail uses counts (ticks, frames), never milliseconds. SIL, QEMU/KVM VM.
  */
 #include "can_matrix.h"
+#include "motion_dcmd.h"
 #include "motion_ipc.h"
 #include "motion_shm.h"
 #include "proto_link.h"
@@ -26,6 +28,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/dispatch.h>
+#include <sys/iofunc.h>
 #include <sys/mman.h>
 #include <sys/neutrino.h>
 #include <sys/socket.h>
@@ -43,7 +47,7 @@ typedef struct {
     unsigned ticks;          /* control ticks to run, then exit */
     bool autoenable;         /* test only: enable once READY and a heartbeat was seen */
     unsigned estop_at;       /* test only: request E-stop at this tick (0 = never) */
-    int32_t target_pos;
+    int32_t target_pos;      /* initial values; live copies are atomics below */
     uint32_t vel_rpm;
 } cfg_t;
 
@@ -64,6 +68,12 @@ static _Atomic int limit_violation, estop_request;
 static _Atomic uint32_t monitor_ticks, estop_sent, tx_cmd, ctl_ticks;
 static _Atomic int last_state, last_cause;
 static int chid_estop, chid_tx;
+static _Atomic int32_t g_target_pos;
+static _Atomic uint32_t g_vel_rpm;
+/* one-shot requests from /dev/motion, consumed by the control thread */
+static _Atomic int req_enable, req_disable, req_reset;
+static _Atomic uint32_t status_tick, status_hb_miss, status_e2e;
+static _Atomic int32_t status_position;
 
 static uint32_t now_ms(void)
 {
@@ -208,8 +218,8 @@ static void *tx_thread(void *arg)
         if (p.code != PULSE_EVENT) { continue; }
         uint32_t pct = (uint32_t)p.value.sival_int & 0xFFu, enable = ((uint32_t)p.value.sival_int >> 8) & 1u;
         struct can_matrix_cmd_t m = { .mode = enable ? 1 : 0,
-                                      .vel_limit = (uint16_t)(cfg.vel_rpm * pct / 100u),
-                                      .target_pos = cfg.target_pos };
+                                      .vel_limit = (uint16_t)(atomic_load(&g_vel_rpm) * pct / 100u),
+                                      .target_pos = atomic_load(&g_target_pos) };
         uint8_t raw[16], dg[PROTO_DATAGRAM_MAX]; size_t n = 0;
         can_matrix_cmd_pack(raw, &m, sizeof raw);
         if (proto_encode(0x100, raw, 7, counter++, dg, sizeof dg, &n) == PROTO_OK) {
@@ -250,17 +260,22 @@ static void *control_thread(void *arg)
         pthread_mutex_unlock(&sh.lock);
         in.self_test_ok = motion_shm_validate(shm);
         in.limit_violation = atomic_load(&limit_violation) != 0;
-        in.estop = atomic_load(&estop_request) != 0 || (cfg.estop_at && tick == cfg.estop_at);
-        in.cmd_enable = cfg.autoenable && fsm.state == SAFETY_READY && in.hb_valid;
+        in.estop = atomic_exchange(&estop_request, 0) != 0 || (cfg.estop_at && tick == cfg.estop_at);
+        in.cmd_enable = atomic_exchange(&req_enable, 0) != 0 ||
+                        (cfg.autoenable && fsm.state == SAFETY_READY && in.hb_valid);
+        in.cmd_disable = atomic_exchange(&req_disable, 0) != 0;
+        in.cmd_reset_fault = atomic_exchange(&req_reset, 0) != 0;
 
         safety_outputs_t out;
         safety_fsm_step(&fsm, &in, &out);
 
         ms.fsm_state = (uint32_t)out.state; ms.fsm_cause = (uint32_t)out.cause;
-        ms.tick = tick; ms.target_pos = cfg.target_pos; ms.cmd_counter = atomic_load(&tx_cmd);
+        ms.tick = tick; ms.target_pos = atomic_load(&g_target_pos); ms.cmd_counter = atomic_load(&tx_cmd);
         motion_shm_write(shm, &ms);
         atomic_store(&last_state, (int)out.state); atomic_store(&last_cause, (int)out.cause);
         atomic_store(&ctl_ticks, tick);
+        atomic_store(&status_tick, tick); atomic_store(&status_hb_miss, ms.hb_missed);
+        atomic_store(&status_e2e, ms.e2e_errors); atomic_store(&status_position, ms.position);
 
         if (out.send_estop) {
             MsgSendPulse(es_coid, 60, PULSE_EVENT, (int)out.cause);
@@ -272,6 +287,107 @@ static void *control_thread(void *arg)
         }
         prev_safe = safe;
         if (cfg.ticks && tick >= cfg.ticks) { atomic_store(&running, 0); }
+    }
+    return NULL;
+}
+
+
+/* ---- resmgr /dev/motion (SCHED_RR 20) ---- */
+static bool client_in_group(resmgr_context_t *ctp)
+{
+    struct _client_info ci;
+    if (ConnectClientInfo(ctp->info.scoid, &ci, 32) == -1) { return false; }
+    if ((int)ci.cred.egid == MOTION_GROUP_GID || (int)ci.cred.rgid == MOTION_GROUP_GID) { return true; }
+    for (unsigned i = 0; i < ci.cred.ngroups; ++i) {
+        if ((int)ci.cred.grouplist[i] == MOTION_GROUP_GID) { return true; }
+    }
+    return false;
+}
+
+static motion_cmd_t dcmd_to_cmd(int dcmd)
+{
+    if (dcmd == (int)DCMD_MOTION_GET_STATUS)  return MOTION_CMD_GET_STATUS;
+    if (dcmd == (int)DCMD_MOTION_SET_TARGET)  return MOTION_CMD_SET_TARGET;
+    if (dcmd == (int)DCMD_MOTION_ENABLE)      return MOTION_CMD_ENABLE;
+    if (dcmd == (int)DCMD_MOTION_DISABLE)     return MOTION_CMD_DISABLE;
+    if (dcmd == (int)DCMD_MOTION_ESTOP)       return MOTION_CMD_ESTOP;
+    if (dcmd == (int)DCMD_MOTION_RESET_FAULT) return MOTION_CMD_RESET_FAULT;
+    return (motion_cmd_t)0;
+}
+
+static int io_devctl(resmgr_context_t *ctp, io_devctl_t *msg, void *ocb_v)
+{
+    iofunc_ocb_t *ocb = ocb_v;
+    int rc = iofunc_devctl_default(ctp, msg, ocb);
+    if (rc != _RESMGR_DEFAULT) { return rc; }
+
+    motion_cmd_t cmd = dcmd_to_cmd(msg->i.dcmd);
+    void *data = _DEVCTL_DATA(msg->i);
+    size_t nbytes = (size_t)msg->i.nbytes;
+    bool in_group = client_in_group(ctp);
+    if (cmd == MOTION_CMD_GET_STATUS) {            /* DIOF: nbytes is the reply capacity */
+        if (nbytes < sizeof(motion_status_t)) { return EINVAL; }
+        nbytes = 0;
+    }
+    motion_result_t r = motion_validate_request((uint32_t)cmd, in_group, data, nbytes);
+    if (r == MOTION_EPERM) { return EPERM; }
+    if (r != MOTION_OK) { return EINVAL; }
+
+    int state = atomic_load(&last_state);
+    memset(&msg->o, 0, sizeof msg->o);
+    switch (cmd) {
+    case MOTION_CMD_GET_STATUS: {
+        motion_status_t st = { .fsm_state = (uint32_t)state, .fsm_cause = (uint32_t)atomic_load(&last_cause),
+                               .tick = atomic_load(&status_tick), .hb_missed = atomic_load(&status_hb_miss),
+                               .e2e_errors = atomic_load(&status_e2e), .position = atomic_load(&status_position) };
+        memcpy(_DEVCTL_DATA(msg->o), &st, sizeof st);
+        msg->o.nbytes = sizeof st;
+        return _RESMGR_PTR(ctp, &msg->o, sizeof msg->o + sizeof st);
+    }
+    case MOTION_CMD_SET_TARGET: {
+        motion_set_target_t req; memcpy(&req, data, sizeof req);
+        atomic_store(&g_target_pos, req.target_pos); atomic_store(&g_vel_rpm, req.vel_limit);
+        break;
+    }
+    case MOTION_CMD_ENABLE:
+        if (state != SAFETY_READY) { return EBUSY; }
+        atomic_store(&req_enable, 1);
+        break;
+    case MOTION_CMD_DISABLE:
+        atomic_store(&req_disable, 1);
+        break;
+    case MOTION_CMD_ESTOP:
+        atomic_store(&estop_request, 1);
+        break;
+    case MOTION_CMD_RESET_FAULT:
+        if (state != SAFETY_SAFE_STOP) { return EBUSY; }
+        atomic_store(&req_reset, 1);
+        break;
+    default:
+        return EINVAL;
+    }
+    SETIOV(&ctp->iov[0], &msg->o, sizeof msg->o);
+    return _RESMGR_NPARTS(1);
+}
+
+static void *resmgr_thread(void *arg)
+{
+    (void)arg;
+    log_thread("resmgr");
+    dispatch_t *dpp = dispatch_create();
+    resmgr_attr_t rattr; resmgr_connect_funcs_t cfuncs; resmgr_io_funcs_t ifuncs; iofunc_attr_t attr;
+    memset(&rattr, 0, sizeof rattr);
+    rattr.nparts_max = 1; rattr.msg_max_size = 1024;
+    iofunc_func_init(_RESMGR_CONNECT_NFUNCS, &cfuncs, _RESMGR_IO_NFUNCS, &ifuncs);
+    ifuncs.devctl = io_devctl;
+    iofunc_attr_init(&attr, S_IFCHR | 0666, NULL, NULL);   /* anyone may open; privilege is by group */
+    if (dpp == NULL || resmgr_attach(dpp, &rattr, MOTION_DEVICE_PATH, _FTYPE_ANY, 0, &cfuncs, &ifuncs, &attr) == -1) {
+        perror("resmgr_attach"); exit(2);
+    }
+    dispatch_context_t *ctp = dispatch_context_alloc(dpp);
+    while (atomic_load(&running)) {
+        ctp = dispatch_block(ctp);
+        if (ctp != NULL) { dispatch_handler(ctp); }
     }
     return NULL;
 }
@@ -318,15 +434,24 @@ int main(int argc, char **argv)
     chid_estop = ChannelCreate(0);
     chid_tx = ChannelCreate(0);
 
+    atomic_store(&g_target_pos, cfg.target_pos); atomic_store(&g_vel_rpm, cfg.vel_rpm);
     pthread_t te = spawn(estop_thread, NULL, 60);
     pthread_t tm = spawn(monitor_thread, NULL, 55);
     pthread_t tr = spawn(rx_thread, &rx_sock, 45);
     pthread_t tt = spawn(tx_thread, NULL, 45);
     pthread_t tc = spawn(control_thread, NULL, 50);
+    pthread_attr_t ra; struct sched_param rsp = { .sched_priority = 20 }; pthread_t tres;
+    pthread_attr_init(&ra);
+    pthread_attr_setinheritsched(&ra, PTHREAD_EXPLICIT_SCHED);
+    pthread_attr_setschedpolicy(&ra, SCHED_RR);
+    pthread_attr_setschedparam(&ra, &rsp);
+    if (pthread_create(&tres, &ra, resmgr_thread, NULL) != 0) { perror("resmgr thread"); return 2; }
 
     pthread_join(tc, NULL);
     pthread_join(tm, NULL);
     pthread_join(tr, NULL);
+    pthread_cancel(tres);
+    pthread_join(tres, NULL);
     int c = ConnectAttach(0, 0, chid_estop, _NTO_SIDE_CHANNEL, 0);
     MsgSendPulse(c, 60, PULSE_QUIT, 0);
     c = ConnectAttach(0, 0, chid_tx, _NTO_SIDE_CHANNEL, 0);
