@@ -6,14 +6,14 @@ Yêu cầu (`requirements.md`) → thiết kế (`01_ARCHITECTURE.md`) → code 
 |---|---|---|---|---|
 | REQ-SAF-001 | ARCH §5.3 | _chưa có_ | F1 | Todo |
 | REQ-SAF-002 | ARCH §7 | _chưa có_ | F6 | Todo |
-| REQ-SAF-003 | ARCH §4 | [common/safety/safety_fsm.c](../common/safety/safety_fsm.c) | [tests/safety/test_safety_fsm.c](../tests/safety/test_safety_fsm.c); F2 (tích hợp, M4/M5) | In progress — FSM host pass + `motion_sup` kịch bản B trên QNX VM ([log](results/m3_wp3_scenarios.txt)); 3/10 miss tích hợp với node thật ở M4 |
+| REQ-SAF-003 | ARCH §4 | [common/safety/safety_fsm.c](../common/safety/safety_fsm.c) | [tests/safety/test_safety_fsm.c](../tests/safety/test_safety_fsm.c); F2 (tích hợp, M4/M5) | Done phía QNX (M3) — FSM host + CI xanh, `motion_sup` kịch bản B trên VM ([log](results/m3_wp3_scenarios.txt)); F2 với node thật ở M4/M5 |
 | REQ-SAF-004 | ARCH §6.2 | [common/e2e/e2e.c](../common/e2e/e2e.c), [common/frame/can_frame.c](../common/frame/can_frame.c) | [tests/protocol/test_e2e.c](../tests/protocol/test_e2e.c), [tools/tests/test_m2_protocol.py](../tools/tests/test_m2_protocol.py) | Done (M2) — host + CI pass, 2026-11-12 |
 | REQ-SAF-005 | ARCH §6.2 | [common/e2e/e2e.c](../common/e2e/e2e.c) | [tests/protocol/test_e2e.c](../tests/protocol/test_e2e.c), [tools/tests/test_m2_protocol.py](../tools/tests/test_m2_protocol.py) | Done (M2) — host + CI pass, 2026-11-12 |
 | REQ-SAF-006 | ARCH §5.3 | _chưa có_ | F9 | Todo |
 | REQ-SAF-007 | ARCH §5.3 | _chưa có_ | F10 | Todo |
 | REQ-SAF-008 | ARCH §5.3 | _chưa có_ | F11 | Todo |
 | REQ-SAF-009 | Plan F8 | _chưa có_ | F8 | Todo |
-| REQ-SAF-010 | ARCH §4 | [common/safety/safety_fsm.c](../common/safety/safety_fsm.c) | [tests/safety/test_safety_fsm.c](../tests/safety/test_safety_fsm.c) | In progress — FSM host pass; `RESET_FAULT` chỉ nhận từ group `motion`, `EBUSY` ngoài SAFE_STOP, về READY ([log](results/m3_wp4_devctl.txt)); chờ CI |
+| REQ-SAF-010 | ARCH §4 | [common/safety/safety_fsm.c](../common/safety/safety_fsm.c) | [tests/safety/test_safety_fsm.c](../tests/safety/test_safety_fsm.c) | Done (M3) — FSM host + CI xanh; `RESET_FAULT` chỉ nhận từ group `motion`, `EBUSY` ngoài SAFE_STOP, về READY ([log](results/m3_wp4_devctl.txt)) |
 | REQ-SEC-001 | ARCH §3.3 | [common/ipc/motion_ipc.c](../common/ipc/motion_ipc.c) | [tests/safety/test_motion_ipc.c](../tests/safety/test_motion_ipc.c); [results/m3_wp4_devctl.txt](results/m3_wp4_devctl.txt) (`run_m3_wp4.sh`) | Done (M3, SIL VM) — `EPERM` đúng với user ngoài group 3000, OK với group |
 | REQ-SEC-002 | ARCH §3.3 | [common/ipc/motion_ipc.c](../common/ipc/motion_ipc.c) | [tests/safety/test_motion_ipc.c](../tests/safety/test_motion_ipc.c); [results/m3_wp4_devctl.txt](results/m3_wp4_devctl.txt); F7 (M5) | Done (M3, SIL VM) — `EINVAL` cho lệnh/kích thước/biên sai |
 | REQ-SEC-003 | ARCH §3.1 | [common/shm/motion_shm.c](../common/shm/motion_shm.c) | [tests/safety/test_motion_shm.c](../tests/safety/test_motion_shm.c) (seqlock, API chỉ đọc const); [results/m3_wp5_shm_crash.txt](results/m3_wp5_shm_crash.txt) (`run_m3_wp5.sh`); F14 tự động hóa ở M5 | Done (M3, SIL VM) — `mgmt` ghi SHM chỉ đọc → SIGSEGV, hệ thống vẫn chạy; `O_RDWR` bởi user khác bị từ chối |

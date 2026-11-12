@@ -11,7 +11,7 @@ Mỗi milestone có **acceptance criteria đo được**; không chuyển milest
 | M0 | 1–2 | Môi trường SIL + kết nối | — |
 | M1 | 3–4 | FreeRTOS control loop | — |
 | M2 | 5–8 | Frame, DBC, E2E — **xong 2026-11-12** | — |
-| M3 | 9–11 | QNX supervisor | — |
+| M3 | 9–11 | QNX supervisor — **xong 2026-11-12** | — |
 | M4 | 12–13 | Tích hợp end-to-end | **Mức tối thiểu để ghi CV** (kèm ≥ 4 kịch bản F) |
 | M5 | 14–15 | Fault injection đầy đủ + safety_concept | Bản đầy đủ |
 | M6 | 16–17 | CI, traceability, README, video | Hoàn thiện |
@@ -37,7 +37,7 @@ Mỗi milestone có **acceptance criteria đo được**; không chuyển milest
 - **Acceptance:** unit test E2E phủ `OK/REPEATED/WRONG_SEQ/CRC_ERR/LEN_OR_ID_ERR/TIMEOUT`; CRC khớp vector tính độc lập bằng Python; frame do C sinh được Python giải mã đúng 100% (round-trip).
 
 ### M3 — QNX Supervisor: resmgr, process, IPC
-- Kế hoạch chi tiết: [m3_plan.md](m3_plan.md).
+- Kế hoạch chi tiết: [m3_plan.md](m3_plan.md). **Hoàn tất 2026-11-12** (SIL): xem [m3_complete_guide.html](m3_complete_guide.html).
 - Process `motion_sup`, `logger`, `mgmt`; SHM phân quyền + seqlock.
 - Thread theo priority/policy kiến trúc, timer pulse.
 - Resmgr `/dev/motion` kiểm tra quyền + validate input; client `motionctl`.
