@@ -80,6 +80,7 @@ graph LR
 - SHM tạo bằng `shm_open()` + `mmap()`; process chỉ đọc mở với `O_RDONLY` + `PROT_READ`. Ghi vào vùng chỉ đọc gây `SIGSEGV` — dùng làm một kịch bản fault injection để chứng minh memory protection giữa các process.
 - Đồng bộ SHM bằng seqlock (writer duy nhất, reader không khóa) để tránh reader làm chậm control thread.
 - Process crash được phát hiện bằng QNX `procmgr_event`/death pulse; `logger`/`mgmt` crash không ảnh hưởng control; `motion_sup` crash → FreeRTOS mất heartbeat → tự SAFE_STOP (xem mục 6).
+- **Hiện thực (M3 WP5):** `motion_sup` tạo `logger`/`mgmt` bằng `posix_spawn`, đăng ký `procmgr_event_notify_add(PROCMGR_EVENT_PROCESS_DEATH)` nhận pulse và dùng `waitpid(WNOHANG)` để biết tín hiệu/exit code (kèm poll 50 ms phòng khi pulse đến trước khi child waitable). `/motion_state` tạo mode `0644` do `motion_sup` sở hữu; process khác uid chỉ mở được `O_RDONLY` (mở `O_RDWR` → `EACCES`), ánh xạ `PROT_READ`.
 
 ### 3.2 Thread trong `motion_sup`
 | Thread | Policy / priority | Chu kỳ | Nhiệm vụ |

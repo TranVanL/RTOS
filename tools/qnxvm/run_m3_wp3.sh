@@ -11,6 +11,7 @@ SRC="$ROOT/common/safety/safety_fsm.c $ROOT/common/shm/motion_shm.c $ROOT/common
 TMP=$(mktemp -d)
 qcc -Vgcc_ntox86_64 -std=gnu11 -Wall -Wextra -Werror $INC "$ROOT/qnx/motion_sup/motion_sup.c" $SRC -o $TMP/motion_sup -lsocket || exit 2
 qcc -Vgcc_ntox86_64 -std=gnu11 -Wall -Wextra -Werror $INC "$ROOT/qnx/tests/m3_peer.c" $SRC -o $TMP/m3_peer -lsocket || exit 2
+$SSH "slay -f motion_sup m3_peer logger mgmt 2>/dev/null; sleep 0.5" >/dev/null 2>&1
 scp -q $KEY -o StrictHostKeyChecking=no -P 2222 $TMP/motion_sup $TMP/m3_peer root@127.0.0.1:/tmp/ || exit 2
 # fixed group for resmgr privilege checks (gid 3000), idempotent
 $SSH 'grep -q "^motion:" /etc/group || echo "motion:x:3000:" >> /etc/group; grep "^motion:" /etc/group'

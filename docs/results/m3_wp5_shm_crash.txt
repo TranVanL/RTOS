@@ -1,0 +1,44 @@
+# M3 WP5 SHM read-only + crash detection on QNX VM (SIL, QEMU/KVM) — 2026-11-12 commit c53762b
+QNX noname 8.0.0 2026/06/05-16:26:03EDT x86pc x86_64
+[mgmt_status_after_poke] MGMT state=RUN cause=0 tick=300 hb_miss=0 e2e=0 pos=0
+[mgmt_openrw_nonowner] MGMT openrw: denied (errno=13)
+[mgmt_forward_status] MGMT forward status: rc=0 (No error)
+nrw-r--r--  5 root root 64 2026-11-12 11:49 /dev/shmem/motion_state
+--- motion_sup output
+THREAD death      tid=2 policy=FIFO prio=40
+CHILD logger pid=6533144
+CHILD logger pid=6533145
+CHILD mgmt pid=6533146
+THREAD estop      tid=3 policy=FIFO prio=60
+THREAD hb_monitor tid=4 policy=FIFO prio=55
+THREAD frame_rx   tid=5 policy=FIFO prio=45
+THREAD frame_tx   tid=6 policy=FIFO prio=45
+THREAD control    tid=7 policy=FIFO prio=50
+THREAD resmgr     tid=8 policy=RR prio=20
+MGMT poking read-only SHM (expect SIGSEGV)
+DEATH mgmt pid=6533146 signal=11 exit=-1 at_tick=152
+logger: crashing on purpose
+DEATH logger pid=6533145 signal=11 exit=-1 at_tick=306
+LOGGER samples=262 lines=54 rotations=1 failed_reads=0 last_tick=548
+DEATH logger pid=6533144 signal=0 exit=0 at_tick=550
+SUMMARY ticks=600 monitor_ticks=1199 rx_frames=1101 hb_good=551 hb_miss=0 e2e_err=0 tx_cmd=600 estop_sent=0 child_deaths=3 final_state=RUN cause=0
+--- files
+-rw-r--r--  1 root root 1349 2026-11-12 11:49 /tmp/motion.log
+-rw-r--r--  1 root root 2109 2026-11-12 11:49 /tmp/motion.log.1
+-rw-r--r--  1 root root 1917 2026-11-12 11:49 /tmp/motion_crash.log
+--- tail motion.log
+t=5250 seq=1048 tick=524 state=RUN cause=0 hb_miss=0 e2e=0 pos=0
+t=5355 seq=1070 tick=535 state=RUN cause=0 hb_miss=0 e2e=0 pos=0
+t=5460 seq=1090 tick=545 state=RUN cause=0 hb_miss=0 e2e=0 pos=0
+PASS mgmt write to read-only SHM -> SIGSEGV (11)
+PASS crashing logger detected (SIGSEGV)
+PASS healthy logger exits cleanly (exit=0)
+PASS 3 child exits observed (2 crashes + 1 clean)
+PASS motion_sup completed all 600 ticks
+PASS motion_sup still RUN, no E-stop
+PASS mgmt (restarted view) reads RUN after poke
+PASS non-owner O_RDWR on SHM denied
+PASS mgmt forward via /dev/motion works
+PASS healthy logger finished
+PASS log rotation happened
+PASS logger kept logging after mgmt death (tick 152 -> 548)

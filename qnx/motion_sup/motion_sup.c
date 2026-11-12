@@ -24,6 +24,9 @@
 #include <pthread.h>
 #include <sched.h>
 #include <signal.h>
+#include <spawn.h>
+#include <sys/procmgr.h>
+#include <sys/wait.h>
 #include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -40,6 +43,8 @@
 #define PULSE_TICK (_PULSE_CODE_MINAVAIL + 1)
 #define PULSE_EVENT (_PULSE_CODE_MINAVAIL + 2)
 #define PULSE_QUIT (_PULSE_CODE_MINAVAIL + 3)
+#define PULSE_DEATH (_PULSE_CODE_MINAVAIL + 4)
+#define MAX_CHILDREN 4
 
 typedef struct {
     const char *peer_ip;
@@ -49,6 +54,8 @@ typedef struct {
     unsigned estop_at;       /* test only: request E-stop at this tick (0 = never) */
     int32_t target_pos;      /* initial values; live copies are atomics below */
     uint32_t vel_rpm;
+    const char *spawn[MAX_CHILDREN];   /* --spawn "prog args" (logger/mgmt children) */
+    int nspawn;
 } cfg_t;
 
 typedef struct {
@@ -68,6 +75,10 @@ static _Atomic int limit_violation, estop_request;
 static _Atomic uint32_t monitor_ticks, estop_sent, tx_cmd, ctl_ticks;
 static _Atomic int last_state, last_cause;
 static int chid_estop, chid_tx;
+typedef struct { char name[32]; pid_t pid; bool alive; } child_t;
+static child_t children[MAX_CHILDREN];
+static int nchildren;
+static _Atomic uint32_t child_deaths;
 static _Atomic int32_t g_target_pos;
 static _Atomic uint32_t g_vel_rpm;
 /* one-shot requests from /dev/motion, consumed by the control thread */
@@ -292,6 +303,53 @@ static void *control_thread(void *arg)
 }
 
 
+/* ---- death watcher (40): PROCMGR_EVENT_PROCESS_DEATH pulse + waitpid for the cause ---- */
+static void spawn_children(void)
+{
+    for (int i = 0; i < cfg.nspawn && nchildren < MAX_CHILDREN; ++i) {
+        char *copy = strdup(cfg.spawn[i]); char *argvv[16]; int n = 0;
+        for (char *t = strtok(copy, " "); t && n < 15; t = strtok(NULL, " ")) { argvv[n++] = t; }
+        argvv[n] = NULL;
+        pid_t pid;
+        if (posix_spawn(&pid, argvv[0], NULL, NULL, argvv, environ) != 0) { perror("posix_spawn"); exit(2); }
+        const char *base = strrchr(argvv[0], '/');
+        snprintf(children[nchildren].name, sizeof children[nchildren].name, "%s", base ? base + 1 : argvv[0]);
+        children[nchildren].pid = pid; children[nchildren].alive = true; nchildren++;
+        printf("CHILD %s pid=%d\n", children[nchildren - 1].name, (int)pid); fflush(stdout);
+    }
+}
+
+static void reap_children(void)
+{
+    for (int i = 0; i < nchildren; ++i) {
+        int st;
+        if (children[i].alive && waitpid(children[i].pid, &st, WNOHANG) == children[i].pid) {
+            children[i].alive = false; atomic_fetch_add(&child_deaths, 1);
+            printf("DEATH %s pid=%d signal=%d exit=%d at_tick=%u\n", children[i].name, (int)children[i].pid,
+                   WIFSIGNALED(st) ? WTERMSIG(st) : 0, WIFEXITED(st) ? WEXITSTATUS(st) : -1, atomic_load(&ctl_ticks));
+            fflush(stdout);
+        }
+    }
+}
+
+static void *death_thread(void *arg)
+{
+    (void)arg;
+    log_thread("death");
+    int chid = ChannelCreate(0);
+    int coid = ConnectAttach(0, 0, chid, _NTO_SIDE_CHANNEL, 0);
+    struct sigevent ev; struct _pulse p; uint64_t to = 50000000ULL;   /* 50 ms safety poll */
+    SIGEV_PULSE_INIT(&ev, coid, 40, PULSE_DEATH, 0);
+    if (procmgr_event_notify_add(PROCMGR_EVENT_PROCESS_DEATH, &ev) == -1) { perror("procmgr_event_notify_add"); }
+    while (atomic_load(&running)) {
+        TimerTimeout(CLOCK_MONOTONIC, _NTO_TIMEOUT_RECEIVE, NULL, &to, NULL);
+        (void)MsgReceivePulse(chid, &p, sizeof p, NULL);   /* pulse or timeout: both just re-check children */
+        reap_children();
+    }
+    reap_children();
+    return NULL;
+}
+
 /* ---- resmgr /dev/motion (SCHED_RR 20) ---- */
 static bool client_in_group(resmgr_context_t *ctp)
 {
@@ -392,7 +450,7 @@ static void *resmgr_thread(void *arg)
     return NULL;
 }
 
-static pthread_t spawn(void *(*fn)(void *), void *arg, int prio)
+static pthread_t start_thread(void *(*fn)(void *), void *arg, int prio)
 {
     pthread_attr_t a; struct sched_param sp = { .sched_priority = prio }; pthread_t t;
     pthread_attr_init(&a);
@@ -415,6 +473,7 @@ int main(int argc, char **argv)
         else if (i + 1 < argc && !strcmp(argv[i], "--estop-port")) { cfg.estop_port = atoi(argv[++i]); }
         else if (i + 1 < argc && !strcmp(argv[i], "--local-port")) { cfg.local_port = atoi(argv[++i]); }
         else if (i + 1 < argc && !strcmp(argv[i], "--ticks")) { cfg.ticks = (unsigned)atoi(argv[++i]); }
+        else if (i + 1 < argc && !strcmp(argv[i], "--spawn") && cfg.nspawn < MAX_CHILDREN) { cfg.spawn[cfg.nspawn++] = argv[++i]; }
         else if (i + 1 < argc && !strcmp(argv[i], "--estop-at")) { cfg.estop_at = (unsigned)atoi(argv[++i]); }
         else { fprintf(stderr, "usage: motion_sup [--autoenable] [--peer-ip IP] [--peer-port P] [--estop-port P] [--local-port P] [--ticks N] [--estop-at N]\n"); return 2; }
     }
@@ -435,11 +494,13 @@ int main(int argc, char **argv)
     chid_tx = ChannelCreate(0);
 
     atomic_store(&g_target_pos, cfg.target_pos); atomic_store(&g_vel_rpm, cfg.vel_rpm);
-    pthread_t te = spawn(estop_thread, NULL, 60);
-    pthread_t tm = spawn(monitor_thread, NULL, 55);
-    pthread_t tr = spawn(rx_thread, &rx_sock, 45);
-    pthread_t tt = spawn(tx_thread, NULL, 45);
-    pthread_t tc = spawn(control_thread, NULL, 50);
+    pthread_t tdeath = start_thread(death_thread, NULL, 40);
+    spawn_children();
+    pthread_t te = start_thread(estop_thread, NULL, 60);
+    pthread_t tm = start_thread(monitor_thread, NULL, 55);
+    pthread_t tr = start_thread(rx_thread, &rx_sock, 45);
+    pthread_t tt = start_thread(tx_thread, NULL, 45);
+    pthread_t tc = start_thread(control_thread, NULL, 50);
     pthread_attr_t ra; struct sched_param rsp = { .sched_priority = 20 }; pthread_t tres;
     pthread_attr_init(&ra);
     pthread_attr_setinheritsched(&ra, PTHREAD_EXPLICIT_SCHED);
@@ -450,6 +511,7 @@ int main(int argc, char **argv)
     pthread_join(tc, NULL);
     pthread_join(tm, NULL);
     pthread_join(tr, NULL);
+    pthread_join(tdeath, NULL);
     pthread_cancel(tres);
     pthread_join(tres, NULL);
     int c = ConnectAttach(0, 0, chid_estop, _NTO_SIDE_CHANNEL, 0);
@@ -461,9 +523,9 @@ int main(int argc, char **argv)
 
     pthread_mutex_lock(&sh.lock);
     printf("SUMMARY ticks=%u monitor_ticks=%u rx_frames=%u hb_good=%u hb_miss=%u e2e_err=%u "
-           "tx_cmd=%u estop_sent=%u final_state=%s cause=%d\n",
+           "tx_cmd=%u estop_sent=%u child_deaths=%u final_state=%s cause=%d\n",
            atomic_load(&ctl_ticks), atomic_load(&monitor_ticks), sh.rx_frames, sh.hb_good_total,
-           sh.hb_miss_total, sh.e2e_err_total, atomic_load(&tx_cmd), atomic_load(&estop_sent),
+           sh.hb_miss_total, sh.e2e_err_total, atomic_load(&tx_cmd), atomic_load(&estop_sent), atomic_load(&child_deaths),
            safety_state_name((safety_state_t)atomic_load(&last_state)), atomic_load(&last_cause));
     pthread_mutex_unlock(&sh.lock);
     shm_unlink(SHM_NAME);

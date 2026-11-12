@@ -47,6 +47,7 @@ m status_ready    $U_NO  /tmp/motionctl status
 wait
 echo "[sup] $(cat /tmp/sup.out | tail -1)"
 EOS
+$SSH "slay -f motion_sup m3_peer logger mgmt 2>/dev/null; sleep 0.5" >/dev/null 2>&1
 scp -q $KEY -o StrictHostKeyChecking=no -P 2222 $TMP/motion_sup $TMP/m3_peer $TMP/motionctl $TMP/scenario.sh root@127.0.0.1:/tmp/ || exit 2
 {
   echo "# M3 WP4 /dev/motion on QNX VM (SIL, QEMU/KVM) — $(date -u +%F) commit $(git -C "$ROOT" rev-parse --short HEAD)"
