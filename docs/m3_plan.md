@@ -42,7 +42,7 @@
 | Scope nở sang M4 (nối node thật) | Chỉ peer giả ở M3 |
 
 ## 4. Definition of Done — M3
-- [x] Safety FSM host test pass, phủ mọi transition; chạy trong CI.
+- [ ] Safety FSM host test pass, phủ mọi transition; chạy trong CI. (host + QNX VM pass; chờ remote CI xanh)
 - [x] SHM seqlock test đa luồng host pass.
 - [x] `devctl`: `EPERM` và `EINVAL` đúng, có log từ VM (REQ-SEC-001/002).
 - [x] `mgmt` ghi SHM chỉ đọc → `SIGSEGV`, hệ thống vẫn chạy; crash `logger`/`mgmt` được phát hiện (REQ-SEC-003/004).
