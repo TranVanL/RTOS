@@ -14,9 +14,9 @@ Yêu cầu (`requirements.md`) → thiết kế (`01_ARCHITECTURE.md`) → code 
 | REQ-SAF-008 | ARCH §5.3 | _chưa có_ | F11 | Todo |
 | REQ-SAF-009 | Plan F8 | _chưa có_ | F8 | Todo |
 | REQ-SAF-010 | ARCH §4 | [common/safety/safety_fsm.c](../common/safety/safety_fsm.c) | [tests/safety/test_safety_fsm.c](../tests/safety/test_safety_fsm.c) | In progress — FSM host pass; quyền `RESET_FAULT` thuộc WP4 |
-| REQ-SEC-001 | ARCH §3.3 | _chưa có_ | qnx/tests devctl perm | Todo |
-| REQ-SEC-002 | ARCH §3.3 | _chưa có_ | F7, qnx/tests | Todo |
-| REQ-SEC-003 | ARCH §3.1 | _chưa có_ | F14 | Todo |
+| REQ-SEC-001 | ARCH §3.3 | [common/ipc/motion_ipc.c](../common/ipc/motion_ipc.c) | [tests/safety/test_motion_ipc.c](../tests/safety/test_motion_ipc.c); qnx/tests devctl perm (WP4) | In progress — validate host pass; resmgr/`ConnectClientInfo` chưa có |
+| REQ-SEC-002 | ARCH §3.3 | [common/ipc/motion_ipc.c](../common/ipc/motion_ipc.c) | [tests/safety/test_motion_ipc.c](../tests/safety/test_motion_ipc.c); F7, qnx/tests (WP4) | In progress — validate host pass; resmgr chưa có |
+| REQ-SEC-003 | ARCH §3.1 | [common/shm/motion_shm.c](../common/shm/motion_shm.c) | [tests/safety/test_motion_shm.c](../tests/safety/test_motion_shm.c) (seqlock, API chỉ đọc const); F14 (WP5) | In progress — seqlock host pass; SIGSEGV trên QNX chưa có |
 | REQ-SEC-004 | ARCH §3.1 | _chưa có_ | F13 | Todo |
 | REQ-COM-001 | ARCH §6.1 | [common/frame/can_frame.c](../common/frame/can_frame.c), [common/generated/can_matrix_meta.c](../common/generated/can_matrix_meta.c) | [tests/protocol/test_can_frame.c](../tests/protocol/test_can_frame.c), [tools/tests/test_m2_protocol.py](../tools/tests/test_m2_protocol.py) | Done (M2) — host + CI pass, 2026-11-12 |
 | REQ-COM-002 | ARCH §6.2 | [common/e2e/e2e.c](../common/e2e/e2e.c), [common/e2e/crc32p4.c](../common/e2e/crc32p4.c) | [tests/protocol/test_e2e.c](../tests/protocol/test_e2e.c), [tools/tests/test_m2_protocol.py](../tools/tests/test_m2_protocol.py) | Done (M2) — host + CI pass, 2026-11-12 |
