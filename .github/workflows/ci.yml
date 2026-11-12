@@ -8,6 +8,6 @@ jobs:
       - uses: actions/setup-python@v5
         with: { python-version: "3.11" }
       - run: pip install -r tools/requirements.txt
+      - run: python tools/dbc_codegen.py --check
       - run: python -m pytest tools -q
-  # TODO M1: firmware build (arm-none-eabi-gcc) + host unit tests (Ceedling)
   # TODO M6: run firmware in QEMU against Python-simulated supervisor (F1,F3,F4,F6,F9,F10)

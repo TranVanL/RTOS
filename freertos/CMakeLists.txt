@@ -12,6 +12,9 @@ option(CONTROL_LOG_CSV "Control task: stream 1 kHz CSV samples to UART (OFF for 
 option(NODE_PROBE_ENABLE "Node sends udp_probe at 100 Hz" ON)
 option(CONTROL_TEST_VIOLATE "Control task: intentionally write outside its MPU regions once" OFF)
 set(CONTROL_CORE ${CMAKE_CURRENT_SOURCE_DIR}/../common/control)
+set(COMMON_FRAME ${CMAKE_CURRENT_SOURCE_DIR}/../common/frame)
+set(COMMON_E2E ${CMAKE_CURRENT_SOURCE_DIR}/../common/e2e)
+set(COMMON_GENERATED ${CMAKE_CURRENT_SOURCE_DIR}/../common/generated)
 
 # Peripheral verification build (docs/sil_environment.md section 4): none|wdt|wdt_kick|dwt|icount
 set(PERIPH_TEST "none" CACHE STRING "Peripheral test to compile in")
@@ -52,8 +55,16 @@ add_executable(node.elf
     port/startup.c port/syscall.c
     app/main.c app/hooks.c app/net.c app/udp_echo.c app/udp_probe.c app/mpu_selftest.c app/periph_test.c app/control_task.c
     ${CONTROL_CORE}/plant.c ${CONTROL_CORE}/encoder.c ${CONTROL_CORE}/limits.c ${CONTROL_CORE}/pid.c
+    ${COMMON_FRAME}/can_frame.c
+    ${COMMON_E2E}/crc32p4.c ${COMMON_E2E}/e2e.c
+    ${COMMON_GENERATED}/can_matrix.c ${COMMON_GENERATED}/can_matrix_meta.c
     $<TARGET_OBJECTS:freertos_third_party>)
-target_include_directories(node.elf PRIVATE ${COMMON_INCLUDES} ${CONTROL_CORE})
+target_include_directories(node.elf PRIVATE
+    ${COMMON_INCLUDES}
+    ${CONTROL_CORE}
+    ${COMMON_FRAME}
+    ${COMMON_E2E}
+    ${COMMON_GENERATED})
 target_compile_definitions(node.elf PRIVATE PERIPH_TEST_${PERIPH_TEST_ID}=1)
 if(NODE_PROBE_ENABLE)
     target_compile_definitions(node.elf PRIVATE NODE_PROBE=1)

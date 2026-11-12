@@ -39,10 +39,10 @@ BO_ 497 FAULT_RECORD: 16 FREERTOS
 
 CM_ "Application payload only. On the wire: [E2E header 12 B][payload][padding to valid CAN FD DLC]. Data ID = CAN ID.";
 CM_ BO_ 16 "E-stop, UDP :5001, sent 3x at 1 ms spacing";
-CM_ BO_ 256 "Command, 10 ms, node timeout 50 ms";
-CM_ BO_ 384 "Telemetry, 10 ms, QNX timeout 30 ms";
-CM_ BO_ 496 "Heartbeat, 10 ms, QNX timeout 30 ms";
-CM_ BO_ 497 "Fault record, event, first message after reboot";
+CM_ BO_ 256 "Command, UDP :5000, 10 ms, node timeout 50 ms";
+CM_ BO_ 384 "Telemetry, UDP :5000, 10 ms, QNX timeout 30 ms";
+CM_ BO_ 496 "Heartbeat, UDP :5000, 10 ms, QNX timeout 30 ms";
+CM_ BO_ 497 "Fault record, event, first message after reboot, UDP :5000";
 
 VAL_ 256 Mode 0 "DISABLE" 1 "POSITION" 2 "HOLD" ;
 VAL_ 496 NodeState 0 "INIT" 1 "READY" 2 "RUN" 3 "DEGRADED" 4 "SAFE_STOP" ;

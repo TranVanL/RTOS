@@ -16,8 +16,9 @@ def _run_checked(command: List[str]) -> None:
         command,
         cwd=REPO_ROOT,
         check=False,
-        capture_output=True,
-        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        universal_newlines=True,
     )
 
     assert result.returncode == 0, (

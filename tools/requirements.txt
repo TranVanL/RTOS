@@ -1,4 +1,4 @@
-cantools
+cantools==37.2.0
 pytest
 matplotlib
 numpy

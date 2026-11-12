@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>M2 — Frame protocol, DBC, E2E: Hướng dẫn tổng hợp</title>
+<style>
+:root{
+  --bg:#0f1420;--panel:#171e2e;--panel2:#1d2639;--line:#2b3650;--tx:#dde4f2;--mut:#93a0bd;
+  --acc:#5ab0ff;--ok:#3ecf8e;--warn:#f5b73d;--bad:#ff6b6b;--vio:#b28cff;--cy:#4fd8d0;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.65 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+a{color:var(--acc)}
+nav{position:fixed;top:0;left:0;bottom:0;width:268px;background:#0b101a;border-right:1px solid var(--line);padding:22px 16px;overflow:auto}
+nav h1{font-size:15px;margin:0 0 4px;color:var(--acc);letter-spacing:.5px}
+nav small{color:var(--mut);display:block;margin-bottom:16px}
+nav a{display:block;color:var(--mut);text-decoration:none;padding:6px 10px;border-radius:6px;font-size:14px}
+nav a:hover{background:var(--panel);color:var(--tx)}
+main{margin-left:268px;max-width:1080px;padding:34px 44px 120px}
+h2{font-size:26px;margin:64px 0 10px;padding-top:10px;border-top:1px solid var(--line)}
+h2 .n{display:inline-block;background:var(--acc);color:#04101f;border-radius:8px;padding:0 10px;margin-right:10px;font-size:20px}
+h3{font-size:19px;margin:30px 0 8px;color:var(--cy)}
+p{margin:10px 0}
+code{font-family:var(--mono);font-size:.9em;background:#0b101a;border:1px solid var(--line);padding:1px 6px;border-radius:5px;color:#ffd58a}
+pre{background:#0b101a;border:1px solid var(--line);border-radius:10px;padding:14px 16px;overflow:auto;font:13.5px/1.55 var(--mono);color:#cfe0ff}
+pre code{background:none;border:0;padding:0;color:inherit}
+table{border-collapse:collapse;width:100%;margin:14px 0;font-size:14.5px}
+th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+th{background:var(--panel2);color:var(--acc)}
+tr:nth-child(even) td{background:#131a29}
+.hero{background:linear-gradient(135deg,#17315a,#1b1f4a 60%,#2a1a4f);border:1px solid var(--line);border-radius:16px;padding:32px 34px}
+.hero h1{margin:0 0 6px;font-size:32px}
+.hero p{color:#c3cde4;margin:4px 0}
+.badge{display:inline-block;padding:2px 10px;border-radius:999px;font-size:12.5px;font-weight:600;margin-right:6px}
+.b-ok{background:#12372a;color:var(--ok)}.b-warn{background:#3f3010;color:var(--warn)}.b-bad{background:#431d1d;color:var(--bad)}.b-info{background:#123049;color:var(--acc)}
+.box{border-left:4px solid var(--acc);background:var(--panel);padding:12px 16px;border-radius:0 10px 10px 0;margin:16px 0}
+.box.ok{border-color:var(--ok)}.box.warn{border-color:var(--warn)}.box.bad{border-color:var(--bad)}.box.vio{border-color:var(--vio)}
+.box b.t{display:block;margin-bottom:2px}
+.grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));margin:16px 0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.card h4{margin:0 0 6px;font-size:15px;color:var(--acc)}
+.big{font-size:30px;font-weight:700}
+.ok-t{color:var(--ok)}.warn-t{color:var(--warn)}.bad-t{color:var(--bad)}.mut{color:var(--mut)}
+.verdict{border:2px solid var(--warn);background:#2a2210;border-radius:14px;padding:18px 22px;margin:22px 0}
+.verdict h3{margin:0 0 6px;color:var(--warn)}
+.bytes{display:flex;flex-wrap:wrap;gap:3px;font:13px var(--mono);margin:10px 0}
+.bytes span{padding:5px 7px;border-radius:5px;color:#08101c;font-weight:600}
+.m{background:#ffd58a}.c{background:#8be0a8}.f{background:#8fc4ff}.d{background:#c6a8ff}.r{background:#ff9d9d}.p{background:#8a94ab}.l{background:#7fe3dc}.pl{background:#f3a3d9}
+.legend{font-size:13px;color:var(--mut)}
+.legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin:0 4px 0 12px;vertical-align:-1px}
+svg text{font-family:system-ui,sans-serif}
+details{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin:10px 0}
+summary{cursor:pointer;font-weight:600;color:var(--acc)}
+ul,ol{padding-left:22px}li{margin:4px 0}
+.check li{list-style:none;margin-left:-20px}
+.check li::before{content:"";}
+.tag{font-family:var(--mono);font-size:12px;color:var(--mut)}
+@media(max-width:900px){nav{display:none}main{margin:0;padding:20px}}
+</style>
+</head>
+<body>
+<nav>
+  <h1>M2 GUIDE</h1><small>Frame · DBC · E2E · Tools</small>
+  <a href="#verdict">0. Kết luận chốt M2</a>
+  <a href="#goal">1. M2 là gì & vì sao</a>
+  <a href="#layers">2. Kiến trúc phân lớp</a>
+  <a href="#dbc">3. DBC & codegen</a>
+  <a href="#e2e">4. E2E Profile 4–based</a>
+  <a href="#crc">5. CRC-32P4 từng bước</a>
+  <a href="#counter">6. Counter, status, timeout</a>
+  <a href="#frame">7. Outer frame & validate</a>
+  <a href="#python">8. Python reference & sniffer</a>
+  <a href="#interop">9. Interop C ↔ Python</a>
+  <a href="#done">10. Đã làm gì (WP0–WP6)</a>
+  <a href="#results">11. Kết quả</a>
+  <a href="#lessons">12. Bài học & bẫy</a>
+  <a href="#close">13. Việc cần để chốt</a>
+  <a href="#qa">14. Tự kiểm tra</a>
+</nav>
+<main>
+
+<div class="hero">
+  <h1>M2 — Frame protocol, DBC, E2E</h1>
+  <p>Giao thức "CAN FD-compatible qua UDP" + bảo vệ "AUTOSAR E2E Profile 4–based" cho nền tảng SIL QNX ↔ FreeRTOS.</p>
+  <p><span class="badge b-info">Audit 2026-11-12</span><span class="badge b-ok">Host: PASS</span><span class="badge b-warn">ARM cross-build: chưa</span><span class="badge b-warn">Remote CI: chưa</span></p>
+</div>
+
+<!-- ============ 0 ============ -->
+<h2 id="verdict"><span class="n">0</span>Kết luận: đã chốt M2 được chưa?</h2>
+<div class="verdict">
+  <h3>CHƯA nên đánh dấu M2 complete — phần code đã xong, còn thiếu bằng chứng (evidence)</h3>
+  <p>Chất lượng implementation tốt, toàn bộ test host xanh. Nhưng Definition of Done §6 của <code>m2_plan.md</code> yêu cầu <b>remote CI xanh</b> và <b>log ARM cross-build</b>; hai mục này chưa có. Đây là cổng, không phải thủ tục: nếu chốt sớm thì README/traceability sẽ khai khống.</p>
+</div>
+
+<h3>Kết quả kiểm tra thực tế (chạy lại hôm nay)</h3>
+<table>
+<tr><th>Hạng mục</th><th>Kết quả</th><th>Trạng thái</th></tr>
+<tr><td><code>python3 tools/dbc_codegen.py --check</code></td><td>"DBC generated files are up to date (cantools 37.2.0)"</td><td><span class="badge b-ok">PASS</span></td></tr>
+<tr><td><code>pytest tools/tests</code></td><td>19 passed</td><td><span class="badge b-ok">PASS</span></td></tr>
+<tr><td>CMake + CTest <code>tests/protocol</code> (<code>-Wall -Wextra -Werror</code>)</td><td>3/3 passed (<code>m2_can_frame</code>, <code>m2_e2e</code>, <code>m2_dbc_generated</code>)</td><td><span class="badge b-ok">PASS</span></td></tr>
+<tr><td>Syntax-check 32-bit freestanding (<code>-m32 -ffreestanding</code>) của frame/e2e/generated</td><td>sạch warning</td><td><span class="badge b-info">Gợi ý tốt, chưa thay ARM</span></td></tr>
+<tr><td>ARM cross-build (<code>arm-none-eabi-gcc</code>)</td><td>Không có toolchain trên host, không có sudo</td><td><span class="badge b-bad">CHƯA CÓ LOG</span></td></tr>
+<tr><td>GitHub Actions cho M2</td><td>10 run hiện có đều thuộc commit tới <code>40e2c2d</code> (M1). M2 chưa commit/push → <b>chưa có run nào</b></td><td><span class="badge b-bad">CHƯA CÓ</span></td></tr>
+<tr><td>Git</td><td>12 file modified + ~20 file untracked, toàn bộ M2 chưa được commit</td><td><span class="badge b-warn">Chưa lưu</span></td></tr>
+<tr><td>Đối chiếu AUTOSAR chính thức</td><td>Chưa lưu evidence → bắt buộc giữ cách nói "Profile 4–based"</td><td><span class="badge b-warn">Chấp nhận được nếu giữ wording</span></td></tr>
+</table>
+
+<h3>Checklist Definition of Done (§6 m2_plan)</h3>
+<table>
+<tr><th>#</th><th>Tiêu chí</th><th>Tình trạng</th></tr>
+<tr><td>1</td><td>Byte contract + golden vector độc lập, hết mơ hồ byte-order/length/DLC/CRC</td><td><span class="badge b-ok">Xong</span> (ARCH §6, golden_vectors.md) — cần bạn review lần cuối</td></tr>
+<tr><td>2</td><td>DBC load, generator deterministic, pack/unpack đúng biên</td><td><span class="badge b-ok">Xong</span></td></tr>
+<tr><td>3</td><td>C frame + E2E độc lập OS, strict warning, negative tests</td><td><span class="badge b-ok">Xong</span></td></tr>
+<tr><td>4</td><td>Python ↔ C tương thích hai chiều bằng vector độc lập</td><td><span class="badge b-ok">Xong</span></td></tr>
+<tr><td>5</td><td>CTest + pytest + gen-check trong <b>remote CI</b>; <b>ARM cross-build log</b></td><td><span class="badge b-bad">Chưa</span></td></tr>
+<tr><td>6</td><td>Traceability REQ-COM-001/002/003, REQ-SAF-004/005 → Done khi có CI evidence</td><td><span class="badge b-warn">"In progress — host pass; CI pending"</span> (đúng, chưa được đổi)</td></tr>
+<tr><td>7</td><td>README/status chỉ ghi M2 complete sau evidence; ghi rõ SIL, Profile 4–based</td><td><span class="badge b-warn">Chờ #5</span></td></tr>
+</table>
+
+<div class="box warn"><b class="t">Rủi ro cần để mắt (không chặn nhưng nên xử lý)</b>
+<ul>
+<li><b>Lệch môi trường:</b> máy local là Python 3.6.9 + cantools 37.2.0; CI dùng Python 3.11. Nếu <code>requirements.txt</code> không pin chặt, bản cantools mới có thể sinh code khác → <code>--check</code> đỏ trên CI. Sẽ lộ ngay ở lần chạy CI đầu tiên.</li>
+<li>CTest được kích hoạt qua pytest (<code>test_m2_protocol_ctest</code>) — cần <code>cmake</code> và <code>gcc</code> có trên runner <code>ubuntu-latest</code> (có sẵn), nhưng version cmake ≥ 3.20 là yêu cầu của <code>tests/protocol/CMakeLists.txt</code>.</li>
+<li><code>freertos/CMakeLists.txt</code> đã thêm source common nhưng chưa từng được biên dịch bằng ARM GCC → có thể lộ lỗi (vd include path, <code>-Werror</code> của firmware) chỉ ở bước cross-build.</li>
+</ul></div>
+
+<!-- ============ 1 ============ -->
+<h2 id="goal"><span class="n">1</span>M2 là gì & vì sao cần</h2>
+<p>Dự án là <b>SIL</b> (không có board thật): QNX supervisor ↔ FreeRTOS node trên QEMU, nối bằng UDP. UDP không có arbitration, không ACK, có thể mất/lặp/đảo/hỏng gói. Để mô phỏng một bus xe hơi đáng tin, ta cần:</p>
+<div class="grid">
+  <div class="card"><h4>Một định dạng frame chung</h4>Giống CAN FD (ID 11-bit, DLC hợp lệ, tối đa 64 B), đóng gói trong 1 UDP datagram.</div>
+  <div class="card"><h4>DBC làm nguồn sự thật</h4>Một file mô tả signal; code C pack/unpack được <b>sinh</b>, không viết tay → hết lệch QNX vs FreeRTOS.</div>
+  <div class="card"><h4>E2E protection</h4>Phát hiện: hỏng bit (CRC), sai/nhầm message (Data ID), mất/lặp/đảo (counter), mất tín hiệu (timeout).</div>
+  <div class="card"><h4>Công cụ quan sát</h4>Python decoder + sniffer để nhìn thấy bytes trên dây và kiểm chứng độc lập với C.</div>
+</div>
+<div class="box"><b class="t">Ranh giới M2</b>
+<b>Có:</b> codec, thư viện E2E, generator, sniffer, test. <b>Không:</b> Comm task hoàn chỉnh, FSM, E-stop end-to-end, timeout policy runtime — thuộc M3/M4. M2 chỉ cung cấp "viên gạch" và chứng minh viên gạch đúng.</div>
+
+<div class="box bad"><b class="t">Phạm vi trung thực (wording bắt buộc)</b>
+Dùng "<b>AUTOSAR E2E Profile 4–based</b>", "<b>CAN FD-compatible qua UDP</b>", "<b>in the spirit of ISO 26262</b>". Không dùng "compliant". CRC không phải cơ chế bảo mật/xác thực. Không claim hard real-time hay xác thực phần cứng.</div>
+
+<!-- ============ 2 ============ -->
+<h2 id="layers"><span class="n">2</span>Kiến trúc phân lớp</h2>
+<svg viewBox="0 0 900 250" width="100%" role="img" aria-label="layers">
+  <defs><marker id="a" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8z" fill="#93a0bd"/></marker></defs>
+  <g stroke="#2b3650" stroke-width="1.5">
+    <rect x="10"  y="40" width="190" height="110" rx="12" fill="#2a2f12"/>
+    <rect x="240" y="40" width="190" height="110" rx="12" fill="#12372a"/>
+    <rect x="470" y="40" width="190" height="110" rx="12" fill="#12304a"/>
+    <rect x="700" y="40" width="190" height="110" rx="12" fill="#2f1f4f"/>
+  </g>
+  <g fill="#dde4f2" font-size="15" text-anchor="middle">
+    <text x="105" y="70" font-weight="700" fill="#ffd58a">1. DBC payload</text>
+    <text x="105" y="95" font-size="13">signal → bytes</text><text x="105" y="115" font-size="13">(cantools / generated C)</text><text x="105" y="135" font-size="12" fill="#93a0bd">2–16 B</text>
+    <text x="335" y="70" font-weight="700" fill="#8be0a8">2. E2E block</text>
+    <text x="335" y="95" font-size="13">[12 B header][payload]</text><text x="335" y="115" font-size="13">length·counter·dataID·CRC</text><text x="335" y="135" font-size="12" fill="#93a0bd">14–28 B</text>
+    <text x="565" y="70" font-weight="700" fill="#8fc4ff">3. Outer frame</text>
+    <text x="565" y="95" font-size="13">[6 B hdr][E2E][padding]</text><text x="565" y="115" font-size="13">magic·id·flags·dlc</text><text x="565" y="135" font-size="12" fill="#93a0bd">DLC hợp lệ 0–8,12…64</text>
+    <text x="795" y="70" font-weight="700" fill="#c6a8ff">4. UDP datagram</text>
+    <text x="795" y="95" font-size="13">1 datagram = 1 frame</text><text x="795" y="115" font-size="13">5000 / 5001</text><text x="795" y="135" font-size="12" fill="#93a0bd">len = 6 + dlc</text>
+  </g>
+  <g stroke="#93a0bd" stroke-width="2" marker-end="url(#a)">
+    <line x1="200" y1="95" x2="238" y2="95"/><line x1="430" y1="95" x2="468" y2="95"/><line x1="660" y1="95" x2="698" y2="95"/>
+  </g>
+  <text x="450" y="200" fill="#93a0bd" font-size="14" text-anchor="middle">Tx: đi từ trái sang phải · Rx: validate ngược lại, bất kỳ tầng nào sai → loại frame, không đụng state</text>
+  <text x="450" y="225" fill="#93a0bd" font-size="13" text-anchor="middle">Mỗi tầng chỉ biết tầng của mình: DBC không biết E2E; E2E không biết padding; frame không biết signal.</text>
+</svg>
+
+<h3>Vì sao tách lớp?</h3>
+<ul>
+<li><b>DBC chỉ là application payload</b> → đổi E2E không phải sửa DBC, và công cụ DBC chuẩn (cantools) dùng được nguyên bản.</li>
+<li><b>E2E không đếm padding</b>: padding chỉ là thủ tục để khớp DLC hợp lệ, không mang thông tin → không vào CRC, <code>length</code> không tính nó.</li>
+<li><b>Thư viện C thuần</b> (không malloc, socket, FreeRTOS/QNX API, clock): chạy được trên QNX x86_64, Cortex-M3 và host test như nhau.</li>
+</ul>
+
+<h3>Bảng message (nguồn: <code>common/can_matrix.dbc</code>)</h3>
+<table>
+<tr><th>Message</th><th>CAN ID</th><th>Hướng</th><th>DBC payload</th><th>E2E length</th><th>Wire data (DLC)</th><th>Padding</th><th>UDP</th><th>Timeout rx</th></tr>
+<tr><td>ESTOP</td><td><code>0x010</code></td><td>QNX→FRT</td><td>2 B</td><td>14</td><td>16</td><td>2</td><td>5001</td><td>—</td></tr>
+<tr><td>CMD</td><td><code>0x100</code></td><td>QNX→FRT</td><td>7 B</td><td>19</td><td>20</td><td>1</td><td>5000</td><td>50 ms</td></tr>
+<tr><td>TELEM</td><td><code>0x180</code></td><td>FRT→QNX</td><td>9 B</td><td>21</td><td>24</td><td>3</td><td>5000</td><td>30 ms</td></tr>
+<tr><td>HEARTBEAT</td><td><code>0x1F0</code></td><td>FRT→QNX</td><td>5 B</td><td>17</td><td>20</td><td>3</td><td>5000</td><td>30 ms</td></tr>
+<tr><td>FAULT_RECORD</td><td><code>0x1F1</code></td><td>FRT→QNX</td><td>16 B</td><td>28</td><td>32</td><td>4</td><td>5000</td><td>—</td></tr>
+</table>
+<p class="mut">Quy tắc: E2E length = 12 + payload; wire length = số nhỏ nhất ≥ E2E length thuộc tập {0–8, 12, 16, 20, 24, 32, 48, 64}.</p>
+
+<!-- ============ 3 ============ -->
+<h2 id="dbc"><span class="n">3</span>DBC & sinh code (WP1)</h2>
+<p>DBC mô tả từng signal bằng: <code>start|length@byte_order signedness (scale,offset) [min|max] "unit"</code>. Ví dụ:</p>
+<pre><code>BO_ 256 CMD: 7 QNX
+ SG_ Mode      : 0|8@1+   (1,0) [0|3]  ""      FREERTOS
+ SG_ VelLimit  : 8|16@1+  (1,0) [0|65535] "rpm" FREERTOS
+ SG_ TargetPos : 24|32@1- (1,0) [-2147483648|2147483647] "count" FREERTOS</code></pre>
+<p><code>@1</code> = little-endian (Intel), <code>+</code> = unsigned, <code>-</code> = signed (two's complement). Do đó CMD = 1 + 2 + 4 = <b>7 B</b>, <code>TargetPos</code> nằm ở byte 3–6.</p>
+
+<h3><code>tools/dbc_codegen.py</code> làm gì</h3>
+<ol>
+<li>Nạp DBC bằng <b>cantools</b>, kiểm <b>inventory</b>: đúng 5 message, đúng ID, độ dài, port UDP.</li>
+<li>Sinh <code>common/generated/can_matrix.{c,h}</code> (pack/unpack từng message, có range check) và <code>can_matrix_meta.{c,h}</code> (bảng ID, tên, payload length, port, timeout…).</li>
+<li><b>Chuẩn hoá output</b> (loại timestamp, version header biến động) → chạy lại không sinh diff.</li>
+<li><code>--check</code>: sinh vào bộ nhớ rồi so với file trên đĩa; lệch → exit ≠ 0. Dùng trong CI để bắt "sửa DBC mà quên regenerate" hoặc "ai sửa tay generated".</li>
+</ol>
+<div class="box"><b class="t">Nguyên tắc</b>Không bao giờ sửa tay <code>common/generated/</code>. Muốn đổi signal → sửa DBC → chạy generator → commit cả hai.</div>
+
+<!-- ============ 4 ============ -->
+<h2 id="e2e"><span class="n">4</span>E2E Profile 4–based</h2>
+<p>E2E trả lời: "Dữ liệu tôi nhận có <i>đúng, đủ, mới, đúng thứ tự, đúng loại</i> không?" bằng header 12 byte, little-endian:</p>
+<div class="bytes">
+  <span class="m">length 0</span><span class="m">length 1</span>
+  <span class="c">cnt 0</span><span class="c">cnt 1</span>
+  <span class="d">id 0</span><span class="d">id 1</span><span class="d">id 2</span><span class="d">id 3</span>
+  <span class="r">crc 0</span><span class="r">crc 1</span><span class="r">crc 2</span><span class="r">crc 3</span>
+  <span class="l">payload…</span>
+</div>
+<p class="legend"><i class="m"></i>length u16<i class="c"></i>counter u16<i class="d"></i>data_id u32 (= CAN ID zero-extend)<i class="r"></i>CRC-32P4 u32<i class="l"></i>app payload (DBC)</p>
+<table>
+<tr><th>Trường</th><th>Chống lỗi gì</th></tr>
+<tr><td><code>length</code></td><td>Cắt/nối sai độ dài, nhầm kiểu message. Phải = đúng 12 + payload mong đợi.</td></tr>
+<tr><td><code>counter</code></td><td>Mất frame, lặp (replay/duplicate), đảo thứ tự. <b>Riêng cho từng Data ID.</b></td></tr>
+<tr><td><code>data_id</code></td><td>Nhầm lẫn message (masquerade nhầm do routing). Phải khớp CAN ID của outer frame.</td></tr>
+<tr><td><code>crc32</code></td><td>Hỏng bit/byte ngẫu nhiên. Không chống tấn công cố ý.</td></tr>
+</table>
+
+<h3>API C (<code>common/e2e/e2e.h</code>)</h3>
+<pre><code>bool e2e_protect(buf, cap, payload, len, counter, data_id, &out_len);   // Tx
+void e2e_rx_reset(state, now);                                         // baseline + startup grace
+e2e_status_t e2e_rx_verify(state, data, len, expected_payload_len,
+                           expected_data_id, now, &payload_out);        // Rx
+e2e_status_t e2e_rx_check_timeout(state, now, timeout_ticks);          // freshness</code></pre>
+<ul>
+<li>Không struct packed, không truy cập unaligned: đọc/ghi từng byte bằng <code>read/write_u16/u32_le</code> → độc lập endianness và alignment của CPU.</li>
+<li>Không dùng clock nội bộ: caller truyền <code>now</code> (tick) → test chạy bằng "virtual tick", không <code>sleep</code>, tất định.</li>
+<li><code>e2e_protect</code> dùng <code>memmove</code> trước khi ghi header → <code>payload</code> được phép trùng với vùng đệm đầu ra.</li>
+</ul>
+
+<h3>Thứ tự kiểm tra trong <code>e2e_rx_verify</code></h3>
+<svg viewBox="0 0 900 120" width="100%">
+  <g font-size="14" text-anchor="middle" fill="#dde4f2">
+    <rect x="10" y="30" width="200" height="60" rx="10" fill="#12304a" stroke="#2b3650"/><text x="110" y="55">1. length + data_id</text><text x="110" y="75" font-size="12" fill="#93a0bd">sai → LEN_OR_ID_ERR</text>
+    <rect x="250" y="30" width="200" height="60" rx="10" fill="#3f1d2b" stroke="#2b3650"/><text x="350" y="55">2. CRC</text><text x="350" y="75" font-size="12" fill="#93a0bd">sai → CRC_ERR</text>
+    <rect x="490" y="30" width="200" height="60" rx="10" fill="#2a2f12" stroke="#2b3650"/><text x="590" y="55">3. counter delta</text><text x="590" y="75" font-size="12" fill="#93a0bd">0→REPEATED, &gt;2→WRONG_SEQ</text>
+    <rect x="730" y="30" width="160" height="60" rx="10" fill="#12372a" stroke="#2b3650"/><text x="810" y="55">4. OK</text><text x="810" y="75" font-size="12" fill="#93a0bd">cập nhật state</text>
+  </g>
+  <g stroke="#93a0bd" stroke-width="2"><line x1="210" y1="60" x2="248" y2="60"/><line x1="450" y1="60" x2="488" y2="60"/><line x1="690" y1="60" x2="728" y2="60"/></g>
+</svg>
+<div class="box ok"><b class="t">Vì sao length/ID trước CRC?</b>Không tính CRC trên buffer có độ dài không hợp lệ (tránh đọc quá buffer, và tránh CRC "đúng" cho message sai loại). Sau đó mới tính CRC rồi mới nhìn counter — vì counter của frame hỏng không đáng tin.</div>
+
+<!-- ============ 5 ============ -->
+<h2 id="crc"><span class="n">5</span>CRC-32P4 từng bước</h2>
+<table>
+<tr><th>Tham số</th><th>Giá trị</th></tr>
+<tr><td>Polynomial (normal)</td><td><code>0xF4ACFB13</code></td></tr>
+<tr><td>Polynomial (reflected)</td><td><code>0xC8DF352F</code> (dùng cho cài đặt reflect)</td></tr>
+<tr><td>Init / XorOut</td><td><code>0xFFFFFFFF</code> / <code>0xFFFFFFFF</code></td></tr>
+<tr><td>RefIn / RefOut</td><td>true / true</td></tr>
+<tr><td>Known-answer</td><td>ASCII <code>"123456789"</code> → <code>0x1697D06A</code></td></tr>
+<tr><td>Input</td><td><code>length_le[2] ‖ counter_le[2] ‖ data_id_le[4] ‖ payload</code> — <b>không</b> gồm trường CRC và padding</td></tr>
+</table>
+<p>Trong code (<code>calculate_e2e_crc</code>): copy 8 byte đầu header + payload vào một buffer tạm <code>crc_input[8+52]</code> rồi tính một lượt — nhờ vậy "bỏ qua trường CRC ở giữa" không cần logic đặc biệt.</p>
+
+<h3>Golden vector ESTOP (đã kiểm độc lập)</h3>
+<p>Command=1, Reason=2, counter=<code>0x1234</code>, Data ID=<code>0x10</code>.</p>
+<pre><code>CRC input : 0E 00 | 34 12 | 10 00 00 00 | 01 02
+CRC32P4   : 0x2A478334  → wire little-endian: 34 83 47 2A</code></pre>
+<div class="bytes">
+  <span class="f">FD</span><span class="f">CA</span><span class="f">10</span><span class="f">00</span><span class="f">01</span><span class="f">10</span>
+  <span class="m">0E</span><span class="m">00</span>
+  <span class="c">34</span><span class="c">12</span>
+  <span class="d">10</span><span class="d">00</span><span class="d">00</span><span class="d">00</span>
+  <span class="r">34</span><span class="r">83</span><span class="r">47</span><span class="r">2A</span>
+  <span class="l">01</span><span class="l">02</span>
+  <span class="p">00</span><span class="p">00</span>
+</div>
+<p class="legend"><i class="f"></i>outer header 6 B (magic FD CA, id 10 00, flags 01, dlc 0x10)<i class="m"></i>length=14<i class="c"></i>counter<i class="d"></i>data id<i class="r"></i>CRC<i class="l"></i>payload<i class="p"></i>padding 0x00</p>
+<p>Datagram dài 22 B = 6 + 16. Vector này nằm cố định ở <a href="../tests/protocol/golden_vectors.md">tests/protocol/golden_vectors.md</a> và được assert bởi cả C test, Python test và harness interop — <b>không</b> sinh từ bất kỳ implementation nào của dự án, nên chống được "C và Python cùng sai".</p>
+<div class="box warn"><b class="t">Giới hạn trung thực</b>Đây là vector của dự án, không phải vector conformance chính thức của AUTOSAR. Chỉ <code>"123456789" → 0x1697D06A</code> là known-answer chuẩn của tham số CRC.</div>
+
+<!-- ============ 6 ============ -->
+<h2 id="counter"><span class="n">6</span>Counter, status và timeout</h2>
+
+<h3>Counter modular (uint16)</h3>
+<p><code>delta = (uint16_t)(counter − last_counter)</code> — phép trừ modulo 2¹⁶ cho đúng khi wrap.</p>
+<table>
+<tr><th>last</th><th>nhận</th><th>delta</th><th>Kết quả</th><th>Ý nghĩa</th></tr>
+<tr><td>(chưa có)</td><td>bất kỳ</td><td>—</td><td>OK</td><td>Frame hợp lệ đầu tiên thiết lập baseline</td></tr>
+<tr><td>100</td><td>101</td><td>1</td><td>OK</td><td>bình thường</td></tr>
+<tr><td>100</td><td>102</td><td>2</td><td>OK</td><td>cho phép mất 1 frame</td></tr>
+<tr><td>100</td><td>100</td><td>0</td><td>REPEATED</td><td>lặp/replay</td></tr>
+<tr><td>100</td><td>103</td><td>3</td><td>WRONG_SEQ</td><td>mất ≥ 2 frame</td></tr>
+<tr><td>100</td><td>99</td><td>65535</td><td>WRONG_SEQ</td><td>đảo thứ tự</td></tr>
+<tr><td>65535</td><td>0</td><td>1</td><td>OK</td><td>wrap hợp lệ</td></tr>
+</table>
+
+<h3>Bảng status</h3>
+<table>
+<tr><th>Status</th><th>Khi nào</th><th>Cập nhật state?</th></tr>
+<tr><td><code>OK</code></td><td>Mọi kiểm tra qua</td><td><b>Có</b> (counter + thời điểm nhận)</td></tr>
+<tr><td><code>REPEATED</code></td><td>delta = 0</td><td>Không</td></tr>
+<tr><td><code>WRONG_SEQ</code></td><td>delta &gt; 2</td><td>Không</td></tr>
+<tr><td><code>CRC_ERR</code></td><td>CRC lệch</td><td>Không</td></tr>
+<tr><td><code>LEN_OR_ID_ERR</code></td><td>length/Data ID sai</td><td>Không</td></tr>
+<tr><td><code>TIMEOUT</code></td><td>Từ <code>e2e_rx_check_timeout</code> (không phải kết quả của 1 datagram)</td><td>Không</td></tr>
+<tr><td><code>INVALID_ARGUMENT</code></td><td>NULL / capacity / timeout_ticks ngoài (0, 2³¹)</td><td>Không</td></tr>
+</table>
+<div class="box vio"><b class="t">Quy tắc vàng: lỗi không được mutate state</b>
+Nếu một frame hỏng/lặp được phép làm mới "last accepted", kẻ gây lỗi có thể giữ cho timeout không bao giờ nổ trong khi dữ liệu thật đã mất. Test <code>test_repeated_wrong_sequence_and_crc_error_do_not_advance_state</code> khoá hành vi này.</div>
+
+<h3>Timeout wrap-safe</h3>
+<pre><code>elapsed = now - reference;            // uint32 unsigned: luôn đúng modulo 2^32
+reference = has_last_counter ? last_accepted_at : started_at;   // startup grace
+timeout  = (elapsed >= timeout_ticks);
+// ví dụ wrap: ref=0xFFFFFFF0, now=5  → elapsed = 21 (không phải số âm khổng lồ)</code></pre>
+<ul>
+<li><b>Startup grace:</b> trước frame đầu tiên, so với <code>started_at</code> (thời điểm <code>e2e_rx_reset</code>) — không báo timeout ngay lúc vừa khởi động.</li>
+<li><code>timeout_ticks &lt; 2³¹</code> để phép so sánh còn nghĩa khi đồng hồ wrap.</li>
+<li><b>Timeout không reset counter.</b> Sau timeout, frame kế vẫn phải qua kiểm tra sequence; muốn chấp nhận lại baseline phải gọi <code>e2e_rx_reset()</code> tường minh (chính sách resync thuộc M4).</li>
+</ul>
+
+<h3>E-stop gửi 3 lần</h3>
+<p>Mỗi bản sao có <b>counter tăng riêng</b> (không replay nguyên datagram) → receiver đánh giá bình thường (delta 1). Hành vi "dừng" ở tầng ứng dụng phải <b>idempotent</b>.</p>
+
+<!-- ============ 7 ============ -->
+<h2 id="frame"><span class="n">7</span>Outer frame & validate (WP3)</h2>
+<table>
+<tr><th>Offset</th><th>Field</th><th>Size</th><th>Quy tắc</th></tr>
+<tr><td>0</td><td>magic</td><td>2</td><td><code>0xCAFD</code> LE → bytes <code>FD CA</code></td></tr>
+<tr><td>2</td><td>can_id</td><td>2</td><td>LE; 11-bit (5 bit cao = 0); phải thuộc DBC</td></tr>
+<tr><td>4</td><td>flags</td><td>1</td><td>bit0 FDF = 1 (bắt buộc), bit1 BRS = 0 trong M2, bit2–7 = 0</td></tr>
+<tr><td>5</td><td>dlc</td><td>1</td><td><b>số byte</b> data (không phải code 4-bit); ∈ {0–8,12,16,20,24,32,48,64}</td></tr>
+<tr><td>6</td><td>data</td><td>dlc</td><td>[E2E][padding 0x00]</td></tr>
+</table>
+<p><code>can_frame_decode</code> từ chối (mỗi lỗi một status riêng): datagram ngắn/thừa byte (<code>6 + dlc</code> phải khớp chính xác), sai magic, ID ngoài miền hoặc không có trong DBC, flags sai, DLC không hợp lệ, E2E length &gt; DLC hoặc ≠ độ dài mong đợi, <b>padding khác 0</b>, thiếu capacity. Không ghi vượt buffer khi input ngắn.</p>
+<div class="box"><b class="t">Vì sao từ chối padding ≠ 0?</b>Padding không nằm trong CRC, nên nếu cho phép byte tuỳ ý, đó là kênh "dữ liệu ẩn" không được bảo vệ. Ép = 0 loại bỏ khả năng đó.</div>
+<div class="box"><b class="t">Vì sao UDP port lại thuộc protocol?</b>Một socket riêng cho E-stop (5001) cho phép thread/task ưu tiên cao nhất xử lý nó độc lập — UDP không có priority, nên ưu tiên được hiện thực ở tầng ứng dụng.</div>
+
+<!-- ============ 8 ============ -->
+<h2 id="python"><span class="n">8</span>Python reference & sniffer (WP4)</h2>
+<table>
+<tr><th>File</th><th>Vai trò</th></tr>
+<tr><td><code>tools/m2_protocol.py</code> (258 dòng)</td><td>Cài đặt độc lập: <code>crc32p4</code>, <code>protect_e2e</code>, <code>verify_e2e</code>, <code>encode_datagram</code>, <code>decode_datagram</code>, <code>pack/unpack_payload</code> (qua cantools). Không import gì từ C.</td></tr>
+<tr><td><code>tools/frame_sniffer.py</code> (126 dòng)</td><td>CLI: giải mã hex/file offline, hoặc bind UDP host/port; in <code>NAME id=… counter=… status=… signals={…}</code>; một datagram lỗi không làm listener chết; có theo dõi timeout theo message; chỉ dùng <code>socket</code> stdlib; giới hạn kích thước đọc (70 B) để input xấu không phình bộ nhớ.</td></tr>
+</table>
+<p>Python implementation là <b>tham chiếu thứ hai</b>: được viết trực tiếp từ spec, không từ code C. Hai bản cài đặt độc lập mà ra cùng bytes thì xác suất cùng sai rất thấp — đó là cơ sở của phần kiểm chứng ở mục kế.</p>
+
+<!-- ============ 9 ============ -->
+<h2 id="interop"><span class="n">9</span>Interop C ↔ Python (WP5)</h2>
+<svg viewBox="0 0 900 190" width="100%">
+  <defs><marker id="b" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8z" fill="#5ab0ff"/></marker></defs>
+  <g font-size="14" text-anchor="middle" fill="#dde4f2">
+    <rect x="30"  y="20" width="230" height="64" rx="10" fill="#12304a" stroke="#2b3650"/><text x="145" y="48">C: protocol_cli encode</text><text x="145" y="68" font-size="12" fill="#93a0bd">common/frame + e2e + generated</text>
+    <rect x="640" y="20" width="230" height="64" rx="10" fill="#2f1f4f" stroke="#2b3650"/><text x="755" y="48">Python decode</text><text x="755" y="68" font-size="12" fill="#93a0bd">m2_protocol + cantools</text>
+    <rect x="30"  y="110" width="230" height="64" rx="10" fill="#2f1f4f" stroke="#2b3650"/><text x="145" y="138">Python / golden encode</text><text x="145" y="158" font-size="12" fill="#93a0bd">m2_protocol + golden_vectors</text>
+    <rect x="640" y="110" width="230" height="64" rx="10" fill="#12304a" stroke="#2b3650"/><text x="755" y="138">C: protocol_cli decode</text><text x="755" y="158" font-size="12" fill="#93a0bd">status + signals</text>
+  </g>
+  <g stroke="#5ab0ff" stroke-width="2" marker-end="url(#b)"><line x1="262" y1="52" x2="638" y2="52"/><line x1="262" y1="142" x2="638" y2="142"/></g>
+  <text x="450" y="44" fill="#93a0bd" font-size="13" text-anchor="middle">so sánh bytes chính xác</text>
+  <text x="450" y="134" fill="#93a0bd" font-size="13" text-anchor="middle">so sánh status + giá trị signal</text>
+</svg>
+<ul>
+<li><code>test_c_and_python_codecs_match_for_every_dbc_message</code> — cả 5 message, cả hai chiều, <b>so từng byte</b> (không chỉ round-trip cùng một implementation, vì round-trip có thể che giấu lỗi đối xứng).</li>
+<li><code>test_c_codec_matches_and_decodes_independent_golden_datagram</code> — vector cố định ESTOP.</li>
+<li><code>test_m2_protocol_ctest</code> — pytest gọi cmake + ctest để CI Python cũng chạy được test C.</li>
+</ul>
+
+<!-- ============ 10 ============ -->
+<h2 id="done"><span class="n">10</span>Đã làm gì (theo work package)</h2>
+<table>
+<tr><th>WP</th><th>Nội dung</th><th>Sản phẩm</th><th>Trạng thái</th></tr>
+<tr><td>WP0</td><td>Đóng băng wire contract trước khi code: endian, flags, DLC=byte-length, padding, Data ID, CRC bytes, counter, timeout, port mapping (kể cả FAULT_RECORD→5000)</td><td>ARCH §6.1–6.3, comment trong DBC</td><td><span class="badge b-ok">Xong</span></td></tr>
+<tr><td>WP1</td><td>Rà DBC; generator cantools + <code>--check</code>; sinh C pack/unpack + metadata</td><td><code>dbc_codegen.py</code>, <code>common/generated/*</code></td><td><span class="badge b-ok">Xong</span></td></tr>
+<tr><td>WP2</td><td>CRC-32P4 + thư viện E2E (protect/verify/reset/timeout)</td><td><code>common/e2e/*</code> (30 + 184 dòng C)</td><td><span class="badge b-ok">Xong</span></td></tr>
+<tr><td>WP3</td><td>Codec outer frame, validate nghiêm</td><td><code>common/frame/*</code> (154 dòng C)</td><td><span class="badge b-ok">Xong</span></td></tr>
+<tr><td>WP4</td><td>Python reference + sniffer</td><td><code>m2_protocol.py</code>, <code>frame_sniffer.py</code></td><td><span class="badge b-ok">Xong</span></td></tr>
+<tr><td>WP5</td><td>CTest riêng, interop 2 chiều, CI (gen-check + pytest), sửa YAML, thêm source common vào firmware CMake, traceability</td><td><code>tests/protocol/</code>, <code>test_m2_*.py</code>, <code>ci.yml</code></td><td><span class="badge b-warn">Host xong · ARM + remote CI chưa</span></td></tr>
+<tr><td>WP6</td><td>Chạy sạch toàn bộ, lưu log, cập nhật README/plan/CLAUDE.md</td><td>—</td><td><span class="badge b-warn">Chờ evidence</span></td></tr>
+</table>
+
+<h3>Test map</h3>
+<table>
+<tr><th>Lớp</th><th>File</th><th>Cover</th></tr>
+<tr><td>CRC / E2E (C)</td><td><code>tests/protocol/test_e2e.c</code></td><td>known-answer, golden vector, sequence & lỗi, timeout & reset</td></tr>
+<tr><td>Frame (C)</td><td><code>tests/protocol/test_can_frame.c</code></td><td>encode/decode hợp lệ, DLC hợp lệ, ma trận frame hỏng</td></tr>
+<tr><td>DBC generated (C)</td><td><code>tests/protocol/test_dbc_generated.c</code></td><td>5 message (estop, cmd, telem, heartbeat, fault_record) + metadata</td></tr>
+<tr><td>Codegen (py)</td><td><code>test_m2_codegen.py</code></td><td>inventory/route, biên payload round-trip, tái lập & phát hiện stale</td></tr>
+<tr><td>Protocol (py)</td><td><code>test_m2_protocol.py</code></td><td>CRC KAT, golden ESTOP, round-trip 5 message + port, status không mutate state, lỗi length/ID/padding/port, wrap</td></tr>
+<tr><td>Sniffer (py)</td><td><code>test_m2_host.py</code></td><td>hex offline, UDP listener nhận 1 datagram</td></tr>
+<tr><td>Interop</td><td><code>test_m2_interop.py</code></td><td>CTest qua pytest; C↔Python mọi message; golden datagram</td></tr>
+</table>
+
+<!-- ============ 11 ============ -->
+<h2 id="results"><span class="n">11</span>Kết quả</h2>
+<div class="grid">
+  <div class="card"><h4>pytest</h4><div class="big ok-t">19 / 19</div><div class="mut">tools/tests (cả M1 + M2)</div></div>
+  <div class="card"><h4>CTest protocol</h4><div class="big ok-t">3 / 3</div><div class="mut">-Wall -Wextra -Werror</div></div>
+  <div class="card"><h4>DBC --check</h4><div class="big ok-t">up-to-date</div><div class="mut">cantools 37.2.0</div></div>
+  <div class="card"><h4>ARM cross-build</h4><div class="big bad-t">chưa chạy</div><div class="mut">thiếu arm-none-eabi-gcc</div></div>
+  <div class="card"><h4>Remote CI</h4><div class="big bad-t">chưa có</div><div class="mut">M2 chưa push</div></div>
+</div>
+<div class="box ok"><b class="t">Ý nghĩa</b>Logic giao thức đã được chứng minh trên host, bằng hai implementation độc lập (C, Python) + một vector cố định. Phần còn thiếu là bằng chứng <i>môi trường</i> (compiler mục tiêu, CI sạch) — không phải lỗi logic đã biết.</div>
+
+<h3>Cái M2 KHÔNG chứng minh</h3>
+<ul>
+<li>Không phải "AUTOSAR-compliant", không có vector chính thức; không phải ISO 26262 compliant.</li>
+<li>Không mô phỏng arbitration/ACK/bus-off CAN thật, không có timing phần cứng.</li>
+<li>Chưa có đường chạy thật: <code>freertos/app/net.c</code> vẫn là echo/probe; Comm task, FSM, timeout policy, E-stop end-to-end → M3/M4.</li>
+<li>"Đúng với bộ vector/test đã định nghĩa", không phải "đúng tuyệt đối".</li>
+</ul>
+
+<!-- ============ 12 ============ -->
+<h2 id="lessons"><span class="n">12</span>Bài học & bẫy</h2>
+<details open><summary>1. Round-trip cùng một implementation không chứng minh gì</summary>
+Encode rồi decode bằng cùng code vẫn pass dù thuật toán sai. Phải có (a) known-answer chuẩn, (b) vector tạo độc lập, (c) implementation thứ hai bằng ngôn ngữ khác.</details>
+<details open><summary>2. DLC là byte-length, không phải mã 4-bit</summary>
+CAN FD thật mã hoá 12/16/20/24/32/48/64 B thành mã 9–15. Wire format của dự án lưu <b>số byte</b> trực tiếp để đơn giản; ARCH cũ nói nhập nhằng nên đã sửa ở WP0.</details>
+<details open><summary>3. <code>length</code> không gồm padding; CRC không gồm CRC field & padding</summary>
+Nhầm hai điểm này là lỗi interop kinh điển (C tính padding, Python thì không). Test độ dài/padding cho cả 5 message bắt chúng.</details>
+<details><summary>4. Frame lỗi không được làm mới freshness</summary>
+Nếu không, timeout bị "nuôi" bằng rác. Đã khoá bằng test.</details>
+<details><summary>5. WRONG_SEQ không tự resync</summary>
+Receiver giữ <code>last_counter</code> cũ → nếu sender reset, mọi frame tiếp theo có thể bị WRONG_SEQ cho tới khi gọi <code>e2e_rx_reset()</code>. Đây là chủ ý (an toàn), nhưng M4 phải định nghĩa khi nào supervisor/node được phép reset.</details>
+<details><summary>6. Wrap của counter và tick</summary>
+Luôn dùng phép trừ unsigned cùng kích thước; không so sánh <code>now &gt; deadline</code>.</details>
+<details><summary>7. "Tests pass" khác "xong"</summary>
+Plan tự đặt cổng: chưa có CI xanh + log cross-build thì <b>không</b> được ghi M2 Done. Thói quen này tránh khai khống trong CV/README.</details>
+<details><summary>8. Lỗi CI YAML do indent</summary>
+Từng làm workflow không hợp lệ; luôn parse YAML trước khi push (đã sửa; vẫn cần remote run để xác nhận).</details>
+
+<!-- ============ 13 ============ -->
+<h2 id="close"><span class="n">13</span>Việc cần làm để chốt M2</h2>
+<ol>
+<li><b>Cài ARM toolchain</b> (<code>sudo apt install gcc-arm-none-eabi</code> hoặc bản Arm GNU Toolchain), rồi:
+<pre><code>cd freertos
+cmake --preset &lt;node-preset&gt;        # xem CMakePresets.json
+cmake --build --preset &lt;node-preset&gt; 2&gt;&amp;1 | tee ../docs/results/m2_arm_build.txt
+arm-none-eabi-gcc --version | tee -a ../docs/results/m2_arm_build.txt</code></pre>
+Mục tiêu: firmware build sạch với <code>can_frame.c</code>, <code>e2e.c</code>, <code>crc32p4.c</code>, <code>can_matrix*.c</code>.</li>
+<li><b>Lưu log host</b> vào <code>docs/results/</code> (versions + lệnh + kết quả: gen-check, pytest, ctest).</li>
+<li><b>Review golden vector</b> lần cuối; (tuỳ chọn) đối chiếu tham số CRC-32P4 với tài liệu AUTOSAR công khai và ghi nguồn — nếu không làm thì giữ nguyên "Profile 4–based".</li>
+<li><b>Commit + push</b> toàn bộ M2, chờ GitHub Actions xanh. Nếu đỏ vì cantools khác version → pin version trong <code>tools/requirements.txt</code> rồi regenerate.</li>
+<li><b>Sau khi xanh</b>: đổi traceability REQ-COM-001/002/003, REQ-SAF-004/005 sang Done; cập nhật <code>README.md</code>, <code>docs/02_PROJECT_PLAN.md</code>, <code>CLAUDE.md</code> ("M2 complete"); tick các ô §6 trong <code>m2_plan.md</code>.</li>
+</ol>
+<div class="box warn"><b class="t">Nếu không cài được ARM GCC trên máy này</b>Có thể để CI cài toolchain (<code>apt-get install gcc-arm-none-eabi</code> trong một job riêng) — khi đó log CI chính là evidence cross-build; plan cho phép "CI hoặc local theo môi trường đã chốt".</div>
+
+<!-- ============ 14 ============ -->
+<h2 id="qa"><span class="n">14</span>Tự kiểm tra (để hiểu sâu)</h2>
+<details><summary>Q1. Vì sao CMD có DBC payload 7 B nhưng wire data là 20 B?</summary>7 + 12 (E2E header) = 19 = E2E length; DLC hợp lệ nhỏ nhất ≥ 19 là 20 → 1 byte padding 0x00. Datagram = 6 + 20 = 26 B.</details>
+<details><summary>Q2. last_counter = 65534, nhận counter = 1 → status?</summary>delta = (uint16)(1 − 65534) = 3 → WRONG_SEQ (mất 2 frame: 65535 và 0).</details>
+<details><summary>Q3. Frame có CRC sai nhưng counter hợp lệ. Counter lưu có đổi không?</summary>Không. CRC_ERR được trả trước khi xét counter, và mọi status ≠ OK không mutate state.</details>
+<details><summary>Q4. Vì sao padding không vào CRC mà vẫn phải bằng 0?</summary>CRC không bảo vệ nó; nếu cho tuỳ ý thì thành kênh dữ liệu không được bảo vệ. Decoder từ chối ≠ 0.</details>
+<details><summary>Q5. started_at = 1000, chưa có frame nào, now = 1060, timeout 50 → ?</summary>elapsed = 60 ≥ 50 → TIMEOUT (tham chiếu là started_at do chưa có frame OK).</details>
+<details><summary>Q6. Vì sao cần implementation Python riêng thay vì chỉ test C?</summary>Để phát hiện lỗi đối xứng (cùng hiểu sai spec) và lỗi hiểu nhầm byte-order/length mà round-trip C↔C không thấy.</details>
+<details><summary>Q7. Vì sao gửi E-stop 3 lần lại không phải 3 datagram y hệt?</summary>Datagram y hệt → 2 bản sau bị REPEATED (không phải frame mới). Dùng counter tăng → mỗi bản là frame hợp lệ; ứng dụng xử lý idempotent.</details>
+<details><summary>Q8. Mất đúng 2 frame liên tiếp thì chuyện gì xảy ra? Mất 1 frame?</summary>Mất 1 → delta 2 → OK. Mất 2 → delta 3 → WRONG_SEQ.</details>
+
+<p class="mut" style="margin-top:50px">Tài liệu tổng hợp từ: docs/m2_plan.md, docs/01_ARCHITECTURE.md, common/e2e, common/frame, common/generated, tools/*, tests/protocol/ và kết quả chạy kiểm tra ngày 2026-11-12. Wording: "AUTOSAR E2E Profile 4–based", SIL trên QEMU/VM, không phải hard real-time hay xác thực phần cứng.</p>
+</main>
+</body>
+</html>

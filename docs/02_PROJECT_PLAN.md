@@ -1,6 +1,6 @@
 # Project Plan — QNX–FreeRTOS Safety-Supervised Motion Control Platform
 
-> Trạng thái: **FINAL v1.0** (2026-11-04).
+> Nền kiến trúc: **FINAL v1.0** (2026-11-04). Lịch tiến độ được rebaseline ngày 2026-11-12 sau khi chia nhỏ M2.
 
 ## 1. Milestones và lịch
 
@@ -10,11 +10,11 @@ Mỗi milestone có **acceptance criteria đo được**; không chuyển milest
 |---|---|---|---|
 | M0 | 1–2 | Môi trường SIL + kết nối | — |
 | M1 | 3–4 | FreeRTOS control loop | — |
-| M2 | 5–6 | Frame, DBC, E2E | — |
-| M3 | 7–9 | QNX supervisor | — |
-| M4 | 10–11 | Tích hợp end-to-end | **Mức tối thiểu để ghi CV** (kèm ≥ 4 kịch bản F) |
-| M5 | 12–13 | Fault injection đầy đủ + safety_concept | Bản đầy đủ |
-| M6 | 14–15 | CI, traceability, README, video | Hoàn thiện |
+| M2 | 5–8 | Frame, DBC, E2E | — |
+| M3 | 9–11 | QNX supervisor | — |
+| M4 | 12–13 | Tích hợp end-to-end | **Mức tối thiểu để ghi CV** (kèm ≥ 4 kịch bản F) |
+| M5 | 14–15 | Fault injection đầy đủ + safety_concept | Bản đầy đủ |
+| M6 | 16–17 | CI, traceability, README, video | Hoàn thiện |
 
 ### M0 — Môi trường SIL và đường kết nối (gate bắt buộc)
 - Đăng ký myQNX, **kiểm tra điều khoản non-commercial** (ghi vào `sil_environment.md` mục "License"), cài QNX SDP 8.0 + Toolkit for VS Code, tạo VM x86_64; build và chạy "hello".
@@ -30,6 +30,7 @@ Mỗi milestone có **acceptance criteria đo được**; không chuyển milest
 - **Acceptance:** step response overshoot < 10%, settling time theo thông số chọn; histogram jitter xuất được; unit test PID/plant pass trên host.
 
 ### M2 — Frame protocol, DBC, E2E
+- Kế hoạch chi tiết và contract cần freeze: [m2_plan.md](m2_plan.md).
 - Hoàn thiện `common/can_matrix.dbc`; `tools/dbc_codegen.py` sinh pack/unpack C dùng chung 2 phía.
 - Thư viện `frame` + `e2e` (C thuần, không phụ thuộc OS) theo Profile 4–based; đối chiếu tham số CRC/layout với spec AUTOSAR E2E.
 - `frame_sniffer.py` giải mã frame trên UDP.
@@ -120,9 +121,9 @@ Fault inject trên đường truyền dùng `tools/udp_proxy.py` đặt giữa Q
 
 ## 4. CI/CD
 - GitHub Actions (Ubuntu): cài `arm-none-eabi-gcc`, `qemu-system-arm`, Python.
-- Job: build firmware → unit test host → chạy firmware trong QEMU với Python giả lập supervisor (F1, F3, F4, F6, F9, F10) → upload báo cáo/đồ thị.
+- Job M6: build firmware → unit test host → chạy firmware trong QEMU với Python giả lập supervisor (F1, F3, F4, F6, F9, F10) → upload báo cáo/đồ thị. Workflow được cấu hình chạy M1/M2 host tests, CTest wrappers và DBC generation check; remote run chưa được xác nhận. ARM/QEMU CI vẫn còn mở.
 - QNX không chạy được trên CI public (license): build/test local, lưu log vào `docs/results/`, ghi rõ trong README.
-- `ci.yml` hiện chỉ chạy pytest cho `tools/`; thêm job build/QEMU khi tới M1/M6.
+- [.github/workflows/ci.yml](../.github/workflows/ci.yml) được cấu hình chạy DBC generation check và pytest cho `tools/` (bao gồm M1/M2 host CTest wrappers); remote run chưa được xác nhận. Thêm ARM firmware/QEMU job ở M6.
 
 ## 5. Rủi ro và cách xử lý
 | Rủi ro | Mức | Xử lý |

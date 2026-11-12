@@ -169,27 +169,35 @@ Lưu ý thiết kế: handler fault không gửi mạng và không gọi API Fre
 ### 6.1 Frame (tương thích CAN FD, truyền qua UDP)
 | Field | Size | Mô tả |
 |---|---|---|
-| `magic` | 2 B | `0xCAFD` |
-| `can_id` | 2 B | 11-bit ID |
-| `flags` | 1 B | FDF, BRS (giữ cho tương thích CAN FD) |
-| `dlc` | 1 B | Độ dài data theo bảng DLC CAN FD (0–8, 12, 16, 20, 24, 32, 48, 64) |
+| `magic` | 2 B | `0xCAFD`, little-endian (wire bytes `FD CA`) |
+| `can_id` | 2 B | 11-bit ID, little-endian; 5 bit cao phải bằng 0 |
+| `flags` | 1 B | Bit 0 = FDF (phải bằng 1), bit 1 = BRS (M2 đặt 0); bit 2–7 phải bằng 0 |
+| `dlc` | 1 B | Số byte data, không phải raw CAN DLC code; legal size: 0–8, 12, 16, 20, 24, 32, 48, 64 |
 | `data` | 0–64 B | `[E2E header 12 B][app payload theo DBC][padding về DLC hợp lệ]` |
 
-Một UDP datagram chứa đúng một frame. Vì UDP không có arbitration/ACK, **ưu tiên E-stop được hiện thực ở tầng ứng dụng**: socket riêng, thread/task ưu tiên cao nhất, gửi lặp.
+Các số nhiều byte của outer header được serialize little-endian. Một UDP datagram chứa đúng một frame, độ dài datagram phải chính xác bằng `6 + dlc`; không chấp nhận byte thừa hoặc frame bị cắt. Padding giữa E2E length và `dlc` là `0x00` và bên nhận từ chối padding khác 0. `can_id` phải thuộc message có trong DBC. Data sizes được dùng hiện tại: ESTOP 16 B, CMD 20 B, TELEM 24 B, HEARTBEAT 20 B, FAULT_RECORD 32 B.
+
+Port mapping: ESTOP (`0x010`) dùng UDP `5001`; các message khác, bao gồm FAULT_RECORD (`0x1F1`), dùng UDP `5000`. Vì UDP không có arbitration/ACK, **ưu tiên E-stop được hiện thực ở tầng ứng dụng**: socket riêng, thread/task ưu tiên cao nhất, gửi lặp.
 
 ### 6.2 E2E protection (cấu trúc theo AUTOSAR E2E Profile 4)
 Header 12 byte đặt ở đầu `data` (little-endian):
 
 | Field | Size | Mô tả |
 |---|---|---|
-| `length` | 2 B | Tổng độ dài (header + app payload, chưa tính padding) |
-| `counter` | 2 B | Tăng mỗi frame, **riêng cho từng Data ID** |
-| `data_id` | 4 B | ID cố định mỗi message (bảng 6.3); chống nhầm message |
-| `crc32` | 4 B | CRC-32P4: poly `0xF4ACFB13`, init `0xFFFFFFFF`, reflect in/out, xorout `0xFFFFFFFF`; tính trên `length‖counter‖data_id‖app payload` |
+| `length` | 2 B | Little-endian; tổng E2E data có nghĩa = 12-byte header + app payload; gồm CRC, không gồm padding |
+| `counter` | 2 B | Little-endian uint16; tăng mỗi frame, **riêng cho từng Data ID** |
+| `data_id` | 4 B | Little-endian uint32; zero-extend CAN ID (vd `0x010` → `0x00000010`); chống nhầm message |
+| `crc32` | 4 B | Little-endian CRC-32P4; poly normal `0xF4ACFB13` (reflected implementation `0xC8DF352F`), init/xorout `0xFFFFFFFF`, RefIn/RefOut=true |
 
-Bên nhận trả một trong: `OK`, `REPEATED`, `WRONG_SEQ` (delta counter > `MaxDelta` = 2), `CRC_ERR`, `LEN_OR_ID_ERR`, `TIMEOUT` (theo từng message) → đưa vào safety FSM.
+CRC input byte sequence chính xác là `length_le[2] ‖ counter_le[2] ‖ data_id_le[4] ‖ app_payload`; trường `crc32` và padding không nằm trong CRC input. Known-answer cho cấu hình CRC là ASCII `"123456789"` → `0x1697D06A`. E2E length lần lượt là 14, 19, 21, 17 và 28 byte cho ESTOP, CMD, TELEM, HEARTBEAT và FAULT_RECORD.
 
-Phạm vi trung thực: hiện thực theo **cấu trúc** Profile 4, kiểm tra bằng unit test với vector tự tính độc lập bằng Python; **chưa** đối chiếu test vector chính thức của AUTOSAR → gọi là "Profile 4–based", không gọi "compliant". Task ở M2: đối chiếu lại tham số CRC/layout với `AUTOSAR_PRS_E2EProtocol` trước khi chốt.
+Receiver xử lý theo thứ tự: kiểm tra kích thước/length/Data ID, sau đó CRC, rồi counter. Frame đầu tiên hợp lệ sau `e2e_rx_reset()` thiết lập baseline và trả `OK`; delta uint16 bằng 0 trả `REPEATED`; delta 1 hoặc 2 trả `OK`; delta lớn hơn 2 trả `WRONG_SEQ`. Phép trừ modular hỗ trợ wrap `65535 → 0`. Chỉ frame `OK` cập nhật accepted counter và thời điểm nhận hợp lệ; các status lỗi hoặc `REPEATED` không cập nhật state.
+
+`TIMEOUT` là phép kiểm tra freshness riêng theo message, không phải kết quả kiểm tra CRC của một datagram. Thư viện nhận `now` từ caller (không tự đọc clock); deadline được so sánh bằng phép trừ unsigned wrap-safe với giới hạn timeout nhỏ hơn nửa miền clock. Trước frame hợp lệ đầu tiên, caller cung cấp thời điểm bắt đầu để áp dụng startup grace; timeout không tự reset counter. Sau timeout, frame tiếp theo vẫn phải qua sequence check; resynchronization chỉ qua reset API tường minh.
+
+Mỗi lần phát một bản sao E-stop phải dùng counter tăng riêng; receiver chấp nhận lần đầu, các bản sau có counter liên tiếp được đánh giá bình thường. Lệnh dừng ở tầng ứng dụng phải idempotent.
+
+Phạm vi trung thực: hiện thực theo **cấu trúc** Profile 4 và wire contract của project; kiểm tra known-answer cùng vector độc lập C/Python. Chưa xác nhận bằng bộ test vector chính thức được cấp phép của AUTOSAR → gọi là "Profile 4–based", không gọi "compliant".
 
 ### 6.3 Message table (nguồn: `common/can_matrix.dbc`)
 | CAN ID | Data ID | Hướng | Chu kỳ | Nội dung | Timeout bên nhận |
@@ -198,7 +206,7 @@ Phạm vi trung thực: hiện thực theo **cấu trúc** Profile 4, kiểm tra
 | `0x100` | `0x0100` | QNX → FreeRTOS | 10 ms | Mode, target position, velocity limit | 50 ms |
 | `0x180` | `0x0180` | FreeRTOS → QNX | 10 ms | Position, velocity, current (model), output state | 30 ms |
 | `0x1F0` | `0x01F0` | FreeRTOS → QNX | 10 ms | Heartbeat: node state, alive counter, CPU load, fault code | 30 ms |
-| `0x1F1` | `0x01F1` | FreeRTOS → QNX | Event | Fault record sau reboot | — |
+| `0x1F1` | `0x01F1` | FreeRTOS → QNX | Event (UDP 5000) | Fault record sau reboot | — |
 
 ## 7. Tiêu chí timing và cách đo
 
