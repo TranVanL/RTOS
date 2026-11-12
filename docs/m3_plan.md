@@ -1,6 +1,6 @@
 # M3 — QNX Supervisor: resmgr, process, IPC (kế hoạch chi tiết)
 
-> Trạng thái: **đang triển khai (bắt đầu 2026-11-12).** Xong phần host: WP1 (safety FSM), WP2 (SHM seqlock), `common/ipc/motion_ipc` (validate `devctl`: quyền → `EPERM`, kích thước/biên → `EINVAL`), tất cả có CTest. Ba test host cũng đã build bằng `qcc` và pass trên QNX VM ([log](results/m3_host_tests_on_qnx.txt), SIL). Còn lại cần QNX VM: WP3–WP6 và xác nhận gid group `motion`. Giới hạn vị trí/tốc độ trong `motion_ipc.h` là **tạm thời** (±1 000 000 count, 3000 rpm), cần chốt theo plant/encoder.
+> Trạng thái: **đang triển khai (bắt đầu 2026-11-12).** Xong: WP1 (safety FSM), WP2 (SHM seqlock), `common/ipc/motion_ipc` (validate `devctl`), `common/proto/proto_link` (glue frame+E2E+DBC) — đều có CTest và đã chạy lại bằng `qcc` trên QNX VM ([log](results/m3_host_tests_on_qnx.txt)). **WP3 xong (không gồm resmgr, thuộc WP4):** `qnx/motion_sup/motion_sup.c` với 5 thread SCHED_FIFO 60/55/50/45/45, timer pulse 5 ms/10 ms, mutex PI, nối FSM + SHM + codec M2; peer giả `qnx/tests/m3_peer.c`; 3 kịch bản A/B/C pass (16 kiểm tra đếm/trạng thái), log [results/m3_wp3_scenarios.txt](results/m3_wp3_scenarios.txt), chạy bằng `tools/qnxvm/run_m3_wp3.sh`. Group `motion` gid cố định **3000** (`MOTION_GROUP_GID`, tạo idempotent trong script; chưa lưu vào image VM). Giới hạn vị trí/tốc độ trong `motion_ipc.h` là **tạm thời** (±1 000 000 count, 3000 rpm). Tiếp theo: WP4 (resmgr `/dev/motion` + `motionctl`).
 
 **Acceptance (từ plan):** `devctl` sai quyền → `EPERM`, sai tham số → `EINVAL`; `mgmt` ghi SHM chỉ đọc → `SIGSEGV` mà hệ thống vẫn chạy; trace System Profiler chứng minh priority inheritance.
 
@@ -49,4 +49,4 @@
 - [ ] Bằng chứng priority inheritance có/không PI (REQ-PERF-003), có nhãn "SIL, VM".
 - [ ] Traceability cập nhật; README/CLAUDE.md chỉ ghi M3 complete khi có evidence trong `docs/results/`.
 
-**Tiến độ:** WP0–WP2 xong phần host. Tiếp theo: WP3 `motion_sup` trên VM (cần VM).
+**Tiến độ:** WP0–WP3 xong. Tiếp theo: WP4 (resmgr).

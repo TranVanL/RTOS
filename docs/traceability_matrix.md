@@ -6,7 +6,7 @@ Yêu cầu (`requirements.md`) → thiết kế (`01_ARCHITECTURE.md`) → code 
 |---|---|---|---|---|
 | REQ-SAF-001 | ARCH §5.3 | _chưa có_ | F1 | Todo |
 | REQ-SAF-002 | ARCH §7 | _chưa có_ | F6 | Todo |
-| REQ-SAF-003 | ARCH §4 | [common/safety/safety_fsm.c](../common/safety/safety_fsm.c) | [tests/safety/test_safety_fsm.c](../tests/safety/test_safety_fsm.c); F2 (tích hợp, M4/M5) | In progress — FSM host pass (M3 WP1) |
+| REQ-SAF-003 | ARCH §4 | [common/safety/safety_fsm.c](../common/safety/safety_fsm.c) | [tests/safety/test_safety_fsm.c](../tests/safety/test_safety_fsm.c); F2 (tích hợp, M4/M5) | In progress — FSM host pass + `motion_sup` kịch bản B trên QNX VM ([log](results/m3_wp3_scenarios.txt)); 3/10 miss tích hợp với node thật ở M4 |
 | REQ-SAF-004 | ARCH §6.2 | [common/e2e/e2e.c](../common/e2e/e2e.c), [common/frame/can_frame.c](../common/frame/can_frame.c) | [tests/protocol/test_e2e.c](../tests/protocol/test_e2e.c), [tools/tests/test_m2_protocol.py](../tools/tests/test_m2_protocol.py) | Done (M2) — host + CI pass, 2026-11-12 |
 | REQ-SAF-005 | ARCH §6.2 | [common/e2e/e2e.c](../common/e2e/e2e.c) | [tests/protocol/test_e2e.c](../tests/protocol/test_e2e.c), [tools/tests/test_m2_protocol.py](../tools/tests/test_m2_protocol.py) | Done (M2) — host + CI pass, 2026-11-12 |
 | REQ-SAF-006 | ARCH §5.3 | _chưa có_ | F9 | Todo |

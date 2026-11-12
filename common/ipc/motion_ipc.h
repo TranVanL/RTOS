@@ -32,6 +32,10 @@ typedef enum {
     MOTION_ESTATE     /* valid but not allowed in state   */
 } motion_result_t;
 
+/* Group allowed to issue privileged commands (fixed on the QNX VM). */
+#define MOTION_GROUP_NAME "motion"
+#define MOTION_GROUP_GID  3000
+
 /* Provisional limits (counts / rpm); same units as DBC CMD signals. */
 #define MOTION_POS_MIN (-1000000)
 #define MOTION_POS_MAX ( 1000000)

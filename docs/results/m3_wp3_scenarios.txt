@@ -1,0 +1,66 @@
+# M3 WP3 scenarios on QNX VM (SIL, QEMU/KVM) — 2026-11-12 commit f8e80ca
+QNX noname 8.0.0 2026/06/05-16:26:03EDT x86pc x86_64
+=== A
+THREAD estop      tid=2 policy=FIFO prio=60
+THREAD hb_monitor tid=3 policy=FIFO prio=55
+THREAD frame_rx   tid=4 policy=FIFO prio=45
+THREAD frame_tx   tid=5 policy=FIFO prio=45
+THREAD control    tid=6 policy=FIFO prio=50
+SUMMARY ticks=250 monitor_ticks=501 rx_frames=401 hb_good=201 hb_miss=0 e2e_err=0 tx_cmd=250 estop_sent=0 final_state=RUN cause=0
+PEER ticks=300 hb_sent=300 cmd_ok=200 cmd_bad=0 last_cmd_mode=1 estop_ok=0 estop_bad=0
+--- pidin (mid-run)
+     pid tid name                         prio STATE          Blocked                     
+ 1810453   1 tmp/motion_sup                10r JOIN           6                           
+ 1810453   2 tmp/motion_sup                60f RECEIVE        1                           
+ 1810453   3 tmp/motion_sup                55f RECEIVE        3                           
+ 1810453   4 tmp/motion_sup                45f REPLY          163853                      
+ 1810453   5 tmp/motion_sup                45f RECEIVE        2                           
+ 1810453   6 tmp/motion_sup                50f RECEIVE        4                           
+=== B
+THREAD estop      tid=2 policy=FIFO prio=60
+THREAD hb_monitor tid=3 policy=FIFO prio=55
+THREAD frame_rx   tid=4 policy=FIFO prio=45
+THREAD frame_tx   tid=5 policy=FIFO prio=45
+THREAD control    tid=6 policy=FIFO prio=50
+SUMMARY ticks=300 monitor_ticks=601 rx_frames=200 hb_good=100 hb_miss=10 e2e_err=0 tx_cmd=160 estop_sent=3 final_state=SAFE_STOP cause=4
+PEER ticks=350 hb_sent=100 cmd_ok=110 cmd_bad=0 last_cmd_mode=0 estop_ok=3 estop_bad=0
+--- pidin (mid-run)
+     pid tid name                         prio STATE          Blocked                     
+ 1912853   1 tmp/motion_sup                10r JOIN           6                           
+ 1912853   2 tmp/motion_sup                60f RECEIVE        1                           
+ 1912853   3 tmp/motion_sup                55f RECEIVE        3                           
+ 1912853   4 tmp/motion_sup                45f REPLY          163853                      
+ 1912853   5 tmp/motion_sup                45f RECEIVE        2                           
+ 1912853   6 tmp/motion_sup                50f RECEIVE        4                           
+=== C
+THREAD estop      tid=2 policy=FIFO prio=60
+THREAD hb_monitor tid=3 policy=FIFO prio=55
+THREAD frame_rx   tid=4 policy=FIFO prio=45
+THREAD frame_tx   tid=5 policy=FIFO prio=45
+THREAD control    tid=6 policy=FIFO prio=50
+SUMMARY ticks=250 monitor_ticks=501 rx_frames=401 hb_good=201 hb_miss=0 e2e_err=0 tx_cmd=150 estop_sent=3 final_state=SAFE_STOP cause=1
+PEER ticks=300 hb_sent=300 cmd_ok=100 cmd_bad=0 last_cmd_mode=0 estop_ok=3 estop_bad=0
+--- pidin (mid-run)
+     pid tid name                         prio STATE          Blocked                     
+ 2015253   1 tmp/motion_sup                10r JOIN           6                           
+ 2015253   2 tmp/motion_sup                60f RECEIVE        1                           
+ 2015253   3 tmp/motion_sup                55f RECEIVE        3                           
+ 2015253   4 tmp/motion_sup                45f REPLY          163853                      
+ 2015253   5 tmp/motion_sup                45f RECEIVE        2                           
+ 2015253   6 tmp/motion_sup                50f RECEIVE        4                           
+PASS A final_state RUN
+PASS A ticks == 250
+PASS A estop_sent == 0
+PASS A peer cmd_bad == 0
+PASS A e2e_err == 0
+PASS B final_state SAFE_STOP
+PASS B cause HB_TIMEOUT (4)
+PASS B peer estop_ok == 3
+PASS C final_state SAFE_STOP
+PASS C cause ESTOP (1)
+PASS C peer estop_ok == 3
+PASS C peer estop_bad == 0
+PASS pidin shows thread priority 60f
+PASS pidin shows thread priority 55f
+PASS pidin shows thread priority 50f
+PASS pidin shows thread priority 45f
