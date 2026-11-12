@@ -1,6 +1,6 @@
 # M3 — QNX Supervisor: resmgr, process, IPC (kế hoạch chi tiết)
 
-> Trạng thái: **chưa bắt đầu** (chuẩn bị 2026-11-12, sau khi M2 xong). Nguồn: [02_PROJECT_PLAN.md](02_PROJECT_PLAN.md) (M3), [01_ARCHITECTURE.md](01_ARCHITECTURE.md) §3–§4; yêu cầu `REQ-SEC-001..004`, `REQ-PERF-003`, `REQ-SAF-003` (phần FSM phía QNX). Ước lượng 3 tuần × ~10 h (tuần 9–11).
+> Trạng thái: **đang triển khai (bắt đầu 2026-11-12).** WP1 (safety FSM + host test) xong; WP0 xong một phần (quy tắc FSM đã ghi vào ARCH §4; layout SHM, `devctl`, quyền group còn lại). WP2 là bước kế tiếp. Nguồn: [02_PROJECT_PLAN.md](02_PROJECT_PLAN.md) (M3), [01_ARCHITECTURE.md](01_ARCHITECTURE.md) §3–§4; yêu cầu `REQ-SEC-001..004`, `REQ-PERF-003`, `REQ-SAF-003` (phần FSM phía QNX). Ước lượng 3 tuần × ~10 h (tuần 9–11).
 
 **Acceptance (từ plan):** `devctl` sai quyền → `EPERM`, sai tham số → `EINVAL`; `mgmt` ghi SHM chỉ đọc → `SIGSEGV` mà hệ thống vẫn chạy; trace System Profiler chứng minh priority inheritance.
 
@@ -49,4 +49,4 @@
 - [ ] Bằng chứng priority inheritance có/không PI (REQ-PERF-003), có nhãn "SIL, VM".
 - [ ] Traceability cập nhật; README/CLAUDE.md chỉ ghi M3 complete khi có evidence trong `docs/results/`.
 
-**Bước đầu tiên khi bắt đầu:** WP0 → WP1 (không cần VM).
+**Tiến độ:** WP1 xong; tiếp theo hoàn tất WP0 (SHM/devctl/group) rồi WP2 (không cần VM).

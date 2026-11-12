@@ -132,6 +132,8 @@ graph LR
 
 FreeRTOS node chạy state machine tương ứng ở phía mình: mất command quá 50 ms → tự đưa output về disable (fail-safe cục bộ, không phụ thuộc QNX).
 
+**Hiện thực phía QNX (M3, WP1):** FSM nằm ở `common/safety/safety_fsm.[ch]` (C thuần, không đọc clock), gọi một lần mỗi tick 10 ms của supervisor; mọi thời hạn đếm bằng tick. Quy tắc đã chốt: 3 heartbeat mất *liên tiếp* → DEGRADED, 10 liên tiếp → SAFE_STOP (bộ đếm không reset khi vào DEGRADED); ≥ 3 lỗi E2E trong cửa sổ trượt 10 tick → DEGRADED; 10 heartbeat hợp lệ liên tiếp (và cửa sổ lỗi E2E dưới ngưỡng) → RUN. E-stop > vượt giới hạn > fault từ node theo thứ tự ưu tiên, từ INIT/READY/RUN/DEGRADED. `RESET_FAULT` chỉ có tác dụng trong SAFE_STOP và chỉ khi không còn E-stop/limit/fault và tick đó có heartbeat hợp lệ; ngược lại bị từ chối (`reset_rejected`). `send_estop` là xung một tick khi vào SAFE_STOP.
+
 ## 5. FreeRTOS Motion Node
 
 ### 5.1 Task

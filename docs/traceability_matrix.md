@@ -6,14 +6,14 @@ Yêu cầu (`requirements.md`) → thiết kế (`01_ARCHITECTURE.md`) → code 
 |---|---|---|---|---|
 | REQ-SAF-001 | ARCH §5.3 | _chưa có_ | F1 | Todo |
 | REQ-SAF-002 | ARCH §7 | _chưa có_ | F6 | Todo |
-| REQ-SAF-003 | ARCH §4 | _chưa có_ | F2 | Todo |
+| REQ-SAF-003 | ARCH §4 | [common/safety/safety_fsm.c](../common/safety/safety_fsm.c) | [tests/safety/test_safety_fsm.c](../tests/safety/test_safety_fsm.c); F2 (tích hợp, M4/M5) | In progress — FSM host pass (M3 WP1) |
 | REQ-SAF-004 | ARCH §6.2 | [common/e2e/e2e.c](../common/e2e/e2e.c), [common/frame/can_frame.c](../common/frame/can_frame.c) | [tests/protocol/test_e2e.c](../tests/protocol/test_e2e.c), [tools/tests/test_m2_protocol.py](../tools/tests/test_m2_protocol.py) | Done (M2) — host + CI pass, 2026-11-12 |
 | REQ-SAF-005 | ARCH §6.2 | [common/e2e/e2e.c](../common/e2e/e2e.c) | [tests/protocol/test_e2e.c](../tests/protocol/test_e2e.c), [tools/tests/test_m2_protocol.py](../tools/tests/test_m2_protocol.py) | Done (M2) — host + CI pass, 2026-11-12 |
 | REQ-SAF-006 | ARCH §5.3 | _chưa có_ | F9 | Todo |
 | REQ-SAF-007 | ARCH §5.3 | _chưa có_ | F10 | Todo |
 | REQ-SAF-008 | ARCH §5.3 | _chưa có_ | F11 | Todo |
 | REQ-SAF-009 | Plan F8 | _chưa có_ | F8 | Todo |
-| REQ-SAF-010 | ARCH §4 | _chưa có_ | unit fsm | Todo |
+| REQ-SAF-010 | ARCH §4 | [common/safety/safety_fsm.c](../common/safety/safety_fsm.c) | [tests/safety/test_safety_fsm.c](../tests/safety/test_safety_fsm.c) | In progress — FSM host pass; quyền `RESET_FAULT` thuộc WP4 |
 | REQ-SEC-001 | ARCH §3.3 | _chưa có_ | qnx/tests devctl perm | Todo |
 | REQ-SEC-002 | ARCH §3.3 | _chưa có_ | F7, qnx/tests | Todo |
 | REQ-SEC-003 | ARCH §3.1 | _chưa có_ | F14 | Todo |
